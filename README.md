@@ -85,6 +85,33 @@ FYP-Project/
 | system_config       | Stores system parameters      | id, parameter, value                                      |
 
 ---
+3.1. Database Schema Additions
+
+Table: users
+
+| Field         | Type                             | Description                  |
+| ------------- | -------------------------------- | ---------------------------- |
+| id            | INT (PK, AUTO_INCREMENT)         | Unique user ID               |
+| username      | VARCHAR(50)                      | Unique login name            |
+| email         | VARCHAR(100)                     | Optional user email          |
+| password_hash | VARCHAR(255)                     | Hashed password using bcrypt |
+| role          | ENUM('admin','analyst','viewer') | Access level                 |
+| last_login    | DATETIME                         | Last login timestamp         |
+| created_at    | DATETIME                         | Account creation timestamp   |
+| active        | BOOLEAN                          | Account activation flag      |
+
+Table: sessions
+
+| Field      | Type                | Description          |
+| ---------- | ------------------- | -------------------- |
+| session_id | VARCHAR(64) (PK)    | Unique session token |
+| user_id    | INT (FK → users.id) | Associated user      |
+| created_at | DATETIME            | Session start time   |
+| expires_at | DATETIME            | Expiry time          |
+| ip_address | VARCHAR(45)         | User IP              |
+| user_agent | VARCHAR(255)        | Browser fingerprint  |
+
+---
 
 4. Data Flows and Linkages
 
@@ -97,6 +124,44 @@ FYP-Project/
 | SQL DB         | Central Storage                | All modules     | Consolidates metrics, scores, and analytics               |
 | Streamlit      | Dashboard                      | All data layers | Visualization and management                              |
 
+---
+Authentication Workflow
+Login Process (app.py)
+
+User opens the dashboard → redirected to login page if no active session.
+
+User enters credentials.
+
+Credentials are verified using auth_manager.py.
+
+If valid, a secure session is created in session_manager.py.
+
+User is redirected to the main dashboard (Dashboard_Overview.py).
+
+Logout Process
+
+User clicks “Logout” → session invalidated → redirected to login page.
+
+Access Control
+
+Each Streamlit page checks user role before rendering:
+
+if st.session_state.get("role") not in ["admin", "analyst"]:
+    st.error("Access Denied.")
+    st.stop()
+
+---
+Security Configuration (config/security.yaml)
+
+Example content:
+
+secret_key: "replace_with_strong_secret_key"
+session_timeout_minutes: 30
+password_policy:
+  min_length: 10
+  require_uppercase: true
+  require_digit: true
+  require_special: true
 ---
 
 5. Streamlit Pages and Their Functionality
@@ -259,6 +324,15 @@ Automatic blocking is triggered for High category.
 | Splunk synthetic logs         | Stress test SIEM parsing    | Validate throughput          |
 | Unit tests (pytest)           | Validate module functions   | Ensure correctness           |
 | LLM simulation test           | Analyze random logs         | Validate AI accuracy         |
+
+| Test Type           | Description                               | Expected Result                        |
+| ------------------- | ----------------------------------------- | -------------------------------------- |
+| Unit Test           | Hash and verify password functions        | Correctly match valid passwords        |
+| Integration Test    | Login flow with valid/invalid credentials | Correct session creation or rejection  |
+| Session Expiry Test | Simulate idle user                        | Auto logout after timeout              |
+| Access Control Test | Non-admin accessing admin page            | Access denied                          |
+| SQL Injection Test  | Attempt injection in username field       | No unauthorized access                 |
+| Brute Force Test    | Multiple failed login attempts            | Account lockout or rate limit enforced |
 
 ---
 
