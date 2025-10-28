@@ -293,17 +293,8 @@ def render_authenticated_page():
     st.markdown("---")
     st.markdown("### Redirecting to Dashboard...")
     
-    # Provide manual navigation option
-    st.markdown("#### Available Pages:")
-    st.page_link("pages/Dashboard_Overview.py", label="Dashboard Overview")
-    st.page_link("pages/Live_Threat_Monitor.py", label="Live Threat Monitor")
-    st.page_link("pages/AI_Log_Analysis.py", label="AI Log Analysis")
-    
-    # Logout button
-    if st.button("Logout", type="secondary"):
-        clear_session()
-        st.session_state.authenticated = False
-        st.rerun()
+    # Automatic redirect to Dashboard Overview
+    st.switch_page("pages/Dashboard_Overview.py")
 
 
 # ============================================================================
