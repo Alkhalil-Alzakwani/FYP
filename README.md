@@ -325,6 +325,7 @@ Automatic blocking is triggered for High category.
 | Unit tests (pytest)           | Validate module functions   | Ensure correctness           |
 | LLM simulation test           | Analyze random logs         | Validate AI accuracy         |
 
+
 | Test Type           | Description                               | Expected Result                        |
 | ------------------- | ----------------------------------------- | -------------------------------------- |
 | Unit Test           | Hash and verify password functions        | Correctly match valid passwords        |
