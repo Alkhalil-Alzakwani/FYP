@@ -22,6 +22,11 @@ FYP-Project/
 │
 ├── app.py                                # Main Streamlit entry point
 │
+├── auth/
+│   ├── auth_manager.py                   # Core authentication logic (login, logout, session)
+│   ├── password_utils.py                 # Password hashing and validation (bcrypt)
+│   └── session_manager.py                # Streamlit session state handler
+|
 ├── pages/
 │   ├── 1_Dashboard_Overview.py           # Main metrics and summary
 │   ├── 2_Live_Threat_Monitor.py          # Real-time Splunk log stream
@@ -29,18 +34,21 @@ FYP-Project/
 │   ├── 4_Threat_Scoring.py               # Threat scoring algorithms
 │   ├── 5_Performance_Metrics.py          # KPI tracking and reports
 │   ├── 6_System_Configuration.py         # API keys, DB setup, thresholds
-│   └── 7_Forensics_And_Reports.py        # Incident reports and exports
+│   ├── 7_Forensics_And_Reports.py        # Incident reports and exports
+│   └── 8_User_Management.py              # Admin page for managing user accounts
 │
 ├── config/
 │   ├── db_config.yaml                    # Database connection info
 │   ├── splunk_config.yaml                # Splunk connection & query params
 │   ├── mistral_config.yaml               # LLM model config
-│   └── thresholds.json                   # Detection & severity limits
-│
+│   ├── thresholds.json                   # Detection & severity limits
+│   └── security.yaml                     # JWT secret key and session timeout configs
+|
 ├── database/
 │   ├── schema.sql                        # SQL schema definition
 │   ├── init_db.py                        # Script to initialize tables
-│   └── queries.py                        # Reusable SQL queries
+│   ├── queries.py                        # Reusable SQL queries
+│   └── seed_users.py                        # Script to create initial admin user
 │
 ├── models/
 │   ├── threat_scorer.py                  # Threat scoring engine
