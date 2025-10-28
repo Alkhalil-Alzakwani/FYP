@@ -130,8 +130,18 @@ def main():
     # HERO SECTION
     # ========================================================================
     
-    st.markdown('# Multilayered Cyber Defense Platform')
-    st.markdown('### AI-Powered Threat Detection and Response System')
+    # Header with login button
+    header_col1, header_col2 = st.columns([4, 1])
+    
+    with header_col1:
+        st.markdown('# Multilayered Cyber Defense Platform')
+        st.markdown('### AI-Powered Threat Detection and Response System')
+    
+    with header_col2:
+        st.markdown('')  # Add spacing
+        if st.button('Login', use_container_width=True, type='primary'):
+            st.switch_page('pages/login.py')
+    
     st.markdown('---')
     
     # ========================================================================
