@@ -106,7 +106,7 @@ def check_authentication():
 
 st.set_page_config(
     page_title="Dashboard Overview - Cyber Defense Platform",
-    page_icon="🛡️",
+    page_icon="�️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
