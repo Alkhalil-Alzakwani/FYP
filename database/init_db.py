@@ -49,18 +49,18 @@ def init_database():
             ('admin', admin_password_hash, 'admin', 'admin@cyberdefense.local', 1)
         )
         
-        print("✅ Admin user created successfully!")
+        print("[SUCCESS] Admin user created successfully!")
         print("   Username: admin")
         print("   Password: admin")
-        print("   ⚠️  Please change the default password after first login!")
+        print("   [WARNING] Please change the default password after first login!")
     else:
-        print("ℹ️  Admin user already exists")
+        print("[INFO] Admin user already exists")
     
     # Commit and close
     conn.commit()
     conn.close()
     
-    print("✅ Database initialization completed successfully!")
+    print("[SUCCESS] Database initialization completed successfully!")
     return True
 
 
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     try:
         init_database()
     except Exception as e:
-        print(f"❌ Error initializing database: {e}")
+        print(f"[ERROR] Error initializing database: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

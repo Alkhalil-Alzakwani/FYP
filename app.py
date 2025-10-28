@@ -122,7 +122,7 @@ db_config = load_config("db_config.yaml")
 
 st.set_page_config(
     page_title="Cyber Defense Platform - Login",
-    page_icon="🔒",
+    page_icon="�️",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -225,14 +225,14 @@ def render_login_page():
     # Header
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.title("🔒 Cyber Defense Platform")
+        st.title("Cyber Defense Platform")
         st.subheader("Secure Login")
         st.markdown("---")
     
     # Check for account lockout (after 5 failed attempts)
     max_attempts = security_config.get('max_login_attempts', 5)
     if st.session_state.login_attempts >= max_attempts:
-        st.error("⚠️ Account temporarily locked due to multiple failed login attempts.")
+        st.error("Account temporarily locked due to multiple failed login attempts.")
         st.info("Please contact your system administrator.")
         return
     
@@ -253,31 +253,31 @@ def render_login_page():
         
         col1, col2, col3 = st.columns([1, 1, 1])
         with col2:
-            submit_button = st.form_submit_button("🔓 Login", use_container_width=True)
+            submit_button = st.form_submit_button("Login", use_container_width=True)
         
         if submit_button:
             if not username or not password:
-                st.error("❌ Please enter both username and password")
+                st.error("Please enter both username and password")
             else:
                 with st.spinner("Authenticating..."):
                     if handle_login(username, password):
-                        st.success(f"✅ Welcome back, {username}!")
+                        st.success(f"Welcome back, {username}!")
                         st.balloons()
                         # Rerun to redirect to dashboard
                         st.rerun()
                     else:
                         remaining = max_attempts - st.session_state.login_attempts
                         if remaining > 0:
-                            st.error(f"❌ Invalid credentials. {remaining} attempts remaining.")
+                            st.error(f"Invalid credentials. {remaining} attempts remaining.")
                         else:
-                            st.error("⚠️ Account locked due to too many failed attempts.")
+                            st.error("Account locked due to too many failed attempts.")
     
     # Footer information
     st.markdown("---")
     st.markdown(
         """
         <div style='text-align: center; color: gray; font-size: 12px;'>
-        <p>🔐 Multilayered Cyber Defense Platform v1.0</p>
+        <p>Multilayered Cyber Defense Platform v1.0</p>
         <p>Unauthorized access is prohibited and will be logged.</p>
         </div>
         """,
@@ -287,20 +287,20 @@ def render_login_page():
 
 def render_authenticated_page():
     """Render page for authenticated users with redirect"""
-    st.success(f"✅ Welcome, {st.session_state.username}!")
+    st.success(f"Welcome, {st.session_state.username}!")
     st.info(f"Role: {st.session_state.role.upper()}")
     
     st.markdown("---")
-    st.markdown("### 🎯 Redirecting to Dashboard...")
+    st.markdown("### Redirecting to Dashboard...")
     
     # Provide manual navigation option
     st.markdown("#### Available Pages:")
-    st.page_link("pages/Dashboard_Overview.py", label="📊 Dashboard Overview", icon="📊")
-    st.page_link("pages/Live_Threat_Monitor.py", label="🚨 Live Threat Monitor", icon="🚨")
-    st.page_link("pages/AI_Log_Analysis.py", label="🤖 AI Log Analysis", icon="🤖")
+    st.page_link("pages/Dashboard_Overview.py", label="Dashboard Overview")
+    st.page_link("pages/Live_Threat_Monitor.py", label="Live Threat Monitor")
+    st.page_link("pages/AI_Log_Analysis.py", label="AI Log Analysis")
     
     # Logout button
-    if st.button("🚪 Logout", type="secondary"):
+    if st.button("Logout", type="secondary"):
         clear_session()
         st.session_state.authenticated = False
         st.rerun()
