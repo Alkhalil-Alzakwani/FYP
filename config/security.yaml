@@ -1,0 +1,29 @@
+# Security Configuration for Cyber Defense Platform
+
+# Secret key for JWT token generation (change this in production!)
+secret_key: "your-secret-key-change-this-in-production-abc123xyz"
+
+# Session timeout in minutes
+session_timeout_minutes: 30
+
+# Maximum login attempts before account lockout
+max_login_attempts: 5
+
+# Password policy requirements
+password_policy:
+  min_length: 8
+  require_uppercase: true
+  require_lowercase: true
+  require_digit: true
+  require_special: false
+
+# Account lockout settings
+account_lockout:
+  enabled: true
+  duration_minutes: 15
+
+# IP address tracking
+track_ip_addresses: true
+
+# User agent logging
+log_user_agents: true

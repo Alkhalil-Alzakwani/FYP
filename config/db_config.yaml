@@ -1,0 +1,29 @@
+# Database Configuration for Cyber Defense Platform
+
+# Database type (sqlite, mysql, postgresql)
+database_type: sqlite
+
+# SQLite configuration
+sqlite:
+  database_path: "database/cyber_defense.db"
+
+# MySQL configuration (if using MySQL)
+mysql:
+  host: localhost
+  port: 3306
+  database: cyber_defense
+  username: root
+  password: ""
+  
+# PostgreSQL configuration (if using PostgreSQL)
+postgresql:
+  host: localhost
+  port: 5432
+  database: cyber_defense
+  username: postgres
+  password: ""
+
+# Connection pool settings
+connection_pool:
+  max_connections: 10
+  timeout: 30
