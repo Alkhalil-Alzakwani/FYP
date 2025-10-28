@@ -20,7 +20,7 @@ The Streamlit Dashboard serves as the central command and visualization interfac
 ```
 FYP-Project/
 │
-├── app.py                                # Main Streamlit entry point
+├── app.py                                # Main introductory landing page
 │
 ├── auth/
 │   ├── auth_manager.py                   # Core authentication logic (login, logout, session)
@@ -28,14 +28,15 @@ FYP-Project/
 │   └── session_manager.py                # Streamlit session state handler
 |
 ├── pages/
-│   ├── 1_Dashboard_Overview.py           # Main metrics and summary
-│   ├── 2_Live_Threat_Monitor.py          # Real-time Splunk log stream
-│   ├── 3_AI_Log_Analysis.py              # Mistral LLM analysis page
-│   ├── 4_Threat_Scoring.py               # Threat scoring algorithms
-│   ├── 5_Performance_Metrics.py          # KPI tracking and reports
-│   ├── 6_System_Configuration.py         # API keys, DB setup, thresholds
-│   ├── 7_Forensics_And_Reports.py        # Incident reports and exports
-│   └── 8_User_Management.py              # Admin page for managing user accounts
+│   ├── login.py                          # User authentication page
+│   ├── Dashboard_Overview.py             # Main metrics and summary
+│   ├── Live_Threat_Monitor.py            # Real-time Splunk log stream
+│   ├── AI_Log_Analysis.py                # Mistral LLM analysis page
+│   ├── Threat_Scoring.py                 # Threat scoring algorithms
+│   ├── Performance_Metrics.py            # KPI tracking and reports
+│   ├── System_Configuration.py           # API keys, DB setup, thresholds
+│   ├── Forensics_And_Reports.py          # Incident reports and exports
+│   └── User_Management.py                # Admin page for managing user accounts
 │
 ├── config/
 │   ├── db_config.yaml                    # Database connection info
@@ -126,9 +127,11 @@ Table: sessions
 
 ---
 Authentication Workflow
-Login Process (app.py)
+Login Process (pages/login.py)
 
-User opens the dashboard → redirected to login page if no active session.
+User opens the dashboard (app.py) → introductory page with platform overview.
+
+User clicks "Go to Login" button → redirected to login page (pages/login.py).
 
 User enters credentials.
 
@@ -166,7 +169,35 @@ password_policy:
 
 5. Streamlit Pages and Their Functionality
 
-1. Dashboard Overview (`pages/1_Dashboard_Overview.py`)
+**Home Page** (`app.py`)
+
+**Purpose:** Introductory landing page
+**Features:**
+
+* Platform overview and key features
+* Quick statistics and metrics
+* Technology stack information
+* Getting started guide with navigation to login
+* Sidebar with navigation and quick links
+  **Data source:** Static content
+
+---
+
+**Login Page** (`pages/login.py`)
+
+**Purpose:** User authentication
+**Features:**
+
+* Username and password input fields
+* Secure login with session creation
+* Rate limiting (5 failed attempts = account lock)
+* Password validation and error messages
+* Redirect to Dashboard Overview on success
+  **Data source:** users table, sessions table
+
+---
+
+1. Dashboard Overview (`pages/Dashboard_Overview.py`)
 
 **Purpose:** Executive summary view
 **Features:**
@@ -180,7 +211,7 @@ password_policy:
 
 ---
 
-2. Live Threat Monitor (`pages/2_Live_Threat_Monitor.py`)
+2. Live Threat Monitor (`pages/Live_Threat_Monitor.py`)
 
 **Purpose:** Stream real-time logs from Splunk API
 **Features:**
@@ -193,7 +224,7 @@ password_policy:
 
 ---
 
-3. AI Log Analysis (`pages/3_AI_Log_Analysis.py`)
+3. AI Log Analysis (`pages/AI_Log_Analysis.py`)
 
 **Purpose:** Use Mistral LLM for context-aware log analysis
 **Features:**
@@ -211,7 +242,7 @@ Threat_Score = (LLM_Confidence × 0.6) + (Severity_Weight × 0.3) + (Reputation_
 
 ---
 
-4. Threat Scoring (`pages/4_Threat_Scoring.py`)
+4. Threat Scoring (`pages/Threat_Scoring.py`)
 
 **Purpose:** Implement the threat scoring engine
 **Algorithm Components:**
@@ -235,7 +266,7 @@ Automatic blocking is triggered for High category.
 
 ---
 
-5. Performance Metrics (`pages/5_Performance_Metrics.py`)
+5. Performance Metrics (`pages/Performance_Metrics.py`)
 
 **Purpose:** Track detection and prevention KPIs
 **KPIs Calculated:**
@@ -257,7 +288,7 @@ Automatic blocking is triggered for High category.
 
 ---
 
-6. System Configuration (`pages/6_System_Configuration.py`)
+6. System Configuration (`pages/System_Configuration.py`)
 
 **Purpose:** Administrative configuration panel
 **Features:**
@@ -269,7 +300,7 @@ Automatic blocking is triggered for High category.
 
 ---
 
-7. Forensics and Reports (`pages/7_Forensics_And_Reports.py`)
+7. Forensics and Reports (`pages/Forensics_And_Reports.py`)
 
 **Purpose:** Post-incident forensic analysis and reporting
 **Features:**

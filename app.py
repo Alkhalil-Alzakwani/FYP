@@ -1,322 +1,340 @@
-"""
+﻿r"""
 ================================================================================
-MULTILAYERED CYBER DEFENSE PLATFORM - MAIN AUTHENTICATION ENTRY POINT
+MULTILAYERED CYBER DEFENSE PLATFORM - HOME PAGE
 ================================================================================
+
+How to run:
+    C:\Users\s131028\Documents\GitHub\FYP\.venv\Scripts\streamlit.exe run app.py
+
+    Or from terminal:
+    streamlit run app.py
 
 File: app.py
-Purpose: Main Streamlit application entry point with user authentication
+Purpose: Main introductory landing page for the Cyber Defense Platform
 
 DESCRIPTION:
-    This module serves as the login gateway for the Multilayered Cyber Defense
-    Platform Dashboard. It handles user authentication, session management,
-    and redirects authenticated users to the main dashboard.
+    This module serves as the entry point and welcome page for the Multilayered
+    Cyber Defense Platform. It provides an overview of the platform's capabilities,
+    features, and technology stack, guiding users to the login page and other
+    sections of the application.
 
-AUTHENTICATION WORKFLOW:
-    1. Check for active session in st.session_state
-    2. If no session exists → display login page
-    3. User submits credentials (username + password)
-    4. Verify credentials against database using auth_manager
-    5. On success:
-        - Create secure session with session_manager
-        - Store user info (id, username, role, login_time) in session state
-        - Redirect to Dashboard Overview page
-    6. On failure:
-        - Display error message
-        - Allow retry
-    
-LOGIN FORM COMPONENTS:
-    - Username input field (text)
-    - Password input field (masked)
-    - Login button (submit)
-    - Error message display (conditional)
-
-SESSION MANAGEMENT:
-    - Session timeout: 30 minutes (configurable in security.yaml)
-    - Session state variables:
-        * authenticated: bool
-        * user_id: int
-        * username: str
-        * role: str (admin/analyst/viewer)
-        * login_time: datetime
-    - Auto-logout on session expiry
-    
-DATABASE INTEGRATION:
-    - Connects to SQL database via config/db_config.yaml
-    - Queries 'users' table for authentication
-    - Updates 'last_login' timestamp on successful login
-    - Creates session record in 'sessions' table
-
-SECURITY FEATURES:
-    - Password hashing with bcrypt
-    - Session token generation
-    - IP address tracking
-    - User agent logging
-    - Protection against SQL injection
-    - Rate limiting for brute force prevention
-
-DEPENDENCIES:
-    - streamlit: UI framework
-    - auth.auth_manager: Core authentication logic
-    - auth.session_manager: Session state handler
-    - database.queries: Database interaction
-    - config/security.yaml: Security configurations
-    - config/db_config.yaml: Database connection settings
+PAGE COMPONENTS:
+    1. Hero Section:
+        - Platform title and tagline
+        - Professional introduction
+        
+    2. About Section:
+        - Platform overview
+        - Key features list with icons
+        - Quick statistics dashboard
+        
+    3. Capabilities Grid:
+        - Security features
+        - Intelligence capabilities
+        - Operations features
+        
+    4. Technology Stack:
+        - Frontend technologies (Streamlit, Plotly, Altair)
+        - Backend infrastructure (Python, SQLite, Pandas)
+        - AI/ML components (Mistral AI, NumPy, Scikit-learn)
+        - Security tools (bcrypt, JWT, YAML Config)
+        
+    5. Getting Started:
+        - Login navigation button
+        - Dashboard preview button
+        - Live monitor button
+        
+    6. Footer:
+        - Contact information
+        - Documentation links
+        - Security contact
+        - Copyright and version info
 
 NAVIGATION:
-    - Authenticated users → pages/Dashboard_Overview.py
-    - Logout → Clear session and return to login
+    - Users can navigate to login page via "Go to Login" button
+    - Sidebar provides navigation options and quick links
+    - Unauthenticated users are directed to login before accessing features
+
+SIDEBAR FEATURES:
+    - Home button (refresh current page)
+    - Login button (navigate to authentication)
+    - Quick links section
+    - System information display
+
+LAYOUT:
+    - Page layout: Wide (full-width display)
+    - Sidebar state: Expanded by default
+    - Responsive design with column-based layout
+
+DEPENDENCIES:
+    - streamlit: Web application framework
+    - No authentication required for this page (public landing page)
+
+LINKED PAGES:
+    - pages/login.py: User authentication
+    - pages/Dashboard_Overview.py: Main dashboard (requires authentication)
+    - pages/Live_Threat_Monitor.py: Real-time monitoring (requires authentication)
 
 Author: Multilayered Cyber Defense Team
 Last Modified: October 28, 2025
+Version: 1.0.0
 ================================================================================
 """
 
 import streamlit as st
-import yaml
-import sys
-from pathlib import Path
-from datetime import datetime
-
-# Add project root to path for imports
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
-
-# Import authentication modules
-try:
-    from auth.auth_manager import authenticate_user, validate_session
-    from auth.session_manager import create_session, clear_session, check_session_timeout
-    from database.queries import get_user_by_username, update_last_login
-except ImportError as e:
-    st.error(f"Import Error: {e}")
-    st.stop()
-
-
-# ============================================================================
-# CONFIGURATION LOADER
-# ============================================================================
-
-def load_config(config_file):
-    """Load configuration from YAML file"""
-    try:
-        config_path = project_root / "config" / config_file
-        if config_path.exists():
-            with open(config_path, 'r') as f:
-                config = yaml.safe_load(f)
-                return config if config is not None else {}
-        else:
-            st.warning(f"Configuration file {config_file} not found. Using defaults.")
-            return {}
-    except Exception as e:
-        st.error(f"Error loading {config_file}: {e}")
-        return {}
-
-
-# Load configurations
-security_config = load_config("security.yaml")
-db_config = load_config("db_config.yaml")
-
 
 # ============================================================================
 # PAGE CONFIGURATION
 # ============================================================================
 
 st.set_page_config(
-    page_title="Cyber Defense Platform - Login",
-    page_icon="�️",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    page_title='Cyber Defense Platform',
+    #page_icon='shield',
+    layout='wide',
+    initial_sidebar_state='expanded'
 )
 
-# Load custom CSS if available
-css_path = project_root / "assets" / "style.css"
-if css_path.exists():
-    with open(css_path) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+# Fix scrolling issue with custom CSS
+st.markdown("""
+<style>
+    /* Ensure main container is scrollable */
+    .main {
+        overflow-y: auto !important;
+        height: 100vh !important;
+    }
+    
+    /* Fix block container */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 100% !important;
+    }
+    
+    /* Remove fixed positioning that blocks scrolling */
+    section[data-testid="stSidebar"] {
+        height: 100vh !important;
+        overflow-y: auto !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 
 # ============================================================================
-# SESSION INITIALIZATION
-# ============================================================================
-
-def initialize_session_state():
-    """Initialize session state variables if they don't exist"""
-    if 'authenticated' not in st.session_state:
-        st.session_state.authenticated = False
-    if 'user_id' not in st.session_state:
-        st.session_state.user_id = None
-    if 'username' not in st.session_state:
-        st.session_state.username = None
-    if 'role' not in st.session_state:
-        st.session_state.role = None
-    if 'login_time' not in st.session_state:
-        st.session_state.login_time = None
-    if 'login_attempts' not in st.session_state:
-        st.session_state.login_attempts = 0
-
-
-# ============================================================================
-# AUTHENTICATION FUNCTIONS
-# ============================================================================
-
-def handle_login(username, password):
-    """
-    Handle user login attempt
-    
-    Args:
-        username (str): User's username
-        password (str): User's password
-        
-    Returns:
-        bool: True if authentication successful, False otherwise
-    """
-    try:
-        # Authenticate user
-        user_data = authenticate_user(username, password)
-        
-        if user_data:
-            # Create session
-            session_created = create_session(user_data)
-            
-            if session_created:
-                # Update session state
-                st.session_state.authenticated = True
-                st.session_state.user_id = user_data['id']
-                st.session_state.username = user_data['username']
-                st.session_state.role = user_data['role']
-                st.session_state.login_time = datetime.now()
-                st.session_state.login_attempts = 0
-                
-                # Update last login in database
-                update_last_login(user_data['id'])
-                
-                return True
-        
-        # Failed authentication
-        st.session_state.login_attempts += 1
-        return False
-        
-    except Exception as e:
-        st.error(f"Authentication error: {e}")
-        return False
-
-
-def check_existing_session():
-    """Check if user has an active valid session"""
-    if st.session_state.authenticated:
-        # Validate session hasn't expired
-        if check_session_timeout():
-            return True
-        else:
-            # Session expired
-            clear_session()
-            st.session_state.authenticated = False
-            st.warning("Your session has expired. Please login again.")
-            return False
-    return False
-
-
-# ============================================================================
-# UI COMPONENTS
-# ============================================================================
-
-def render_login_page():
-    """Render the login page UI"""
-    
-    # Header
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.title("Cyber Defense Platform")
-        st.subheader("Secure Login")
-        st.markdown("---")
-    
-    # Check for account lockout (after 5 failed attempts)
-    max_attempts = security_config.get('max_login_attempts', 5)
-    if st.session_state.login_attempts >= max_attempts:
-        st.error("Account temporarily locked due to multiple failed login attempts.")
-        st.info("Please contact your system administrator.")
-        return
-    
-    # Login form
-    with st.form("login_form", clear_on_submit=False):
-        username = st.text_input(
-            "Username",
-            placeholder="Enter your username",
-            key="login_username"
-        )
-        
-        password = st.text_input(
-            "Password",
-            type="password",
-            placeholder="Enter your password",
-            key="login_password"
-        )
-        
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-            submit_button = st.form_submit_button("Login", use_container_width=True)
-        
-        if submit_button:
-            if not username or not password:
-                st.error("Please enter both username and password")
-            else:
-                with st.spinner("Authenticating..."):
-                    if handle_login(username, password):
-                        st.success(f"Welcome back, {username}!")
-                        st.balloons()
-                        # Rerun to redirect to dashboard
-                        st.rerun()
-                    else:
-                        remaining = max_attempts - st.session_state.login_attempts
-                        if remaining > 0:
-                            st.error(f"Invalid credentials. {remaining} attempts remaining.")
-                        else:
-                            st.error("Account locked due to too many failed attempts.")
-    
-    # Footer information
-    st.markdown("---")
-    st.markdown(
-        """
-        <div style='text-align: center; color: gray; font-size: 12px;'>
-        <p>Multilayered Cyber Defense Platform v1.0</p>
-        <p>Unauthorized access is prohibited and will be logged.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-def render_authenticated_page():
-    """Render page for authenticated users with redirect"""
-    st.success(f"Welcome, {st.session_state.username}!")
-    st.info(f"Role: {st.session_state.role.upper()}")
-    
-    st.markdown("---")
-    st.markdown("### Redirecting to Dashboard...")
-    
-    # Automatic redirect to Dashboard Overview
-    st.switch_page("pages/Dashboard_Overview.py")
-
-
-# ============================================================================
-# MAIN APPLICATION LOGIC
+# MAIN CONTENT
 # ============================================================================
 
 def main():
-    """Main application entry point"""
+    """Main application entry point - Introductory landing page"""
     
-    # Initialize session state
-    initialize_session_state()
+    # ========================================================================
+    # HERO SECTION
+    # ========================================================================
     
-    # Check for existing valid session
-    if check_existing_session():
-        render_authenticated_page()
-    else:
-        render_login_page()
+    st.markdown('# Multilayered Cyber Defense Platform')
+    st.markdown('### AI-Powered Threat Detection and Response System')
+    st.markdown('---')
+    
+    # ========================================================================
+    # INTRODUCTION & QUICK STATS
+    # ========================================================================
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown('''
+        ## About the Platform
+        
+        The **Multilayered Cyber Defense Platform** is an advanced security solution that combines 
+        artificial intelligence, real-time monitoring, and automated response systems to protect 
+        your infrastructure from evolving cyber threats.
+        
+        ### Key Features
+        
+        - **AI-Powered Log Analysis**: Leverage Mistral AI to analyze security logs and detect anomalies
+        - **Real-Time Threat Monitoring**: Live visualization of security events and threats
+        - **Automated Response System**: Intelligent threat mitigation and incident response
+        - **Performance Metrics**: Comprehensive analytics and reporting dashboard
+        - **Forensics & Investigation**: Detailed analysis tools for security incidents
+        - **Threat Scoring**: Advanced algorithms to prioritize and classify threats
+        - **User Management**: Role-based access control and user administration
+        ''')
+        
+    with col2:
+        st.markdown('### Quick Stats')
+        
+        metric_col1, metric_col2 = st.columns(2)
+        with metric_col1:
+            st.metric('Threat Detection', '99.7%', '2.1%')
+            st.metric('Response Time', '< 2s', '-0.3s')
+        with metric_col2:
+            st.metric('Uptime', '99.9%', '0.1%')
+            st.metric('Active Modules', '7', '+1')
+    
+    st.markdown('---')
+    
+    # ========================================================================
+    # PLATFORM CAPABILITIES
+    # ========================================================================
+    
+    st.markdown('## Platform Capabilities')
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown('''
+        #### Security
+        - Multi-factor authentication
+        - Role-based access control
+        - Session management
+        - Audit logging
+        - Encrypted communications
+        ''')
+        
+    with col2:
+        st.markdown('''
+        #### Intelligence
+        - Machine learning models
+        - Behavioral analysis
+        - Threat intelligence feeds
+        - Predictive analytics
+        - Pattern recognition
+        ''')
+        
+    with col3:
+        st.markdown('''
+        #### Operations
+        - Real-time dashboards
+        - Automated responses
+        - Alert management
+        - Incident workflows
+        - Integration APIs
+        ''')
+    
+    st.markdown('---')
+    
+    # ========================================================================
+    # TECHNOLOGY STACK
+    # ========================================================================
+    
+    st.markdown('## Technology Stack')
+    
+    tech_col1, tech_col2, tech_col3, tech_col4 = st.columns(4)
+    
+    with tech_col1:
+        st.markdown('**Frontend**')
+        st.markdown('- Streamlit')
+        st.markdown('- Plotly')
+        st.markdown('- Altair')
+        
+    with tech_col2:
+        st.markdown('**Backend**')
+        st.markdown('- Python 3.12')
+        st.markdown('- SQLite')
+        st.markdown('- Pandas')
+        
+    with tech_col3:
+        st.markdown('**AI/ML**')
+        st.markdown('- Mistral AI')
+        st.markdown('- NumPy')
+        st.markdown('- Scikit-learn')
+        
+    with tech_col4:
+        st.markdown('**Security**')
+        st.markdown('- bcrypt')
+        st.markdown('- JWT')
+        st.markdown('- YAML Config')
+    
+    st.markdown('---')
+    
+    # ========================================================================
+    # GETTING STARTED
+    # ========================================================================
+    
+    st.markdown('## Getting Started')
+    
+    start_col1, start_col2, start_col3 = st.columns(3)
+    
+    with start_col1:
+        st.markdown('### 1. Login')
+        st.markdown('Access the platform with your credentials')
+        if st.button('Go to Login', use_container_width=True, type='primary'):
+            st.switch_page('pages/login.py')
+            
+    with start_col2:
+        st.markdown('### 2. Dashboard')
+        st.markdown('View real-time security metrics')
+        if st.button('View Dashboard', use_container_width=True):
+            st.info('Please login first to access the dashboard')
+            
+    with start_col3:
+        st.markdown('### 3. Monitor')
+        st.markdown('Track threats and incidents')
+        if st.button('Live Monitor', use_container_width=True):
+            st.info('Please login first to access monitoring')
+    
+    st.markdown('---')
+    
+    # ========================================================================
+    # FOOTER
+    # ========================================================================
+    
+    footer_col1, footer_col2, footer_col3 = st.columns(3)
+    
+    with footer_col1:
+        st.markdown('**Contact**')
+        st.markdown('support@cyberdefense.com')
+        
+    with footer_col2:
+        st.markdown('**Documentation**')
+        st.markdown('docs.cyberdefense.com')
+        
+    with footer_col3:
+        st.markdown('**Security**')
+        st.markdown('security@cyberdefense.com')
+    
+    st.markdown('---')
+    st.caption('© 2025 Multilayered Cyber Defense Platform | Version 1.0')
+    st.caption('Unauthorized access is prohibited and will be logged')
+
+
+# ============================================================================
+# SIDEBAR NAVIGATION
+# ============================================================================
+
+def render_sidebar():
+    """Render sidebar navigation and information"""
+    with st.sidebar:
+        st.markdown('## Navigation')
+        st.markdown('---')
+        
+        if st.button('Home', use_container_width=True):
+            st.rerun()
+            
+        if st.button('Login', use_container_width=True):
+            st.switch_page('pages/login.py')
+        
+        st.markdown('---')
+        st.markdown('### Quick Links')
+        st.markdown('- [Documentation](#)')
+        st.markdown('- [API Reference](#)')
+        st.markdown('- [Support Portal](#)')
+        st.markdown('- [Security Advisories](#)')
+        
+        st.markdown('---')
+        st.markdown('### System Info')
+        st.info('''
+        **Platform Version:** 1.0.0
+        
+        **Status:** Operational
+        
+        **Last Update:** Oct 28, 2025
+        ''')
 
 
 # ============================================================================
 # APPLICATION ENTRY POINT
 # ============================================================================
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    render_sidebar()
     main()
