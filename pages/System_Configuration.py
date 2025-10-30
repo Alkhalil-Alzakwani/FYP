@@ -328,7 +328,7 @@ def render_database_config():
                 st.success("Database configuration saved successfully!")
     
     with col_btn2:
-        if st.button("🔌 Test Connection", use_container_width=True):
+        if st.button("Test Connection", use_container_width=True):
             success, message = test_database_connection(config)
             if success:
                 st.success(f"{message}")
@@ -473,7 +473,7 @@ def render_mistral_config():
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
     
     with col_btn1:
-        if st.button("💾 Save Mistral Config", use_container_width=True):
+        if st.button("Save Mistral Config", use_container_width=True):
             new_config = {
                 'api_endpoint': api_endpoint,
                 'api_key': api_key,
@@ -488,7 +488,7 @@ def render_mistral_config():
                 st.success("Mistral AI configuration saved successfully!")
     
     with col_btn2:
-        if st.button("🔌 Test Connection", use_container_width=True):
+        if st.button("Test Connection", use_container_width=True):
             success, message = test_mistral_connection(config)
             if success:
                 st.success(f"{message}")
@@ -673,7 +673,7 @@ def render_backup_restore():
     with col2:
         st.markdown("**Restore from Backup**")
         backup_file = st.file_uploader("Choose backup file", type=['zip', 'tar'])
-        if backup_file and st.button("🔄 Restore Configuration", use_container_width=True):
+        if backup_file and st.button("Restore Configuration", use_container_width=True):
             st.warning("This will overwrite current configuration!")
             # Implement actual restore logic
             st.success("Configuration restored successfully!")
