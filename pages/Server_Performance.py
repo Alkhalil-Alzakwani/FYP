@@ -283,8 +283,8 @@ def get_system_info():
     }
 
 
-def create_gauge_chart(value, title, max_value=100, height=400):
-    """Create a large gauge chart for resource utilization"""
+def create_gauge_chart(value, title, max_value=100, height=250):
+    """Create a compact gauge chart for resource utilization"""
     # Determine color based on value
     if value < 50:
         color = "#4ECDC4"  # Teal/Cyan
@@ -297,18 +297,18 @@ def create_gauge_chart(value, title, max_value=100, height=400):
         mode="gauge+number",
         value=value,
         domain={'x': [0, 1], 'y': [0, 1]},
-        title={'text': title, 'font': {'size': 28, 'color': '#333'}},
-        number={'suffix': "%", 'font': {'size': 48}},
+        title={'text': title, 'font': {'size': 18, 'color': '#333'}},
+        number={'suffix': "%", 'font': {'size': 32}},
         gauge={
             'axis': {
                 'range': [None, max_value],
-                'tickwidth': 2,
+                'tickwidth': 1,
                 'tickcolor': "darkgray",
-                'tickfont': {'size': 16}
+                'tickfont': {'size': 12}
             },
-            'bar': {'color': color, 'thickness': 0.75},
+            'bar': {'color': color, 'thickness': 0.65},
             'bgcolor': "white",
-            'borderwidth': 3,
+            'borderwidth': 2,
             'bordercolor': "gray",
             'steps': [
                 {'range': [0, 50], 'color': '#E8F8F5'},
@@ -316,8 +316,8 @@ def create_gauge_chart(value, title, max_value=100, height=400):
                 {'range': [80, 100], 'color': '#FADBD8'}
             ],
             'threshold': {
-                'line': {'color': "red", 'width': 6},
-                'thickness': 0.85,
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
                 'value': 90
             }
         }
@@ -325,7 +325,7 @@ def create_gauge_chart(value, title, max_value=100, height=400):
     
     fig.update_layout(
         height=height,
-        margin=dict(l=20, r=20, t=80, b=20),
+        margin=dict(l=10, r=10, t=50, b=10),
         paper_bgcolor="white",
         font={'color': "#333", 'family': "Arial"}
     )
@@ -344,7 +344,7 @@ def create_network_realtime_chart(history_data):
             y=df['sent_mbps'],
             mode='lines',
             name='Upload (Mbps)',
-            line=dict(color='#FF6B6B', width=3),
+            line=dict(color='#FF6B6B', width=2),
             fill='tozeroy',
             fillcolor='rgba(255, 107, 107, 0.2)'
         ))
@@ -354,19 +354,19 @@ def create_network_realtime_chart(history_data):
             y=df['recv_mbps'],
             mode='lines',
             name='Download (Mbps)',
-            line=dict(color='#4ECDC4', width=3),
+            line=dict(color='#4ECDC4', width=2),
             fill='tozeroy',
             fillcolor='rgba(78, 205, 196, 0.2)'
         ))
     
     fig.update_layout(
-        title="Real-Time Network Traffic",
+        title={'text': "Real-Time Network Traffic", 'font': {'size': 16}},
         xaxis_title="Time",
         yaxis_title="Speed (Mbps)",
-        height=350,
+        height=280,
         hovermode='x unified',
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(l=50, r=20, t=80, b=50),
+        margin=dict(l=40, r=20, t=50, b=40),
         plot_bgcolor='rgba(240, 240, 240, 0.5)',
         paper_bgcolor='white'
     )
@@ -405,17 +405,17 @@ def main():
     # SYSTEM INFORMATION
     # ========================================================================
     
-    st.markdown("### System Information")
+    st.markdown("#### System Information")
     sys_info = get_system_info()
     
     info_col1, info_col2, info_col3, info_col4 = st.columns(4)
     
     with info_col1:
-        st.metric("Operating System", f"{sys_info['system']} {sys_info['release']}")
+        st.metric("OS", f"{sys_info['system']} {sys_info['release']}", label_visibility="visible")
     with info_col2:
-        st.metric("Machine Type", sys_info['machine'])
+        st.metric("Machine", sys_info['machine'])
     with info_col3:
-        st.metric("Boot Time", sys_info['boot_time'].strftime("%Y-%m-%d %H:%M:%S"))
+        st.metric("Boot Time", sys_info['boot_time'].strftime("%Y-%m-%d %H:%M"))
     with info_col4:
         uptime_str = str(sys_info['uptime']).split('.')[0]
         st.metric("Uptime", uptime_str)
@@ -426,43 +426,54 @@ def main():
     # CPU & GPU GAUGE CHARTS (GIANT)
     # ========================================================================
     
-    st.markdown("### CPU & GPU Performance")
+    st.markdown("#### CPU & GPU Performance")
     cpu_info = get_cpu_info()
     gpu_info = get_gpu_info()
     
-    gauge_col1, gauge_col2 = st.columns(2)
+    gauge_col1, gauge_col2, gauge_col3, gauge_col4 = st.columns(4)
     
     with gauge_col1:
         st.plotly_chart(
-            create_gauge_chart(cpu_info['percent'], "CPU Usage", height=450),
+            create_gauge_chart(cpu_info['percent'], "CPU Usage", height=250),
             use_container_width=True
         )
-        st.markdown(f"**Physical Cores:** {cpu_info['count_physical']} | **Logical Cores:** {cpu_info['count_logical']}")
-        st.markdown(f"**Frequency:** {cpu_info['frequency_current']:.0f} MHz")
     
     with gauge_col2:
+        st.markdown("**CPU Details**")
+        st.text(f"Physical Cores: {cpu_info['count_physical']}")
+        st.text(f"Logical Cores: {cpu_info['count_logical']}")
+        st.text(f"Frequency: {cpu_info['frequency_current']:.0f} MHz")
+        st.text(f"Max Freq: {cpu_info['frequency_max']:.0f} MHz")
+    
+    with gauge_col3:
         if gpu_info['available']:
             st.plotly_chart(
-                create_gauge_chart(gpu_info['load'], "GPU Usage", height=450),
+                create_gauge_chart(gpu_info['load'], "GPU Usage", height=250),
                 use_container_width=True
             )
-            st.markdown(f"**GPU:** {gpu_info['name']}")
-            st.markdown(f"**Memory:** {gpu_info['memory_used']:.0f} MB / {gpu_info['memory_total']:.0f} MB ({gpu_info['memory_percent']:.1f}%)")
-            if gpu_info['temperature'] > 0:
-                st.markdown(f"**Temperature:** {gpu_info['temperature']:.1f} C")
         else:
             st.plotly_chart(
-                create_gauge_chart(0, "GPU Usage (Not Available)", height=450),
+                create_gauge_chart(0, "GPU (N/A)", height=250),
                 use_container_width=True
             )
-            # Show appropriate message based on error type
+    
+    with gauge_col4:
+        if gpu_info['available']:
+            st.markdown("**GPU Details**")
+            st.text(f"GPU: {gpu_info['name'][:20]}")
+            st.text(f"Memory: {gpu_info['memory_used']:.0f}/{gpu_info['memory_total']:.0f} MB")
+            st.text(f"Usage: {gpu_info['memory_percent']:.1f}%")
+            if gpu_info['temperature'] > 0:
+                st.text(f"Temp: {gpu_info['temperature']:.1f} C")
+        else:
+            st.markdown("**GPU Status**")
             error_type = gpu_info.get('error', 'unknown')
             if error_type == 'not_installed':
-                st.warning("GPUtil library not installed. Install with: pip install gputil")
+                st.info("GPUtil not installed")
             elif error_type == 'no_gpu':
-                st.info("No GPU detected on this system")
+                st.info("No GPU detected")
             else:
-                st.info("GPU monitoring unavailable")
+                st.info("GPU unavailable")
     
     st.markdown("---")
     
@@ -478,7 +489,7 @@ def main():
                      title="CPU Usage by Core",
                      color='Usage (%)',
                      color_continuous_scale=['green', 'yellow', 'red'])
-        fig.update_layout(height=300)
+        fig.update_layout(height=250, margin=dict(l=40, r=20, t=50, b=40))
         st.plotly_chart(fig, use_container_width=True)
     
     st.markdown("---")
@@ -487,38 +498,38 @@ def main():
     # MEMORY METRICS
     # ========================================================================
     
-    st.markdown("### Memory Performance")
+    st.markdown("#### Memory Performance")
     mem_info = get_memory_info()
     
-    mem_col1, mem_col2, mem_col3 = st.columns(3)
+    mem_col1, mem_col2, mem_col3, mem_col4 = st.columns(4)
     
     with mem_col1:
-        st.metric("Total RAM", get_size(mem_info['total']))
-        st.metric("Used RAM", get_size(mem_info['used']))
-        st.metric("Available RAM", get_size(mem_info['available']))
+        st.plotly_chart(create_gauge_chart(mem_info['percent'], "Memory Usage", height=250), use_container_width=True)
     
     with mem_col2:
-        st.metric("Memory Usage", f"{mem_info['percent']:.1f}%")
-        st.metric("Swap Total", get_size(mem_info['swap_total']))
-        st.metric("Swap Used", f"{mem_info['swap_percent']:.1f}%")
+        st.markdown("**RAM Details**")
+        st.text(f"Total: {get_size(mem_info['total'])}")
+        st.text(f"Used: {get_size(mem_info['used'])}")
+        st.text(f"Available: {get_size(mem_info['available'])}")
+        st.text(f"Usage: {mem_info['percent']:.1f}%")
     
     with mem_col3:
-        st.plotly_chart(create_gauge_chart(mem_info['percent'], "Memory Usage"), use_container_width=True)
-    
-    # Memory breakdown pie chart
-    mem_col_chart1, mem_col_chart2 = st.columns(2)
-    
-    with mem_col_chart1:
         fig_mem = go.Figure(data=[go.Pie(
             labels=['Used', 'Available'],
             values=[mem_info['used'], mem_info['available']],
             hole=0.4,
             marker_colors=['#FF6B6B', '#4ECDC4']
         )])
-        fig_mem.update_layout(title="RAM Distribution", height=300)
+        fig_mem.update_layout(
+            title={'text': "RAM Distribution", 'font': {'size': 14}},
+            height=250,
+            margin=dict(l=20, r=20, t=50, b=20),
+            showlegend=True,
+            legend=dict(font=dict(size=10))
+        )
         st.plotly_chart(fig_mem, use_container_width=True)
     
-    with mem_col_chart2:
+    with mem_col4:
         if mem_info['swap_total'] > 0:
             fig_swap = go.Figure(data=[go.Pie(
                 labels=['Used', 'Free'],
@@ -526,10 +537,17 @@ def main():
                 hole=0.4,
                 marker_colors=['#FFD93D', '#6BCB77']
             )])
-            fig_swap.update_layout(title="Swap Memory Distribution", height=300)
+            fig_swap.update_layout(
+                title={'text': "Swap Memory", 'font': {'size': 14}},
+                height=250,
+                margin=dict(l=20, r=20, t=50, b=20),
+                showlegend=True,
+                legend=dict(font=dict(size=10))
+            )
             st.plotly_chart(fig_swap, use_container_width=True)
         else:
-            st.info("No swap memory configured")
+            st.markdown("**Swap Memory**")
+            st.info("No swap configured")
     
     st.markdown("---")
     
@@ -537,32 +555,31 @@ def main():
     # DISK METRICS
     # ========================================================================
     
-    st.markdown("### Disk Performance")
+    st.markdown("#### Disk Performance")
     disk_info = get_disk_info()
     
     if disk_info:
-        disk_cols = st.columns(min(len(disk_info), 3))
-        
-        for idx, disk in enumerate(disk_info):
-            with disk_cols[idx % 3]:
-                st.markdown(f"**{disk['device']}**")
-                st.metric("Mount Point", disk['mountpoint'])
-                st.metric("Total Space", get_size(disk['total']))
-                st.metric("Used", f"{get_size(disk['used'])} ({disk['percent']}%)")
-                st.metric("Free", get_size(disk['free']))
-                
-                # Disk usage progress bar
-                st.progress(disk['percent'] / 100)
-                st.markdown("---")
-        
         # Disk usage comparison chart
         disk_df = pd.DataFrame(disk_info)
-        fig_disk = px.bar(disk_df, x='device', y='percent',
-                         title="Disk Usage Comparison (%)",
-                         color='percent',
-                         color_continuous_scale=['green', 'yellow', 'red'])
-        fig_disk.update_layout(height=300)
-        st.plotly_chart(fig_disk, use_container_width=True)
+        
+        col_disk1, col_disk2 = st.columns([1, 1])
+        
+        with col_disk1:
+            fig_disk = px.bar(disk_df, x='device', y='percent',
+                             title="Disk Usage Comparison (%)",
+                             color='percent',
+                             color_continuous_scale=['green', 'yellow', 'red'])
+            fig_disk.update_layout(height=250, margin=dict(l=40, r=20, t=50, b=40))
+            st.plotly_chart(fig_disk, use_container_width=True)
+        
+        with col_disk2:
+            st.markdown("**Disk Details**")
+            for disk in disk_info[:3]:  # Show first 3 disks
+                device_short = disk['device'][:15]
+                st.text(f"{device_short}")
+                st.text(f"  Total: {get_size(disk['total'])}")
+                st.text(f"  Used: {disk['percent']:.1f}%")
+                st.text("")
     else:
         st.warning("No disk information available")
     
@@ -572,7 +589,7 @@ def main():
     # NETWORK METRICS WITH REAL-TIME GRAPH
     # ========================================================================
     
-    st.markdown("### Network Performance")
+    st.markdown("#### Network Performance")
     net_info = get_network_info()
     
     # Calculate network speed in Mbps
@@ -604,99 +621,89 @@ def main():
         sent_speed = 0
         recv_speed = 0
     
-    # Current network stats
-    net_col1, net_col2, net_col3, net_col4 = st.columns(4)
+    # Current network stats and graph
+    net_col1, net_col2 = st.columns([1, 2])
     
     with net_col1:
-        st.metric("Upload Speed", f"{sent_speed:.2f} Mbps")
+        st.markdown("**Current Speed**")
+        st.metric("Upload", f"{sent_speed:.2f} Mbps")
+        st.metric("Download", f"{recv_speed:.2f} Mbps")
+        st.markdown("**Total Traffic**")
+        st.text(f"Sent: {get_size(net_info['bytes_sent'])}")
+        st.text(f"Received: {get_size(net_info['bytes_recv'])}")
+    
     with net_col2:
-        st.metric("Download Speed", f"{recv_speed:.2f} Mbps")
-    with net_col3:
-        st.metric("Total Sent", get_size(net_info['bytes_sent']))
-    with net_col4:
-        st.metric("Total Received", get_size(net_info['bytes_recv']))
-    
-    # Real-time network graph
-    st.plotly_chart(
-        create_network_realtime_chart(st.session_state.network_history),
-        use_container_width=True
-    )
-    
-    # Network interfaces
-    st.markdown("#### Active Network Interfaces")
-    interface_cols = st.columns(min(len(net_info['interfaces']), 4))
-    for idx, interface in enumerate(net_info['interfaces']):
-        with interface_cols[idx % 4]:
-            st.success(f"{interface}")
+        # Real-time network graph
+        st.plotly_chart(
+            create_network_realtime_chart(st.session_state.network_history),
+            use_container_width=True
+        )
     
     st.markdown("---")
     
     # ========================================================================
-    # PROCESS INFORMATION
+    # PROCESS INFORMATION & ALERTS
     # ========================================================================
     
-    st.markdown("### Top Processes by CPU Usage")
+    proc_col, alert_col = st.columns([2, 1])
     
-    processes = []
-    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
-        try:
-            processes.append(proc.info)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
+    with proc_col:
+        st.markdown("#### Top Processes by CPU")
+        
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
+            try:
+                processes.append(proc.info)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        
+        processes_df = pd.DataFrame(processes)
+        processes_df = processes_df.sort_values('cpu_percent', ascending=False).head(10)
+        processes_df['memory_percent'] = processes_df['memory_percent'].round(2)
+        processes_df['cpu_percent'] = processes_df['cpu_percent'].round(2)
+        
+        st.dataframe(processes_df, use_container_width=True, height=300)
     
-    processes_df = pd.DataFrame(processes)
-    processes_df = processes_df.sort_values('cpu_percent', ascending=False).head(10)
-    processes_df['memory_percent'] = processes_df['memory_percent'].round(2)
-    processes_df['cpu_percent'] = processes_df['cpu_percent'].round(2)
-    
-    st.dataframe(processes_df, use_container_width=True, height=400)
-    
-    # ========================================================================
-    # ALERTS
-    # ========================================================================
-    
-    st.markdown("---")
-    st.markdown("### System Alerts")
-    
-    alert_col1, alert_col2, alert_col3, alert_col4 = st.columns(4)
-    
-    with alert_col1:
+    with alert_col:
+        st.markdown("#### System Alerts")
+        
+        # CPU Alert
         if cpu_info['percent'] > 80:
-            st.error(f"HIGH CPU Usage: {cpu_info['percent']:.1f}%")
+            st.error(f"HIGH CPU: {cpu_info['percent']:.1f}%")
         elif cpu_info['percent'] > 60:
-            st.warning(f"MODERATE CPU Usage: {cpu_info['percent']:.1f}%")
+            st.warning(f"MOD CPU: {cpu_info['percent']:.1f}%")
         else:
-            st.success(f"CPU Usage Normal: {cpu_info['percent']:.1f}%")
-    
-    with alert_col2:
+            st.success(f"CPU OK: {cpu_info['percent']:.1f}%")
+        
+        # Memory Alert
         if mem_info['percent'] > 80:
-            st.error(f"HIGH Memory Usage: {mem_info['percent']:.1f}%")
+            st.error(f"HIGH MEM: {mem_info['percent']:.1f}%")
         elif mem_info['percent'] > 60:
-            st.warning(f"MODERATE Memory Usage: {mem_info['percent']:.1f}%")
+            st.warning(f"MOD MEM: {mem_info['percent']:.1f}%")
         else:
-            st.success(f"Memory Usage Normal: {mem_info['percent']:.1f}%")
-    
-    with alert_col3:
+            st.success(f"MEM OK: {mem_info['percent']:.1f}%")
+        
+        # Disk Alert
         high_disk = any(d['percent'] > 80 for d in disk_info)
         moderate_disk = any(d['percent'] > 60 for d in disk_info)
         
         if high_disk:
-            st.error("HIGH Disk Usage Detected")
+            st.error("HIGH Disk Usage")
         elif moderate_disk:
-            st.warning("MODERATE Disk Usage")
+            st.warning("MOD Disk Usage")
         else:
-            st.success("Disk Usage Normal")
-    
-    with alert_col4:
+            st.success("Disk OK")
+        
+        # GPU Alert
         if gpu_info['available']:
             if gpu_info['load'] > 80:
-                st.error(f"HIGH GPU Usage: {gpu_info['load']:.1f}%")
+                st.error(f"HIGH GPU: {gpu_info['load']:.1f}%")
             elif gpu_info['load'] > 60:
-                st.warning(f"MODERATE GPU Usage: {gpu_info['load']:.1f}%")
+                st.warning(f"MOD GPU: {gpu_info['load']:.1f}%")
             else:
-                st.success(f"GPU Usage Normal: {gpu_info['load']:.1f}%")
+                st.success(f"GPU OK: {gpu_info['load']:.1f}%")
         else:
-            st.info("GPU Not Available")
+            st.info("GPU N/A")
     
     # Auto-refresh
     if auto_refresh:
