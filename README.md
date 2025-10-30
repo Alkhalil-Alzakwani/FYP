@@ -34,6 +34,7 @@ FYP-Project/
 │   ├── AI_Log_Analysis.py                # Mistral LLM analysis page
 │   ├── Threat_Scoring.py                 # Threat scoring algorithms
 │   ├── Performance_Metrics.py            # KPI tracking and reports
+│   ├── Server_Performance.py             # Real-time server resource monitoring
 │   ├── System_Configuration.py           # API keys, DB setup, thresholds
 │   ├── Forensics_And_Reports.py          # Incident reports and exports
 │   └── User_Management.py                # Admin page for managing user accounts
@@ -285,6 +286,27 @@ Automatic blocking is triggered for High category.
 * Scatter plot: Severity vs. response time
 
 **Data Source:** performance_metrics, system logs
+
+---
+
+**Server Performance** (`pages/Server_Performance.py`)
+
+**Purpose:** Real-time server resource monitoring
+**Features:**
+
+* Live CPU utilization monitoring (overall and per-core)
+* Memory usage tracking (RAM and Swap)
+* Disk space and I/O statistics for all partitions
+* Network traffic monitoring (bytes sent/received, active interfaces)
+* GPU metrics (if available)
+* Top processes by CPU usage
+* System information (OS, uptime, boot time)
+* Auto-refresh capability (configurable interval)
+* Alert thresholds for high resource usage
+* Interactive gauges, charts, and graphs
+* Export performance reports
+  **Data source:** psutil (real-time system metrics)
+  **Visualizations:** Plotly gauge charts, bar charts, pie charts, line graphs
 
 ---
 

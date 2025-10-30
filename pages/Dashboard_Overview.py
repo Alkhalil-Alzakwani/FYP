@@ -444,7 +444,7 @@ def render_quick_navigation():
     """Render quick navigation links to other pages"""
     st.subheader("Quick Access")
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         if st.button("Live Threat Monitor", use_container_width=True):
@@ -461,6 +461,10 @@ def render_quick_navigation():
     with col4:
         if st.button("Performance Metrics", use_container_width=True):
             st.switch_page("pages/Performance_Metrics.py")
+    
+    with col5:
+        if st.button("Server Performance", use_container_width=True):
+            st.switch_page("pages/Server_Performance.py")
 
 
 def render_sidebar():
@@ -474,6 +478,7 @@ def render_sidebar():
         st.page_link("pages/AI_Log_Analysis.py", label="AI Log Analysis")
         st.page_link("pages/Threat_Scoring.py", label="Threat Scoring")
         st.page_link("pages/Performance_Metrics.py", label="Performance Metrics")
+        st.page_link("pages/Server_Performance.py", label="Server Performance")
         st.page_link("pages/System_Configuration.py", label="System Configuration")
         st.page_link("pages/Forensics_And_Reports.py", label="Forensics & Reports")
         st.page_link("pages/User_Management.py", label="User Management")
