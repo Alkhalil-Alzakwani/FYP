@@ -113,6 +113,45 @@ st.set_page_config(
 )
 
 # ============================================================================
+# CUSTOM CSS FOR SCROLLING
+# ============================================================================
+
+st.markdown("""
+<style>
+    /* Ensure main container is scrollable */
+    .main {
+        overflow-y: auto !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+    }
+    
+    /* Fix block container */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 100% !important;
+        overflow-y: visible !important;
+    }
+    
+    /* Sidebar scrolling */
+    section[data-testid="stSidebar"] {
+        height: 100vh !important;
+        overflow-y: auto !important;
+    }
+    
+    /* Force scrolling on app view container */
+    .appview-container {
+        overflow-y: auto !important;
+    }
+    
+    /* Make sure content doesn't get cut off */
+    div[data-testid="stVerticalBlock"] {
+        overflow: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================================
 # CONSTANTS & PATHS
 # ============================================================================
 
@@ -306,7 +345,7 @@ def render_database_config():
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
     
     with col_btn1:
-        if st.button("Save Database Config", use_container_width=True):
+        if st.button("Save Database Config", key="save_db_config", use_container_width=True):
             new_config = {
                 'type': db_type,
                 'pool_size': pool_size,
@@ -328,7 +367,7 @@ def render_database_config():
                 st.success("Database configuration saved successfully!")
     
     with col_btn2:
-        if st.button("Test Connection", use_container_width=True):
+        if st.button("Test Connection", key="test_db_connection", use_container_width=True):
             success, message = test_database_connection(config)
             if success:
                 st.success(f"{message}")
@@ -390,7 +429,7 @@ def render_splunk_config():
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
     
     with col_btn1:
-        if st.button("Save Splunk Config", use_container_width=True):
+        if st.button("Save Splunk Config", key="save_splunk_config", use_container_width=True):
             new_config = {
                 'host': splunk_host,
                 'port': splunk_port,
@@ -406,7 +445,7 @@ def render_splunk_config():
                 st.success("Splunk configuration saved successfully!")
     
     with col_btn2:
-        if st.button("🔌 Test Connection", use_container_width=True):
+        if st.button("Test Connection", key="test_splunk_connection", use_container_width=True):
             success, message = test_splunk_connection(config)
             if success:
                 st.success(f"{message}")
@@ -473,7 +512,7 @@ def render_mistral_config():
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
     
     with col_btn1:
-        if st.button("Save Mistral Config", use_container_width=True):
+        if st.button("Save Mistral Config", key="save_mistral_config", use_container_width=True):
             new_config = {
                 'api_endpoint': api_endpoint,
                 'api_key': api_key,
@@ -488,7 +527,7 @@ def render_mistral_config():
                 st.success("Mistral AI configuration saved successfully!")
     
     with col_btn2:
-        if st.button("Test Connection", use_container_width=True):
+        if st.button("Test Connection", key="test_mistral_connection", use_container_width=True):
             success, message = test_mistral_connection(config)
             if success:
                 st.success(f"{message}")
@@ -552,7 +591,7 @@ def render_security_config():
             value=config.get('password_policy', {}).get('require_special', True)
         )
     
-    if st.button("Save Security Settings", use_container_width=True):
+    if st.button("Save Security Settings", key="save_security_settings", use_container_width=True):
         new_config = {
             'session_timeout_minutes': session_timeout,
             'max_login_attempts': max_login_attempts,
@@ -636,7 +675,7 @@ def render_thresholds_config():
             help="Minimum LLM confidence to act on threat"
         )
     
-    if st.button("Save Thresholds", use_container_width=True):
+    if st.button("Save Thresholds", key="save_thresholds", use_container_width=True):
         new_config = {
             'severity': {
                 'low': {'min': low_min, 'max': low_max},
@@ -664,7 +703,7 @@ def render_backup_restore():
     
     with col1:
         st.markdown("**Create Backup**")
-        if st.button("Backup All Configurations", use_container_width=True):
+        if st.button("Backup All Configurations", key="backup_configs", use_container_width=True):
             backup_name = f"config_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             st.info(f"Creating backup: {backup_name}")
             # Implement actual backup logic
@@ -672,8 +711,8 @@ def render_backup_restore():
     
     with col2:
         st.markdown("**Restore from Backup**")
-        backup_file = st.file_uploader("Choose backup file", type=['zip', 'tar'])
-        if backup_file and st.button("Restore Configuration", use_container_width=True):
+        backup_file = st.file_uploader("Choose backup file", type=['zip', 'tar'], key="backup_uploader")
+        if backup_file and st.button("Restore Configuration", key="restore_config", use_container_width=True):
             st.warning("This will overwrite current configuration!")
             # Implement actual restore logic
             st.success("Configuration restored successfully!")
@@ -690,16 +729,14 @@ def main():
     st.markdown("Configure system settings, API credentials, and operational parameters")
     st.markdown("---")
     
-    # Check admin access (placeholder - implement actual authentication check)
-    if not st.session_state.get('authenticated', False):
-        st.warning("Please login to access system configuration")
-        if st.button("Go to Login"):
-            st.switch_page("pages/login.py")
-        st.stop()
+    # Check admin role only (no authentication required)
+    user_role = st.session_state.get('role', 'admin')  # Default to admin for testing
     
-    # Check admin role
-    if st.session_state.get('role', '') != 'admin':
+    if user_role != 'admin':
         st.error("Access Denied: Admin privileges required")
+        st.info("This page is restricted to administrators only.")
+        if st.button("Go to Dashboard", key="go_to_dashboard"):
+            st.switch_page("pages/Dashboard_Overview.py")
         st.stop()
     
     # Configuration tabs
@@ -743,10 +780,10 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### Quick Actions")
-    if st.button("Reload All Configs", use_container_width=True):
+    if st.button("Reload All Configs", key="reload_configs", use_container_width=True):
         st.rerun()
     
-    if st.button("Export All Settings", use_container_width=True):
+    if st.button("Export All Settings", key="export_settings", use_container_width=True):
         st.info("Export functionality coming soon")
     
     st.markdown("---")

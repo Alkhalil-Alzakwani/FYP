@@ -50,7 +50,7 @@ SECURITY FEATURES:
     - Password hashing with bcrypt
     - Session token generation
     - IP address tracking
-    - User agent logging
+    - User agent loggin
     - Protection against SQL injection
     - Rate limiting for brute force prevention
 
@@ -126,6 +126,45 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# ============================================================================
+# CUSTOM CSS FOR SCROLLING
+# ============================================================================
+
+st.markdown("""
+<style>
+    /* Ensure main container is scrollable */
+    .main {
+        overflow-y: auto !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+    }
+    
+    /* Fix block container */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 100% !important;
+        overflow-y: visible !important;
+    }
+    
+    /* Sidebar scrolling */
+    section[data-testid="stSidebar"] {
+        height: 100vh !important;
+        overflow-y: auto !important;
+    }
+    
+    /* Force scrolling on app view container */
+    .appview-container {
+        overflow-y: auto !important;
+    }
+    
+    /* Make sure content doesn't get cut off */
+    div[data-testid="stVerticalBlock"] {
+        overflow: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Load custom CSS if available
 css_path = project_root / "assets" / "style.css"

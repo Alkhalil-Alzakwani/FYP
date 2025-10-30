@@ -101,6 +101,7 @@ st.markdown("""
     .main {
         overflow-y: auto !important;
         height: 100vh !important;
+        max-height: 100vh !important;
     }
     
     /* Fix block container */
@@ -108,12 +109,23 @@ st.markdown("""
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
         max-width: 100% !important;
+        overflow-y: visible !important;
     }
     
     /* Remove fixed positioning that blocks scrolling */
     section[data-testid="stSidebar"] {
         height: 100vh !important;
         overflow-y: auto !important;
+    }
+    
+    /* Force scrolling on app view container */
+    .appview-container {
+        overflow-y: auto !important;
+    }
+    
+    /* Make sure content doesn't get cut off */
+    div[data-testid="stVerticalBlock"] {
+        overflow: visible !important;
     }
 </style>
 """, unsafe_allow_html=True)

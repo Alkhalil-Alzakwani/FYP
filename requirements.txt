@@ -3,3 +3,4 @@ sqlite3
 psutil>=5.9.0
 plotly>=5.14.0
 pandas>=2.0.0
+gputil>=1.4.0
