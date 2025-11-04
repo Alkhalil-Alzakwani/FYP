@@ -98,12 +98,12 @@ st.markdown("""
 <style>
     /* Page background color */
     .stApp {
-        background-color: #0f1220;
+        background-color: #0f1220 !important;
     }
     
     /* Main content background */
     .main {
-        background-color: #0f1220;
+        background-color: #0f1220 !important;
         overflow-y: auto !important;
         height: 100vh !important;
         max-height: 100vh !important;
@@ -115,7 +115,7 @@ st.markdown("""
         padding-bottom: 2rem !important;
         max-width: 100% !important;
         overflow-y: visible !important;
-        background-color: #0f1220;
+        background-color: #0f1220 !important;
     }
     
     /* Sidebar scrolling */
@@ -134,14 +134,30 @@ st.markdown("""
         overflow: visible !important;
     }
     
-    /* Smooth transitions for updates */
-    .stApp {
-        transition: opacity 0.3s ease-in-out;
+    /* Remove ALL transitions and animations to prevent flash */
+    *, *::before, *::after {
+        transition: none !important;
+        animation: none !important;
     }
     
-    /* Prevent flash on rerun */
+    /* Prevent iframe flashing */
+    iframe {
+        opacity: 1 !important;
+    }
+    
+    /* Prevent element container flash */
     .element-container {
-        transition: all 0.2s ease-in-out;
+        opacity: 1 !important;
+    }
+    
+    /* Prevent stale element warnings from showing */
+    .stException {
+        display: none !important;
+    }
+    
+    /* Keep fragments stable during updates */
+    [data-testid="stVerticalBlock"] > div {
+        opacity: 1 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -398,99 +414,93 @@ def create_network_realtime_chart(history_data):
 # MAIN CONTENT
 # ============================================================================
 
-def main():
-    """Main function for server performance monitoring"""
+@st.fragment(run_every="2s")
+def update_dashboard():
+    """Fragment that updates dashboard content every 2 seconds without full page reload"""
     
-    st.markdown('<h1 style="color: #c0c0c0;">Server Performance Dashboard</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #a8a8a8; font-size: 16px;">Real-time system monitoring and resource utilization</p>', unsafe_allow_html=True)
-    
-    # Initialize session state for network history
-    if 'network_history' not in st.session_state:
-        st.session_state.network_history = []
-    if 'last_network_bytes' not in st.session_state:
-        st.session_state.last_network_bytes = {'sent': 0, 'recv': 0, 'time': time.time()}
-    
-    # Get all system information at once
-    sys_info = get_system_info()
-    cpu_info = get_cpu_info()
-    gpu_info = get_gpu_info()
-    mem_info = get_memory_info()
-    disk_info = get_disk_info()
-    net_info = get_network_info()
-    
-    # Calculate network speed in Kbps for more visible curves (scaled down by 2x)
-    current_time = time.time()
-    time_diff = current_time - st.session_state.last_network_bytes['time']
-    
-    # Only calculate speed if we have previous data (not first run)
-    if st.session_state.last_network_bytes['sent'] > 0 and time_diff > 0:
-        sent_speed = (net_info['bytes_sent'] - st.session_state.last_network_bytes['sent']) / time_diff / 1024 * 8 / 2
-        recv_speed = (net_info['bytes_recv'] - st.session_state.last_network_bytes['recv']) / time_diff / 1024 * 8 / 2
+    # Use a container to wrap all updates for smoother rendering
+    with st.container():
+        # Get all system information at once
+        sys_info = get_system_info()
+        cpu_info = get_cpu_info()
+        gpu_info = get_gpu_info()
+        mem_info = get_memory_info()
+        disk_info = get_disk_info()
+        net_info = get_network_info()
         
-        st.session_state.network_history.append({
-            'timestamp': datetime.now(),
-            'sent_mbps': max(0, sent_speed),
-            'recv_mbps': max(0, recv_speed)
-        })
+        # Calculate network speed in Kbps for more visible curves (scaled down by 2x)
+        current_time = time.time()
+        time_diff = current_time - st.session_state.last_network_bytes['time']
         
-        if len(st.session_state.network_history) > 60:
-            st.session_state.network_history = st.session_state.network_history[-60:]
-    else:
-        sent_speed = 0
-        recv_speed = 0
-    
-    # Always update the last values for next calculation
-    st.session_state.last_network_bytes = {
-        'sent': net_info['bytes_sent'],
-        'recv': net_info['bytes_recv'],
-        'time': current_time
-    }
-    
-    # ========================================================================
-    # SYSTEM INFO BAR CARD
-    # ========================================================================
-    
-    uptime_str = str(sys_info['uptime']).split('.')[0]
-    
-    # Create compact system info bar
-    st.markdown(f"""
-    <div style="background: #1e2139; 
-                padding: 15px 20px; 
-                border-radius: 10px; 
-                margin-bottom: 20px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <div style="display: flex; justify-content: space-between; align-items: center; color: white;">
-            <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">System</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['system']} {sys_info['release']}</div>
-            </div>
-            <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Machine</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['machine']}</div>
-            </div>
-            <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Processor</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['processor'][:30]}</div>
-            </div>
-            <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Boot Time</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['boot_time'].strftime("%Y-%m-%d %H:%M")}</div>
-            </div>
-            <div style="flex: 1; text-align: center; padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Uptime</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{uptime_str}</div>
+        # Only calculate speed if we have previous data (not first run)
+        if st.session_state.last_network_bytes['sent'] > 0 and time_diff > 0:
+            sent_speed = (net_info['bytes_sent'] - st.session_state.last_network_bytes['sent']) / time_diff / 1024 * 8 / 2
+            recv_speed = (net_info['bytes_recv'] - st.session_state.last_network_bytes['recv']) / time_diff / 1024 * 8 / 2
+            
+            st.session_state.network_history.append({
+                'timestamp': datetime.now(),
+                'sent_mbps': max(0, sent_speed),
+                'recv_mbps': max(0, recv_speed)
+            })
+            
+            if len(st.session_state.network_history) > 60:
+                st.session_state.network_history = st.session_state.network_history[-60:]
+        else:
+            sent_speed = 0
+            recv_speed = 0
+        
+        # Always update the last values for next calculation
+        st.session_state.last_network_bytes = {
+            'sent': net_info['bytes_sent'],
+            'recv': net_info['bytes_recv'],
+            'time': current_time
+        }
+        
+        # ====================================================================
+        # SYSTEM INFO BAR CARD
+        # ====================================================================
+        
+        uptime_str = str(sys_info['uptime']).split('.')[0]
+        
+        # Create compact system info bar
+        st.markdown(f"""
+        <div style="background: #1e2139; 
+                    padding: 15px 20px; 
+                    border-radius: 10px; 
+                    margin-bottom: 20px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; color: white;">
+                <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
+                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">System</div>
+                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['system']} {sys_info['release']}</div>
+                </div>
+                <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
+                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Machine</div>
+                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['machine']}</div>
+                </div>
+                <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
+                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Processor</div>
+                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['processor'][:30]}</div>
+                </div>
+                <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
+                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Boot Time</div>
+                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['boot_time'].strftime("%Y-%m-%d %H:%M")}</div>
+                </div>
+                <div style="flex: 1; text-align: center; padding: 0 15px;">
+                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Uptime</div>
+                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{uptime_str}</div>
+                </div>
             </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ========================================================================
-    # SYSTEM STATUS BAR CARD
-    # ========================================================================
-    
-    # Determine status colors and levels
-    cpu_status = "HIGH" if cpu_info['percent'] > 80 else "MODERATE" if cpu_info['percent'] > 60 else "NORMAL"
-    cpu_color = "#ff4444" if cpu_info['percent'] > 80 else "#ffa726" if cpu_info['percent'] > 60 else "#66bb6a"
+        """, unsafe_allow_html=True)
+        
+        # ====================================================================
+        # SYSTEM STATUS BAR CARD
+        # ====================================================================
+        
+        # Determine status colors and levels
+        cpu_status = "HIGH" if cpu_info['percent'] > 80 else "MODERATE" if cpu_info['percent'] > 60 else "NORMAL"
+        cpu_color = "#ff4444" if cpu_info['percent'] > 80 else "#ffa726" if cpu_info['percent'] > 60 else "#66bb6a"
     
     mem_status = "HIGH" if mem_info['percent'] > 80 else "MODERATE" if mem_info['percent'] > 60 else "NORMAL"
     mem_color = "#ff4444" if mem_info['percent'] > 80 else "#ffa726" if mem_info['percent'] > 60 else "#66bb6a"
@@ -1123,14 +1133,22 @@ def main():
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+
+def main():
+    """Main function for server performance monitoring"""
     
-    # ========================================================================
-    # AUTO-REFRESH (NO FLASH)
-    # ========================================================================
+    st.markdown('<h1 style="color: #c0c0c0;">Server Performance Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #a8a8a8; font-size: 16px;">Real-time system monitoring and resource utilization (Auto-refresh: 2 seconds)</p>', unsafe_allow_html=True)
     
-    # Use placeholder for smooth updates without page flash
-    time.sleep(30)
-    st.rerun()
+    # Initialize session state for network history
+    if 'network_history' not in st.session_state:
+        st.session_state.network_history = []
+    if 'last_network_bytes' not in st.session_state:
+        st.session_state.last_network_bytes = {'sent': 0, 'recv': 0, 'time': time.time()}
+    
+    # Call the fragment function that updates every 2 seconds
+    update_dashboard()
 
 
 # ============================================================================
@@ -1142,7 +1160,7 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### Monitoring Options")
-    st.info("Auto-refresh: Every 30 seconds")
+    st.info("🔄 Real-time updates: Every 2 seconds (no flash, smooth updates)")
     
     st.markdown("---")
     st.markdown("### Alert Thresholds")
