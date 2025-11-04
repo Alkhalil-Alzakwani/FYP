@@ -350,7 +350,7 @@ def create_gauge_chart(value, title, max_value=100, height=250):
 
 
 def create_network_realtime_chart(history_data):
-    """Create real-time network usage line chart"""
+    """Create real-time network usage line chart with smooth curves"""
     fig = go.Figure()
     
     if len(history_data) > 0:
@@ -360,8 +360,8 @@ def create_network_realtime_chart(history_data):
             x=df['timestamp'],
             y=df['sent_mbps'],
             mode='lines',
-            name='Upload (Mbps)',
-            line=dict(color='#ec4899', width=2),
+            name='Upload (Kbps)',
+            line=dict(color='#ec4899', width=3, shape='spline', smoothing=1.3),
             fill='tozeroy',
             fillcolor='rgba(236, 72, 153, 0.2)'
         ))
@@ -370,8 +370,8 @@ def create_network_realtime_chart(history_data):
             x=df['timestamp'],
             y=df['recv_mbps'],
             mode='lines',
-            name='Download (Mbps)',
-            line=dict(color='#8b5cf6', width=2),
+            name='Download (Kbps)',
+            line=dict(color='#8b5cf6', width=3, shape='spline', smoothing=1.3),
             fill='tozeroy',
             fillcolor='rgba(139, 92, 246, 0.2)'
         ))
@@ -379,7 +379,7 @@ def create_network_realtime_chart(history_data):
     fig.update_layout(
         title={'text': "Real-Time Network Traffic", 'font': {'size': 16, 'color': 'white'}},
         xaxis_title="Time",
-        yaxis_title="Speed (Mbps)",
+        yaxis_title="Speed (Kbps)",
         height=330,
         hovermode='x unified',
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='white')),
@@ -418,13 +418,14 @@ def main():
     disk_info = get_disk_info()
     net_info = get_network_info()
     
-    # Calculate network speed
+    # Calculate network speed in Kbps for more visible curves (scaled down by 2x)
     current_time = time.time()
     time_diff = current_time - st.session_state.last_network_bytes['time']
     
-    if time_diff > 0:
-        sent_speed = (net_info['bytes_sent'] - st.session_state.last_network_bytes['sent']) / time_diff / 1024 / 1024 * 8
-        recv_speed = (net_info['bytes_recv'] - st.session_state.last_network_bytes['recv']) / time_diff / 1024 / 1024 * 8
+    # Only calculate speed if we have previous data (not first run)
+    if st.session_state.last_network_bytes['sent'] > 0 and time_diff > 0:
+        sent_speed = (net_info['bytes_sent'] - st.session_state.last_network_bytes['sent']) / time_diff / 1024 * 8 / 2
+        recv_speed = (net_info['bytes_recv'] - st.session_state.last_network_bytes['recv']) / time_diff / 1024 * 8 / 2
         
         st.session_state.network_history.append({
             'timestamp': datetime.now(),
@@ -432,17 +433,18 @@ def main():
             'recv_mbps': max(0, recv_speed)
         })
         
-        if len(st.session_state.network_history) > 30:
-            st.session_state.network_history = st.session_state.network_history[-30:]
-        
-        st.session_state.last_network_bytes = {
-            'sent': net_info['bytes_sent'],
-            'recv': net_info['bytes_recv'],
-            'time': current_time
-        }
+        if len(st.session_state.network_history) > 60:
+            st.session_state.network_history = st.session_state.network_history[-60:]
     else:
         sent_speed = 0
         recv_speed = 0
+    
+    # Always update the last values for next calculation
+    st.session_state.last_network_bytes = {
+        'sent': net_info['bytes_sent'],
+        'recv': net_info['bytes_recv'],
+        'time': current_time
+    }
     
     # ========================================================================
     # SYSTEM INFO BAR CARD
@@ -894,11 +896,11 @@ def main():
             <div style="color: white;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span style="opacity: 0.8;">Upload Speed:</span>
-                    <span style="font-weight: bold; color: #ec4899;">{sent_speed:.2f} Mbps</span>
+                    <span style="font-weight: bold; color: #ec4899;">{sent_speed:.2f} Kbps</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span style="opacity: 0.8;">Download Speed:</span>
-                    <span style="font-weight: bold; color: #8b5cf6;">{recv_speed:.2f} Mbps</span>
+                    <span style="font-weight: bold; color: #8b5cf6;">{recv_speed:.2f} Kbps</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span style="opacity: 0.8;">Total Sent:</span>
