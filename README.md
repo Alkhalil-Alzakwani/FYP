@@ -1,5 +1,5 @@
 Multilayered Cyber Defense Platform Dashboard Documentation
-testt
+
 1. Overall Architecture
 
   Purpose
