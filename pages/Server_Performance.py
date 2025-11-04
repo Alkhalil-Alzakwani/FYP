@@ -748,7 +748,7 @@ def update_dashboard():
         </div>
         """, unsafe_allow_html=True)
     
-    # RAM DISTRIBUTION CARD
+    # RAM DISTRIBUTION & DISK USAGE CARD (MERGED)
     with row3_col2:
         st.markdown("""
         <div style="background: #1f1f28; 
@@ -756,30 +756,83 @@ def update_dashboard():
                     border-radius: 10px 10px 0 0; 
                     border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
-                <div style="font-size: 18px; font-weight: bold; text-align: center;">RAM Distribution</div>
+                <div style="font-size: 18px; font-weight: bold; text-align: center;">RAM Distribution & Disk Usage</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        fig_mem = go.Figure(data=[go.Pie(
-            labels=['Used', 'Available'],
-            values=[mem_info['used'], mem_info['available']],
-            hole=0.4,
-            marker_colors=['#dc3545', '#007bff']
-        )])
+        # Create RAM Distribution bar chart
+        used_percent = (mem_info['used'] / mem_info['total'] * 100) if mem_info['total'] > 0 else 0
+        avail_percent = (mem_info['available'] / mem_info['total'] * 100) if mem_info['total'] > 0 else 0
+        
+        fig_mem = go.Figure()
+        
+        # Add background bar (100% capacity)
+        fig_mem.add_trace(go.Bar(
+            x=['RAM'],
+            y=[100],
+            name='Capacity',
+            marker=dict(
+                color='rgba(0, 0, 0, 0.5)',
+                line=dict(color='#000000', width=2),
+                cornerradius="30%"
+            ),
+            width=0.25,
+            showlegend=False
+        ))
+        
+        # Add available bar (bottom layer)
+        fig_mem.add_trace(go.Bar(
+            x=['RAM'],
+            y=[100],
+            name='Available',
+            marker=dict(
+                color='#007bff',
+                line=dict(color='#000000', width=1),
+                cornerradius="30%"
+            ),
+            width=0.25,
+            showlegend=False
+        ))
+        
+        # Add used bar (top layer)
+        fig_mem.add_trace(go.Bar(
+            x=['RAM'],
+            y=[used_percent],
+            name='Used',
+            marker=dict(
+                color='#dc3545',
+                line=dict(color='#000000', width=1),
+                cornerradius="30%"
+            ),
+            width=0.25,
+            showlegend=False
+        ))
+        
         fig_mem.update_layout(
             height=220,
-            margin=dict(l=10, r=10, t=20, b=10),
-            showlegend=True,
-            legend=dict(font=dict(size=9, color='white'), orientation="h", yanchor="bottom", y=-0.1),
+            margin=dict(l=30, r=10, t=20, b=40),
+            xaxis={'tickfont': {'size': 10, 'color': 'white'}},
+            yaxis={'tickfont': {'color': 'white'}, 'range': [0, 100]},
             paper_bgcolor="#1f1f28",
             plot_bgcolor="#1f1f28",
-            font={'color': 'white'}
+            font={'color': 'white'},
+            barmode='overlay',
+            bargap=0.3,
+            showlegend=False
         )
         st.plotly_chart(fig_mem, use_container_width=True)
         
-        used_percent = (mem_info['used'] / mem_info['total'] * 100) if mem_info['total'] > 0 else 0
-        avail_percent = (mem_info['available'] / mem_info['total'] * 100) if mem_info['total'] > 0 else 0
+        # Build disk details list
+        disk_items = []
+        if disk_info:
+            for i, disk in enumerate(disk_info[:3]):
+                device_short = disk['device'][:15] + "..." if len(disk['device']) > 15 else disk['device']
+                disk_items.append(f'<div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px;"><span style="opacity: 0.7;">{device_short}</span><span style="font-weight: bold;">{disk["percent"]:.1f}%</span></div>')
+        else:
+            disk_items.append('<div style="text-align: center; opacity: 0.7; font-size: 11px;">No disk info</div>')
+        
+        disk_details_html = ''.join(disk_items)
         
         st.markdown(f"""
         <div style="background: #1f1f28; 
@@ -787,16 +840,11 @@ def update_dashboard():
                     border-radius: 0 0 10px 10px; 
                     border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                     margin-top: -20px;
-                    height: 140px;">
+                    height: 140px;
+                    overflow-y: auto;">
             <div style="color: white;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Used:</span>
-                    <span style="font-weight: bold;">{used_percent:.1f}%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Available:</span>
-                    <span style="font-weight: bold;">{avail_percent:.1f}%</span>
-                </div>
+                <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; opacity: 0.9;">Disk Partitions:</div>
+                {disk_details_html}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -816,17 +864,49 @@ def update_dashboard():
         
         if disk_info:
             disk_df = pd.DataFrame(disk_info)
-            fig_disk = px.bar(disk_df, x='device', y='percent',
-                             color='percent',
-                             color_continuous_scale=["#28a745", "#ffc107", "#dc3545"])
+            
+            # Create overlay bar chart with background and usage bars
+            fig_disk = go.Figure()
+            
+            # Add background bars (100% capacity)
+            fig_disk.add_trace(go.Bar(
+                x=disk_df['device'],
+                y=[100] * len(disk_df),
+                name='Capacity',
+                marker=dict(
+                    color='rgba(0, 0, 0, 0.5)',
+                    line=dict(color='#000000', width=2),
+                    cornerradius="30%"
+                ),
+                width=0.25,
+                showlegend=False
+            ))
+            
+            # Add usage bars with color based on percentage
+            colors = ['#007bff' if percent < 80 else '#dc3545' for percent in disk_df['percent']]
+            fig_disk.add_trace(go.Bar(
+                x=disk_df['device'],
+                y=disk_df['percent'],
+                name='Usage',
+                marker=dict(
+                    color=colors,
+                    line=dict(color='#000000', width=1),
+                    cornerradius="30%"
+                ),
+                width=0.25,
+                showlegend=False
+            ))
+            
             fig_disk.update_layout(
                 height=220,
                 margin=dict(l=30, r=10, t=20, b=40),
                 xaxis={'tickangle': -45, 'tickfont': {'size': 9, 'color': 'white'}, 'showticklabels': True},
-                yaxis={'tickfont': {'color': 'white'}},
+                yaxis={'tickfont': {'color': 'white'}, 'range': [0, 100]},
                 paper_bgcolor="#1f1f28",
                 plot_bgcolor="#1f1f28",
                 font={'color': 'white'},
+                barmode='overlay',
+                bargap=0.3,
                 showlegend=False
             )
             st.plotly_chart(fig_disk, use_container_width=True)
