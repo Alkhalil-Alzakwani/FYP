@@ -1,4 +1,4 @@
-"""
+﻿"""
 ================================================================================
 MULTILAYERED CYBER DEFENSE PLATFORM - SERVER PERFORMANCE MONITOR
 ================================================================================
@@ -96,14 +96,8 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Page background color */
-    .stApp {
-        background-color: #0f1220 !important;
-    }
-    
     /* Main content background */
     .main {
-        background-color: #0f1220 !important;
         overflow-y: auto !important;
         height: 100vh !important;
         max-height: 100vh !important;
@@ -115,7 +109,6 @@ st.markdown("""
         padding-bottom: 2rem !important;
         max-width: 100% !important;
         overflow-y: visible !important;
-        background-color: #0f1220 !important;
     }
     
     /* Sidebar scrolling */
@@ -318,13 +311,13 @@ def get_system_info():
 
 def create_gauge_chart(value, title, max_value=100, height=250):
     """Create a compact gauge chart for resource utilization"""
-    # Determine color based on value - using new color scheme
+    # Determine color based on value - simple color scheme
     if value < 50:
-        color = "#8b5cf6"  # Purple
+        color = "#28a745"  # Green
     elif value < 80:
-        color = "#ec4899"  # Pink
+        color = "#ffc107"  # Yellow
     else:
-        color = "#f43f5e"  # Rose/Red
+        color = "#dc3545"  # Red
     
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
@@ -340,16 +333,16 @@ def create_gauge_chart(value, title, max_value=100, height=250):
                 'tickfont': {'size': 12, 'color': 'white'}
             },
             'bar': {'color': color, 'thickness': 0.65},
-            'bgcolor': "#1e2139",
+            'bgcolor': "#1f1f28",
             'borderwidth': 2,
-            'bordercolor': "#2d3250",
+            'bordercolor': "#3a4150",
             'steps': [
-                {'range': [0, 50], 'color': 'rgba(139, 92, 246, 0.1)'},
-                {'range': [50, 80], 'color': 'rgba(236, 72, 153, 0.1)'},
-                {'range': [80, 100], 'color': 'rgba(244, 63, 94, 0.1)'}
+                {'range': [0, 50], 'color': 'rgba(40, 167, 69, 0.1)'},
+                {'range': [50, 80], 'color': 'rgba(255, 193, 7, 0.1)'},
+                {'range': [80, 100], 'color': 'rgba(220, 53, 69, 0.1)'}
             ],
             'threshold': {
-                'line': {'color': "#f43f5e", 'width': 4},
+                'line': {'color': "#dc3545", 'width': 4},
                 'thickness': 0.75,
                 'value': 90
             }
@@ -359,7 +352,7 @@ def create_gauge_chart(value, title, max_value=100, height=250):
     fig.update_layout(
         height=height,
         margin=dict(l=10, r=10, t=50, b=10),
-        paper_bgcolor="#1e2139",
+        paper_bgcolor="#1f1f28",
         font={'color': "white", 'family': "Arial"}
     )
     return fig
@@ -377,9 +370,9 @@ def create_network_realtime_chart(history_data):
             y=df['sent_mbps'],
             mode='lines',
             name='Upload (Kbps)',
-            line=dict(color='#ec4899', width=3, shape='spline', smoothing=1.3),
+            line=dict(color='#dc3545', width=3, shape='spline', smoothing=1.3),
             fill='tozeroy',
-            fillcolor='rgba(236, 72, 153, 0.2)'
+            fillcolor='rgba(220, 53, 69, 0.2)'
         ))
         
         fig.add_trace(go.Scatter(
@@ -387,9 +380,9 @@ def create_network_realtime_chart(history_data):
             y=df['recv_mbps'],
             mode='lines',
             name='Download (Kbps)',
-            line=dict(color='#8b5cf6', width=3, shape='spline', smoothing=1.3),
+            line=dict(color='#007bff', width=3, shape='spline', smoothing=1.3),
             fill='tozeroy',
-            fillcolor='rgba(139, 92, 246, 0.2)'
+            fillcolor='rgba(0, 123, 255, 0.2)'
         ))
     
     fig.update_layout(
@@ -400,8 +393,8 @@ def create_network_realtime_chart(history_data):
         hovermode='x unified',
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='white')),
         margin=dict(l=40, r=20, t=50, b=40),
-        plot_bgcolor='#1e2139',
-        paper_bgcolor='#1e2139',
+        plot_bgcolor='#1f1f28',
+        paper_bgcolor='#1f1f28',
         font={'color': 'white'},
         xaxis=dict(gridcolor='rgba(255,255,255,0.1)', color='white'),
         yaxis=dict(gridcolor='rgba(255,255,255,0.1)', color='white')
@@ -464,30 +457,31 @@ def update_dashboard():
         
         # Create compact system info bar
         st.markdown(f"""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 15px 20px; 
                     border-radius: 10px; 
                     margin-bottom: 20px;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    border: 1px solid #3a4150;
+                    box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; color: white;">
-                <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">System</div>
+                <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
+                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">System</div>
                     <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['system']} {sys_info['release']}</div>
                 </div>
-                <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Machine</div>
+                <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
+                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Machine</div>
                     <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['machine']}</div>
                 </div>
-                <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Processor</div>
+                <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
+                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Processor</div>
                     <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['processor'][:30]}</div>
                 </div>
-                <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Boot Time</div>
+                <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
+                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Boot Time</div>
                     <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['boot_time'].strftime("%Y-%m-%d %H:%M")}</div>
                 </div>
                 <div style="flex: 1; text-align: center; padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Uptime</div>
+                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Uptime</div>
                     <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{uptime_str}</div>
                 </div>
             </div>
@@ -522,31 +516,32 @@ def update_dashboard():
     
     # Create compact system status bar
     st.markdown(f"""
-    <div style="background: #1e2139; 
+    <div style="background: #1f1f28; 
                 padding: 15px 20px; 
                 border-radius: 10px; 
                 margin-bottom: 20px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                border: 1px solid #3a4150;
+                box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
         <div style="display: flex; justify-content: space-between; align-items: center; color: white;">
-            <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">CPU</div>
+            <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
+                <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">CPU</div>
                 <div style="font-size: 16px; font-weight: bold; margin-top: 3px; color: {cpu_color};">{cpu_info['percent']:.1f}%</div>
-                <div style="font-size: 10px; opacity: 0.8; margin-top: 2px;">{cpu_status}</div>
+                <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">{cpu_status}</div>
             </div>
-            <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Memory</div>
+            <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
+                <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Memory</div>
                 <div style="font-size: 16px; font-weight: bold; margin-top: 3px; color: {mem_color};">{mem_info['percent']:.1f}%</div>
-                <div style="font-size: 10px; opacity: 0.8; margin-top: 2px;">{mem_status}</div>
+                <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">{mem_status}</div>
             </div>
-            <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Disk</div>
+            <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
+                <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Disk</div>
                 <div style="font-size: 16px; font-weight: bold; margin-top: 3px; color: {disk_color};">{max_disk:.1f}%</div>
-                <div style="font-size: 10px; opacity: 0.8; margin-top: 2px;">{disk_status}</div>
+                <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">{disk_status}</div>
             </div>
             <div style="flex: 1; text-align: center; padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">GPU</div>
+                <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">GPU</div>
                 <div style="font-size: 16px; font-weight: bold; margin-top: 3px; color: {gpu_color};">{gpu_text}</div>
-                <div style="font-size: 10px; opacity: 0.8; margin-top: 2px;">{gpu_status}</div>
+                <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">{gpu_status}</div>
             </div>
         </div>
     </div>
@@ -561,10 +556,12 @@ def update_dashboard():
     # CPU CARD
     with row2_col1:
         st.markdown("""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 20px 20px 10px 20px; 
                     border-radius: 10px 10px 0 0; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    border: 1px solid #3a4150;
+                    border-bottom: none;
+                    box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
                 <div style="font-size: 18px; font-weight: bold; text-align: center;">CPU Usage</div>
             </div>
@@ -577,27 +574,29 @@ def update_dashboard():
         )
         
         st.markdown(f"""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 10px 20px 20px 20px; 
                     border-radius: 0 0 10px 10px; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    border: 1px solid #3a4150;
+                    border-top: none;
+                    box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                     margin-top: -20px;
                     height: 140px;">
             <div style="color: white;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Physical Cores:</span>
+                    <span style="opacity: 0.7;">Physical Cores:</span>
                     <span style="font-weight: bold;">{cpu_info['count_physical']}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Logical Cores:</span>
+                    <span style="opacity: 0.7;">Logical Cores:</span>
                     <span style="font-weight: bold;">{cpu_info['count_logical']}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Current Frequency:</span>
+                    <span style="opacity: 0.7;">Current Frequency:</span>
                     <span style="font-weight: bold;">{cpu_info['frequency_current']:.0f} MHz</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.8;">Max Frequency:</span>
+                    <span style="opacity: 0.7;">Max Frequency:</span>
                     <span style="font-weight: bold;">{cpu_info['frequency_max']:.0f} MHz</span>
                 </div>
             </div>
@@ -608,13 +607,13 @@ def update_dashboard():
     with row2_col2:
         if gpu_info['available']:
             gpu_name = gpu_info['name'][:30] + "..." if len(gpu_info['name']) > 30 else gpu_info['name']
-            temp_display = f"{gpu_info['temperature']:.1f} °C" if gpu_info['temperature'] > 0 else "N/A"
+            temp_display = f"{gpu_info['temperature']:.1f} آ°C" if gpu_info['temperature'] > 0 else "N/A"
             
             st.markdown("""
-            <div style="background: #1e2139; 
+            <div style="background: #1f1f28; 
                         padding: 20px 20px 10px 20px; 
                         border-radius: 10px 10px 0 0; 
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
                 <div style="color: white;">
                     <div style="font-size: 18px; font-weight: bold; text-align: center;">GPU Usage</div>
                 </div>
@@ -627,31 +626,31 @@ def update_dashboard():
             )
             
             st.markdown(f"""
-            <div style="background: #1e2139; 
+            <div style="background: #1f1f28; 
                         padding: 10px 20px 20px 20px; 
                         border-radius: 0 0 10px 10px; 
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                         margin-top: -20px;
                         height: 140px;">
                 <div style="color: white;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="opacity: 0.8;">GPU Name:</span>
+                        <span style="opacity: 0.7;">GPU Name:</span>
                         <span style="font-weight: bold; font-size: 11px;">{gpu_name}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="opacity: 0.8;">Memory Used:</span>
+                        <span style="opacity: 0.7;">Memory Used:</span>
                         <span style="font-weight: bold;">{gpu_info['memory_used']:.0f} MB</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="opacity: 0.8;">Memory Total:</span>
+                        <span style="opacity: 0.7;">Memory Total:</span>
                         <span style="font-weight: bold;">{gpu_info['memory_total']:.0f} MB</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="opacity: 0.8;">Memory Usage:</span>
+                        <span style="opacity: 0.7;">Memory Usage:</span>
                         <span style="font-weight: bold;">{gpu_info['memory_percent']:.1f}%</span>
                     </div>
                     <div style="display: flex; justify-content: space-between;">
-                        <span style="opacity: 0.8;">Temperature:</span>
+                        <span style="opacity: 0.7;">Temperature:</span>
                         <span style="font-weight: bold;">{temp_display}</span>
                     </div>
                 </div>
@@ -662,10 +661,10 @@ def update_dashboard():
             error_msg = "No GPU detected" if error_type == 'no_gpu' else "GPU unavailable"
             
             st.markdown("""
-            <div style="background: #1e2139; 
+            <div style="background: #1f1f28; 
                         padding: 20px 20px 10px 20px; 
                         border-radius: 10px 10px 0 0; 
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
                 <div style="color: white;">
                     <div style="font-size: 18px; font-weight: bold; text-align: center;">GPU Usage</div>
                 </div>
@@ -678,16 +677,16 @@ def update_dashboard():
             )
             
             st.markdown(f"""
-            <div style="background: #1e2139; 
+            <div style="background: #1f1f28; 
                         padding: 10px 20px 20px 20px; 
                         border-radius: 0 0 10px 10px; 
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                         margin-top: -20px;
                         height: 140px;
                         display: flex;
                         align-items: center;
                         justify-content: center;">
-                <div style="color: white; text-align: center; opacity: 0.8;">
+                <div style="color: white; text-align: center; opacity: 0.7;">
                     {error_msg}
                 </div>
             </div>
@@ -704,10 +703,10 @@ def update_dashboard():
     # MEMORY CARD
     with row3_col1:
         st.markdown("""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 20px 20px 10px 20px; 
                     border-radius: 10px 10px 0 0; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
                 <div style="font-size: 18px; font-weight: bold; text-align: center;">Memory Usage</div>
             </div>
@@ -722,27 +721,27 @@ def update_dashboard():
         swap_text = f"{get_size(mem_info['swap_total'])} ({mem_info['swap_percent']:.1f}%)" if mem_info['swap_total'] > 0 else "Not configured"
         
         st.markdown(f"""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 10px 20px 20px 20px; 
                     border-radius: 0 0 10px 10px; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                     margin-top: -20px;
                     height: 140px;">
             <div style="color: white;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Total Memory:</span>
+                    <span style="opacity: 0.7;">Total Memory:</span>
                     <span style="font-weight: bold;">{get_size(mem_info['total'])}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Used:</span>
+                    <span style="opacity: 0.7;">Used:</span>
                     <span style="font-weight: bold;">{get_size(mem_info['used'])}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Available:</span>
+                    <span style="opacity: 0.7;">Available:</span>
                     <span style="font-weight: bold;">{get_size(mem_info['available'])}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.8;">Swap:</span>
+                    <span style="opacity: 0.7;">Swap:</span>
                     <span style="font-weight: bold; font-size: 11px;">{swap_text}</span>
                 </div>
             </div>
@@ -752,10 +751,10 @@ def update_dashboard():
     # RAM DISTRIBUTION CARD
     with row3_col2:
         st.markdown("""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 20px 20px 10px 20px; 
                     border-radius: 10px 10px 0 0; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
                 <div style="font-size: 18px; font-weight: bold; text-align: center;">RAM Distribution</div>
             </div>
@@ -766,15 +765,15 @@ def update_dashboard():
             labels=['Used', 'Available'],
             values=[mem_info['used'], mem_info['available']],
             hole=0.4,
-            marker_colors=['#ec4899', '#8b5cf6']
+            marker_colors=['#dc3545', '#007bff']
         )])
         fig_mem.update_layout(
             height=220,
             margin=dict(l=10, r=10, t=20, b=10),
             showlegend=True,
             legend=dict(font=dict(size=9, color='white'), orientation="h", yanchor="bottom", y=-0.1),
-            paper_bgcolor="#1e2139",
-            plot_bgcolor="#1e2139",
+            paper_bgcolor="#1f1f28",
+            plot_bgcolor="#1f1f28",
             font={'color': 'white'}
         )
         st.plotly_chart(fig_mem, use_container_width=True)
@@ -783,19 +782,19 @@ def update_dashboard():
         avail_percent = (mem_info['available'] / mem_info['total'] * 100) if mem_info['total'] > 0 else 0
         
         st.markdown(f"""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 10px 20px 20px 20px; 
                     border-radius: 0 0 10px 10px; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                     margin-top: -20px;
                     height: 140px;">
             <div style="color: white;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Used:</span>
+                    <span style="opacity: 0.7;">Used:</span>
                     <span style="font-weight: bold;">{used_percent:.1f}%</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Available:</span>
+                    <span style="opacity: 0.7;">Available:</span>
                     <span style="font-weight: bold;">{avail_percent:.1f}%</span>
                 </div>
             </div>
@@ -805,10 +804,10 @@ def update_dashboard():
     # DISK USAGE CARD
     with row3_col3:
         st.markdown("""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 20px 20px 10px 20px; 
                     border-radius: 10px 10px 0 0; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
                 <div style="font-size: 18px; font-weight: bold; text-align: center;">Disk Usage</div>
             </div>
@@ -819,14 +818,14 @@ def update_dashboard():
             disk_df = pd.DataFrame(disk_info)
             fig_disk = px.bar(disk_df, x='device', y='percent',
                              color='percent',
-                             color_continuous_scale=['#8b5cf6', '#ec4899', '#f43f5e'])
+                             color_continuous_scale=["#28a745", "#ffc107", "#dc3545"])
             fig_disk.update_layout(
                 height=220,
                 margin=dict(l=30, r=10, t=20, b=40),
                 xaxis={'tickangle': -45, 'tickfont': {'size': 9, 'color': 'white'}, 'showticklabels': True},
                 yaxis={'tickfont': {'color': 'white'}},
-                paper_bgcolor="#1e2139",
-                plot_bgcolor="#1e2139",
+                paper_bgcolor="#1f1f28",
+                plot_bgcolor="#1f1f28",
                 font={'color': 'white'},
                 showlegend=False
             )
@@ -836,15 +835,15 @@ def update_dashboard():
             disk_items = []
             for i, disk in enumerate(disk_info[:3]):
                 device_short = disk['device'][:15] + "..." if len(disk['device']) > 15 else disk['device']
-                disk_items.append(f'<div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px;"><span style="opacity: 0.8;">{device_short}</span><span style="font-weight: bold;">{disk["percent"]:.1f}%</span></div>')
+                disk_items.append(f'<div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px;"><span style="opacity: 0.7;">{device_short}</span><span style="font-weight: bold;">{disk["percent"]:.1f}%</span></div>')
             
             disk_details_html = ''.join(disk_items)
             
             st.markdown(f"""
-            <div style="background: #1e2139; 
+            <div style="background: #1f1f28; 
                         padding: 10px 20px 20px 20px; 
                         border-radius: 0 0 10px 10px; 
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                         margin-top: -20px;
                         height: 140px;
                         overflow-y: auto;">
@@ -855,16 +854,16 @@ def update_dashboard():
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
-            <div style="background: #1e2139; 
+            <div style="background: #1f1f28; 
                         padding: 10px 20px 20px 20px; 
                         border-radius: 0 0 10px 10px; 
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                         margin-top: -20px;
                         height: 140px;
                         display: flex;
                         align-items: center;
                         justify-content: center;">
-                <div style="color: white; text-align: center; opacity: 0.8;">
+                <div style="color: white; text-align: center; opacity: 0.7;">
                     No disk info available
                 </div>
             </div>
@@ -881,10 +880,10 @@ def update_dashboard():
     # NETWORK TRAFFIC CARD
     with row4_col1:
         st.markdown("""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 20px 20px 10px 20px; 
                     border-radius: 10px 10px 0 0; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
                 <div style="font-size: 18px; font-weight: bold; text-align: center;">Network Traffic</div>
             </div>
@@ -897,27 +896,27 @@ def update_dashboard():
         )
         
         st.markdown(f"""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 10px 20px 20px 20px; 
                     border-radius: 0 0 10px 10px; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                     margin-top: -20px;
                     height: 140px;">
             <div style="color: white;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Upload Speed:</span>
-                    <span style="font-weight: bold; color: #ec4899;">{sent_speed:.2f} Kbps</span>
+                    <span style="opacity: 0.7;">Upload Speed:</span>
+                    <span style="font-weight: bold; color: #dc3545;">{sent_speed:.2f} Kbps</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Download Speed:</span>
-                    <span style="font-weight: bold; color: #8b5cf6;">{recv_speed:.2f} Kbps</span>
+                    <span style="opacity: 0.7;">Download Speed:</span>
+                    <span style="font-weight: bold; color: #007bff;">{recv_speed:.2f} Kbps</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Total Sent:</span>
+                    <span style="opacity: 0.7;">Total Sent:</span>
                     <span style="font-weight: bold;">{get_size(net_info['bytes_sent'])}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.8;">Total Received:</span>
+                    <span style="opacity: 0.7;">Total Received:</span>
                     <span style="font-weight: bold;">{get_size(net_info['bytes_recv'])}</span>
                 </div>
             </div>
@@ -947,16 +946,16 @@ def update_dashboard():
         process_table_html = ''.join(process_rows)
         
         st.markdown(f"""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 20px; 
                     border-radius: 10px; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
                 <div style="font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 15px;">Top Processes</div>
-                <div style="background: #2d3250; padding: 15px; border-radius: 8px; height: 322px; overflow-y: auto;">
+                <div style="background: #1a1a22; padding: 15px; border-radius: 8px; height: 322px; overflow-y: auto;">
                     <table style="width: 100%; border-collapse: collapse;">
-                        <thead style="position: sticky; top: 0; background: #2d3250; z-index: 1;">
-                            <tr style="border-bottom: 2px solid rgba(139, 92, 246, 0.5);">
+                        <thead style="position: sticky; top: 0; background: #1a1a22; z-index: 1;">
+                            <tr style="border-bottom: 2px solid rgba(0, 123, 255, 0.5);">
                                 <th style="padding: 10px; text-align: left; font-size: 12px;">Process Name</th>
                                 <th style="padding: 10px; text-align: center; font-size: 12px;">CPU %</th>
                                 <th style="padding: 10px; text-align: center; font-size: 12px;">Memory %</th>
@@ -973,28 +972,28 @@ def update_dashboard():
         
         # Summary stats below the table
         st.markdown(f"""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 10px 20px 20px 20px; 
                     border-radius: 0 0 10px 10px; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                     margin-top: -20px;
                     height: 140px;">
             <div style="color: white;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Total Processes:</span>
+                    <span style="opacity: 0.7;">Total Processes:</span>
                     <span style="font-weight: bold;">{len(processes)}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Top CPU User:</span>
+                    <span style="opacity: 0.7;">Top CPU User:</span>
                     <span style="font-weight: bold; font-size: 11px;">{processes_df.iloc[0]['name'][:20] if len(processes_df) > 0 else 'N/A'}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">CPU Usage:</span>
-                    <span style="font-weight: bold; color: #ec4899;">{processes_df.iloc[0]['cpu_percent'] if len(processes_df) > 0 else 0}%</span>
+                    <span style="opacity: 0.7;">CPU Usage:</span>
+                    <span style="font-weight: bold; color: #dc3545;">{processes_df.iloc[0]['cpu_percent'] if len(processes_df) > 0 else 0}%</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.8;">Memory Usage:</span>
-                    <span style="font-weight: bold; color: #8b5cf6;">{processes_df.iloc[0]['memory_percent'] if len(processes_df) > 0 else 0}%</span>
+                    <span style="opacity: 0.7;">Memory Usage:</span>
+                    <span style="font-weight: bold; color: #007bff;">{processes_df.iloc[0]['memory_percent'] if len(processes_df) > 0 else 0}%</span>
                 </div>
             </div>
         </div>
@@ -1011,10 +1010,10 @@ def update_dashboard():
     # CPU CORES CARD
     with row5_col1:
         st.markdown("""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 20px 20px 10px 20px; 
                     border-radius: 10px 10px 0 0; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
                 <div style="font-size: 18px; font-weight: bold; text-align: center;">CPU Usage by Core</div>
             </div>
@@ -1022,23 +1021,50 @@ def update_dashboard():
         """, unsafe_allow_html=True)
         
         if cpu_info['per_core']:
-            core_df = pd.DataFrame({
-                'Core': [f"Core {i}" for i in range(len(cpu_info['per_core']))],
-                'Usage (%)': cpu_info['per_core']
-            })
+            fig = go.Figure()
             
-            fig = px.bar(core_df, x='Core', y='Usage (%)', 
-                         color='Usage (%)',
-                         color_continuous_scale=['#8b5cf6', '#ec4899', '#f43f5e'])
-            fig.update_layout(
-                height=280, 
-                margin=dict(l=40, r=20, t=20, b=40),
-                paper_bgcolor="#1e2139",
-                plot_bgcolor="#1e2139",
-                font={'color': 'white'},
-                xaxis=dict(gridcolor='rgba(255,255,255,0.1)', color='white'),
-                yaxis=dict(gridcolor='rgba(255,255,255,0.1)', color='white'),
+            # Add background bars (empty bars at 100%) with black background
+            fig.add_trace(go.Bar(
+                x=[f"Core {i}" for i in range(len(cpu_info['per_core']))],
+                y=[100] * len(cpu_info['per_core']),
+                name='Max',
+                marker=dict(
+                    color='rgba(0, 0, 0, 0.5)', 
+                    line=dict(color='#000000', width=2),
+                    cornerradius="30%"
+                ),
+                width=0.4,
                 showlegend=False
+            ))
+            
+            # Add usage bars (filled based on actual usage) with color based on usage level
+            colors = ['#dc3545' if usage > 80 else '#007bff' for usage in cpu_info['per_core']]
+            
+            fig.add_trace(go.Bar(
+                x=[f"Core {i}" for i in range(len(cpu_info['per_core']))],
+                y=cpu_info['per_core'],
+                name='Usage',
+                marker=dict(
+                    color=colors, 
+                    opacity=0.9,
+                    line=dict(color='#000000', width=1),
+                    cornerradius="30%"
+                ),
+                width=0.4,
+                showlegend=False
+            ))
+            
+            fig.update_layout(
+                height=280,
+                margin=dict(l=40, r=20, t=20, b=40),
+                paper_bgcolor="#1f1f28",
+                plot_bgcolor="#1f1f28",
+                font={'color': 'white'},
+                xaxis=dict(gridcolor='rgba(255,255,255,0.1)', color='white', title=''),
+                yaxis=dict(gridcolor='rgba(255,255,255,0.1)', color='white', title='Usage (%)', range=[0, 100]),
+                barmode='overlay',
+                showlegend=False,
+                bargap=0.3
             )
             st.plotly_chart(fig, use_container_width=True)
         
@@ -1048,28 +1074,28 @@ def update_dashboard():
         min_core = min(cpu_info['per_core']) if cpu_info['per_core'] else 0
         
         st.markdown(f"""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 10px 20px 20px 20px; 
                     border-radius: 0 0 10px 10px; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                     margin-top: -20px;
                     height: 140px;">
             <div style="color: white;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Total Cores:</span>
+                    <span style="opacity: 0.7;">Total Cores:</span>
                     <span style="font-weight: bold;">{len(cpu_info['per_core'])}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Average Usage:</span>
-                    <span style="font-weight: bold; color: #8b5cf6;">{avg_usage:.1f}%</span>
+                    <span style="opacity: 0.7;">Average Usage:</span>
+                    <span style="font-weight: bold; color: #007bff;">{avg_usage:.1f}%</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.8;">Highest Core:</span>
-                    <span style="font-weight: bold; color: #ec4899;">{max_core:.1f}%</span>
+                    <span style="opacity: 0.7;">Highest Core:</span>
+                    <span style="font-weight: bold; color: #dc3545;">{max_core:.1f}%</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.8;">Lowest Core:</span>
-                    <span style="font-weight: bold; color: #f43f5e;">{min_core:.1f}%</span>
+                    <span style="opacity: 0.7;">Lowest Core:</span>
+                    <span style="font-weight: bold; color: #dc3545;">{min_core:.1f}%</span>
                 </div>
             </div>
         </div>
@@ -1078,10 +1104,10 @@ def update_dashboard():
     # DETAILED PROCESSES TABLE CARD
     with row5_col2:
         st.markdown("""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 20px 20px 10px 20px; 
                     border-radius: 10px 10px 0 0; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
                 <div style="font-size: 18px; font-weight: bold; text-align: center;">Detailed Process List</div>
             </div>
@@ -1109,17 +1135,17 @@ def update_dashboard():
         detailed_table_html = ''.join(detailed_rows)
         
         st.markdown(f"""
-        <div style="background: #1e2139; 
+        <div style="background: #1f1f28; 
                     padding: 10px 20px 20px 20px; 
                     border-radius: 0 0 10px 10px; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                     margin-top: -20px;
                     height: 440px;
                     overflow-y: auto;">
             <div style="color: white;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
-                    <thead style="position: sticky; top: 0; background: #1e2139; z-index: 1;">
-                        <tr style="border-bottom: 2px solid rgba(139, 92, 246, 0.5);">
+                    <thead style="position: sticky; top: 0; background: #1f1f28; z-index: 1;">
+                        <tr style="border-bottom: 2px solid rgba(0, 123, 255, 0.5);">
                             <th style="padding: 8px; text-align: left; font-size: 11px;">PID</th>
                             <th style="padding: 8px; text-align: left; font-size: 11px;">Process Name</th>
                             <th style="padding: 8px; text-align: center; font-size: 11px;">CPU %</th>
@@ -1138,8 +1164,8 @@ def update_dashboard():
 def main():
     """Main function for server performance monitoring"""
     
-    st.markdown('<h1 style="color: #c0c0c0;">Server Performance Dashboard</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #a8a8a8; font-size: 16px;">Real-time system monitoring and resource utilization (Auto-refresh: 2 seconds)</p>', unsafe_allow_html=True)
+    st.markdown('<h1>Server Performance Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size: 16px;">Real-time system monitoring and resource utilization (Auto-refresh: 2 seconds)</p>', unsafe_allow_html=True)
     
     # Initialize session state for network history
     if 'network_history' not in st.session_state:
@@ -1160,7 +1186,7 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### Monitoring Options")
-    st.info("🔄 Real-time updates: Every 2 seconds (no flash, smooth updates)")
+    st.info("ًں”„ Real-time updates: Every 2 seconds (no flash, smooth updates)")
     
     st.markdown("---")
     st.markdown("### Alert Thresholds")
@@ -1189,3 +1215,11 @@ with st.sidebar:
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
