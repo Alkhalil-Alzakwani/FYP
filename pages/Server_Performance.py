@@ -458,7 +458,7 @@ def update_dashboard():
         # Create compact system info bar
         st.markdown(f"""
         <div style="background: #1f1f28; 
-                    padding: 15px 20px; 
+                    padding: 10px 20px; 
                     border-radius: 10px; 
                     margin-bottom: 20px;
                     border: 1px solid #3a4150;
@@ -517,7 +517,7 @@ def update_dashboard():
     # Create compact system status bar
     st.markdown(f"""
     <div style="background: #1f1f28; 
-                padding: 15px 20px; 
+                padding: 10px 20px; 
                 border-radius: 10px; 
                 margin-bottom: 20px;
                 border: 1px solid #3a4150;
@@ -525,447 +525,229 @@ def update_dashboard():
         <div style="display: flex; justify-content: space-between; align-items: center; color: white;">
             <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
                 <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">CPU</div>
-                <div style="font-size: 16px; font-weight: bold; margin-top: 3px; color: {cpu_color};">{cpu_info['percent']:.1f}%</div>
-                <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">{cpu_status}</div>
+                <div style="font-size: 14px; font-weight: bold; margin-top: 3px; color: {cpu_color};">{cpu_info['percent']:.1f}%</div>
             </div>
             <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
                 <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Memory</div>
-                <div style="font-size: 16px; font-weight: bold; margin-top: 3px; color: {mem_color};">{mem_info['percent']:.1f}%</div>
-                <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">{mem_status}</div>
+                <div style="font-size: 14px; font-weight: bold; margin-top: 3px; color: {mem_color};">{mem_info['percent']:.1f}%</div>
             </div>
             <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
                 <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Disk</div>
-                <div style="font-size: 16px; font-weight: bold; margin-top: 3px; color: {disk_color};">{max_disk:.1f}%</div>
-                <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">{disk_status}</div>
+                <div style="font-size: 14px; font-weight: bold; margin-top: 3px; color: {disk_color};">{max_disk:.1f}%</div>
             </div>
             <div style="flex: 1; text-align: center; padding: 0 15px;">
                 <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">GPU</div>
-                <div style="font-size: 16px; font-weight: bold; margin-top: 3px; color: {gpu_color};">{gpu_text}</div>
-                <div style="font-size: 10px; opacity: 0.7; margin-top: 2px;">{gpu_status}</div>
+                <div style="font-size: 14px; font-weight: bold; margin-top: 3px; color: {gpu_color};">{gpu_text}</div>
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
     # ========================================================================
-    # CPU & GPU CARDS
+    # ROW 2: CPU, GPU & MEMORY (LEFT) + SYSTEM RESOURCES (RIGHT)
     # ========================================================================
     
-    row2_col1, row2_col2 = st.columns(2)
+    # Create main layout with left column for gauges and right column for System Resources
+    main_left_col, main_right_col = st.columns([2, 1])
     
-    # CPU CARD
-    with row2_col1:
-        st.markdown("""
-        <div style="background: #1f1f28; 
-                    padding: 20px 20px 10px 20px; 
-                    border-radius: 10px 10px 0 0; 
-                    border: 1px solid #3a4150;
-                    border-bottom: none;
-                    box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-            <div style="color: white;">
-                <div style="font-size: 18px; font-weight: bold; text-align: center;">CPU Usage</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    with main_left_col:
+        # Inner layout for CPU, GPU, Memory gauges
+        row2_col1, row2_col2, row2_col3 = st.columns([1, 1, 1])
         
-        st.plotly_chart(
-            create_gauge_chart(cpu_info['percent'], "", height=220),
-            use_container_width=True
-        )
-        
-        st.markdown(f"""
-        <div style="background: #1f1f28; 
-                    padding: 10px 20px 20px 20px; 
-                    border-radius: 0 0 10px 10px; 
-                    border: 1px solid #3a4150;
-                    border-top: none;
-                    box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                    margin-top: -20px;
-                    height: 140px;">
-            <div style="color: white;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Physical Cores:</span>
-                    <span style="font-weight: bold;">{cpu_info['count_physical']}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Logical Cores:</span>
-                    <span style="font-weight: bold;">{cpu_info['count_logical']}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Current Frequency:</span>
-                    <span style="font-weight: bold;">{cpu_info['frequency_current']:.0f} MHz</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.7;">Max Frequency:</span>
-                    <span style="font-weight: bold;">{cpu_info['frequency_max']:.0f} MHz</span>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # GPU CARD
-    with row2_col2:
-        if gpu_info['available']:
-            gpu_name = gpu_info['name'][:30] + "..." if len(gpu_info['name']) > 30 else gpu_info['name']
-            temp_display = f"{gpu_info['temperature']:.1f} آ°C" if gpu_info['temperature'] > 0 else "N/A"
-            
+        # CPU CARD
+        with row2_col1:
             st.markdown("""
             <div style="background: #1f1f28; 
-                        padding: 20px 20px 10px 20px; 
+                        padding: 10px 20px 5px 20px; 
                         border-radius: 10px 10px 0 0; 
                         border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
                 <div style="color: white;">
-                    <div style="font-size: 18px; font-weight: bold; text-align: center;">GPU Usage</div>
+                    <div style="font-size: 16px; font-weight: bold; text-align: center;">CPU Usage</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
             st.plotly_chart(
-                create_gauge_chart(gpu_info['load'], "", height=220),
+                create_gauge_chart(cpu_info['percent'], "", height=160),
                 use_container_width=True
             )
             
             st.markdown(f"""
             <div style="background: #1f1f28; 
-                        padding: 10px 20px 20px 20px; 
+                        padding: 5px 15px 10px 15px; 
                         border-radius: 0 0 10px 10px; 
                         border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                         margin-top: -20px;
-                        height: 140px;">
+                        height: 100px;">
                 <div style="color: white;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="opacity: 0.7;">GPU Name:</span>
-                        <span style="font-weight: bold; font-size: 11px;">{gpu_name}</span>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
+                        <span style="opacity: 0.7;">Physical Cores:</span>
+                        <span style="font-weight: bold;">{cpu_info['count_physical']}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="opacity: 0.7;">Memory Used:</span>
-                        <span style="font-weight: bold;">{gpu_info['memory_used']:.0f} MB</span>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
+                        <span style="opacity: 0.7;">Logical Cores:</span>
+                        <span style="font-weight: bold;">{cpu_info['count_logical']}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="opacity: 0.7;">Memory Total:</span>
-                        <span style="font-weight: bold;">{gpu_info['memory_total']:.0f} MB</span>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
+                        <span style="opacity: 0.7;">Current Freq:</span>
+                        <span style="font-weight: bold;">{cpu_info['frequency_current']:.0f} MHz</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="opacity: 0.7;">Memory Usage:</span>
-                        <span style="font-weight: bold;">{gpu_info['memory_percent']:.1f}%</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                        <span style="opacity: 0.7;">Temperature:</span>
-                        <span style="font-weight: bold;">{temp_display}</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                        <span style="opacity: 0.7;">Max Freq:</span>
+                        <span style="font-weight: bold;">{cpu_info['frequency_max']:.0f} MHz</span>
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-        else:
-            error_type = gpu_info.get('error', 'unknown')
-            error_msg = "No GPU detected" if error_type == 'no_gpu' else "GPU unavailable"
-            
+        
+        # GPU CARD
+        with row2_col2:
+            if gpu_info['available']:
+                gpu_name = gpu_info['name'][:30] + "..." if len(gpu_info['name']) > 30 else gpu_info['name']
+                temp_display = f"{gpu_info['temperature']:.1f} °C" if gpu_info['temperature'] > 0 else "N/A"
+                
+                st.markdown("""
+                <div style="background: #1f1f28; 
+                            padding: 10px 20px 5px 20px; 
+                            border-radius: 10px 10px 0 0; 
+                            border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
+                    <div style="color: white;">
+                        <div style="font-size: 16px; font-weight: bold; text-align: center;">GPU Usage</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.plotly_chart(
+                    create_gauge_chart(gpu_info['load'], "", height=160),
+                    use_container_width=True
+                )
+                
+                st.markdown(f"""
+                <div style="background: #1f1f28; 
+                            padding: 5px 15px 10px 15px; 
+                            border-radius: 0 0 10px 10px; 
+                            border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
+                            margin-top: -20px;
+                            height: 100px;">
+                    <div style="color: white;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10px;">
+                            <span style="opacity: 0.7;">GPU Name:</span>
+                            <span style="font-weight: bold;">{gpu_name}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10px;">
+                            <span style="opacity: 0.7;">Memory Used:</span>
+                            <span style="font-weight: bold;">{gpu_info['memory_used']:.0f} MB</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10px;">
+                            <span style="opacity: 0.7;">Memory Total:</span>
+                            <span style="font-weight: bold;">{gpu_info['memory_total']:.0f} MB</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10px;">
+                            <span style="opacity: 0.7;">Memory Usage:</span>
+                            <span style="font-weight: bold;">{gpu_info['memory_percent']:.1f}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 10px;">
+                            <span style="opacity: 0.7;">Temperature:</span>
+                            <span style="font-weight: bold;">{temp_display}</span>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                error_type = gpu_info.get('error', 'unknown')
+                error_msg = "No GPU detected" if error_type == 'no_gpu' else "GPU unavailable"
+                
+                st.markdown("""
+                <div style="background: #1f1f28; 
+                            padding: 10px 20px 5px 20px; 
+                            border-radius: 10px 10px 0 0; 
+                            border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
+                    <div style="color: white;">
+                        <div style="font-size: 16px; font-weight: bold; text-align: center;">GPU Usage</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.plotly_chart(
+                    create_gauge_chart(0, "", height=160),
+                    use_container_width=True
+                )
+                
+                st.markdown(f"""
+                <div style="background: #1f1f28; 
+                            padding: 5px 15px 10px 15px; 
+                            border-radius: 0 0 10px 10px; 
+                            border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
+                            margin-top: -20px;
+                            height: 100px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;">
+                    <div style="color: white; text-align: center; opacity: 0.7;">
+                        {error_msg}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # MEMORY CARD
+        with row2_col3:
             st.markdown("""
             <div style="background: #1f1f28; 
-                        padding: 20px 20px 10px 20px; 
+                        padding: 10px 20px 5px 20px; 
                         border-radius: 10px 10px 0 0; 
                         border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
                 <div style="color: white;">
-                    <div style="font-size: 18px; font-weight: bold; text-align: center;">GPU Usage</div>
+                    <div style="font-size: 16px; font-weight: bold; text-align: center;">Memory Usage</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
             st.plotly_chart(
-                create_gauge_chart(0, "", height=220),
+                create_gauge_chart(mem_info['percent'], "", height=160),
                 use_container_width=True
             )
             
-            st.markdown(f"""
-            <div style="background: #1f1f28; 
-                        padding: 10px 20px 20px 20px; 
-                        border-radius: 0 0 10px 10px; 
-                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                        margin-top: -20px;
-                        height: 140px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;">
-                <div style="color: white; text-align: center; opacity: 0.7;">
-                    {error_msg}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("")
-    
-    # ========================================================================
-    # ROW 3: MEMORY & DISK
-    # ========================================================================
-    
-    row3_col1, row3_col2, row3_col3 = st.columns([1, 1, 1])
-    
-    # MEMORY CARD
-    with row3_col1:
-        st.markdown("""
-        <div style="background: #1f1f28; 
-                    padding: 20px 20px 10px 20px; 
-                    border-radius: 10px 10px 0 0; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-            <div style="color: white;">
-                <div style="font-size: 18px; font-weight: bold; text-align: center;">Memory Usage</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.plotly_chart(
-            create_gauge_chart(mem_info['percent'], "", height=220),
-            use_container_width=True
-        )
-        
-        swap_text = f"{get_size(mem_info['swap_total'])} ({mem_info['swap_percent']:.1f}%)" if mem_info['swap_total'] > 0 else "Not configured"
-        
-        st.markdown(f"""
-        <div style="background: #1f1f28; 
-                    padding: 10px 20px 20px 20px; 
-                    border-radius: 0 0 10px 10px; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                    margin-top: -20px;
-                    height: 140px;">
-            <div style="color: white;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Total Memory:</span>
-                    <span style="font-weight: bold;">{get_size(mem_info['total'])}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Used:</span>
-                    <span style="font-weight: bold;">{get_size(mem_info['used'])}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Available:</span>
-                    <span style="font-weight: bold;">{get_size(mem_info['available'])}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.7;">Swap:</span>
-                    <span style="font-weight: bold; font-size: 11px;">{swap_text}</span>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # RAM DISTRIBUTION & DISK USAGE CARD (MERGED)
-    with row3_col2:
-        st.markdown("""
-        <div style="background: #1f1f28; 
-                    padding: 20px 20px 10px 20px; 
-                    border-radius: 10px 10px 0 0; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-            <div style="color: white;">
-                <div style="font-size: 18px; font-weight: bold; text-align: center;">RAM Distribution & Disk Usage</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Create RAM Distribution bar chart
-        used_percent = (mem_info['used'] / mem_info['total'] * 100) if mem_info['total'] > 0 else 0
-        avail_percent = (mem_info['available'] / mem_info['total'] * 100) if mem_info['total'] > 0 else 0
-        
-        fig_mem = go.Figure()
-        
-        # Add background bar (100% capacity)
-        fig_mem.add_trace(go.Bar(
-            x=['RAM'],
-            y=[100],
-            name='Capacity',
-            marker=dict(
-                color='rgba(0, 0, 0, 0.5)',
-                line=dict(color='#000000', width=2),
-                cornerradius="30%"
-            ),
-            width=0.25,
-            showlegend=False
-        ))
-        
-        # Add available bar (bottom layer)
-        fig_mem.add_trace(go.Bar(
-            x=['RAM'],
-            y=[100],
-            name='Available',
-            marker=dict(
-                color='#007bff',
-                line=dict(color='#000000', width=1),
-                cornerradius="30%"
-            ),
-            width=0.25,
-            showlegend=False
-        ))
-        
-        # Add used bar (top layer)
-        fig_mem.add_trace(go.Bar(
-            x=['RAM'],
-            y=[used_percent],
-            name='Used',
-            marker=dict(
-                color='#dc3545',
-                line=dict(color='#000000', width=1),
-                cornerradius="30%"
-            ),
-            width=0.25,
-            showlegend=False
-        ))
-        
-        fig_mem.update_layout(
-            height=220,
-            margin=dict(l=30, r=10, t=20, b=40),
-            xaxis={'tickfont': {'size': 10, 'color': 'white'}},
-            yaxis={'tickfont': {'color': 'white'}, 'range': [0, 100]},
-            paper_bgcolor="#1f1f28",
-            plot_bgcolor="#1f1f28",
-            font={'color': 'white'},
-            barmode='overlay',
-            bargap=0.3,
-            showlegend=False
-        )
-        st.plotly_chart(fig_mem, use_container_width=True)
-        
-        # Build disk details list
-        disk_items = []
-        if disk_info:
-            for i, disk in enumerate(disk_info[:3]):
-                device_short = disk['device'][:15] + "..." if len(disk['device']) > 15 else disk['device']
-                disk_items.append(f'<div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px;"><span style="opacity: 0.7;">{device_short}</span><span style="font-weight: bold;">{disk["percent"]:.1f}%</span></div>')
-        else:
-            disk_items.append('<div style="text-align: center; opacity: 0.7; font-size: 11px;">No disk info</div>')
-        
-        disk_details_html = ''.join(disk_items)
-        
-        st.markdown(f"""
-        <div style="background: #1f1f28; 
-                    padding: 10px 20px 20px 20px; 
-                    border-radius: 0 0 10px 10px; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                    margin-top: -20px;
-                    height: 140px;
-                    overflow-y: auto;">
-            <div style="color: white;">
-                <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; opacity: 0.9;">Disk Partitions:</div>
-                {disk_details_html}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # DISK USAGE CARD
-    with row3_col3:
-        st.markdown("""
-        <div style="background: #1f1f28; 
-                    padding: 20px 20px 10px 20px; 
-                    border-radius: 10px 10px 0 0; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-            <div style="color: white;">
-                <div style="font-size: 18px; font-weight: bold; text-align: center;">Disk Usage</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if disk_info:
-            disk_df = pd.DataFrame(disk_info)
-            
-            # Create overlay bar chart with background and usage bars
-            fig_disk = go.Figure()
-            
-            # Add background bars (100% capacity)
-            fig_disk.add_trace(go.Bar(
-                x=disk_df['device'],
-                y=[100] * len(disk_df),
-                name='Capacity',
-                marker=dict(
-                    color='rgba(0, 0, 0, 0.5)',
-                    line=dict(color='#000000', width=2),
-                    cornerradius="30%"
-                ),
-                width=0.25,
-                showlegend=False
-            ))
-            
-            # Add usage bars with color based on percentage
-            colors = ['#007bff' if percent < 80 else '#dc3545' for percent in disk_df['percent']]
-            fig_disk.add_trace(go.Bar(
-                x=disk_df['device'],
-                y=disk_df['percent'],
-                name='Usage',
-                marker=dict(
-                    color=colors,
-                    line=dict(color='#000000', width=1),
-                    cornerradius="30%"
-                ),
-                width=0.25,
-                showlegend=False
-            ))
-            
-            fig_disk.update_layout(
-                height=220,
-                margin=dict(l=30, r=10, t=20, b=40),
-                xaxis={'tickangle': -45, 'tickfont': {'size': 9, 'color': 'white'}, 'showticklabels': True},
-                yaxis={'tickfont': {'color': 'white'}, 'range': [0, 100]},
-                paper_bgcolor="#1f1f28",
-                plot_bgcolor="#1f1f28",
-                font={'color': 'white'},
-                barmode='overlay',
-                bargap=0.3,
-                showlegend=False
-            )
-            st.plotly_chart(fig_disk, use_container_width=True)
-            
-            # Build disk details list
-            disk_items = []
-            for i, disk in enumerate(disk_info[:3]):
-                device_short = disk['device'][:15] + "..." if len(disk['device']) > 15 else disk['device']
-                disk_items.append(f'<div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px;"><span style="opacity: 0.7;">{device_short}</span><span style="font-weight: bold;">{disk["percent"]:.1f}%</span></div>')
-            
-            disk_details_html = ''.join(disk_items)
+            swap_text = f"{get_size(mem_info['swap_total'])} ({mem_info['swap_percent']:.1f}%)" if mem_info['swap_total'] > 0 else "Not configured"
             
             st.markdown(f"""
             <div style="background: #1f1f28; 
-                        padding: 10px 20px 20px 20px; 
+                        padding: 5px 15px 10px 15px; 
                         border-radius: 0 0 10px 10px; 
                         border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                         margin-top: -20px;
-                        height: 140px;
-                        overflow-y: auto;">
+                        height: 100px;">
                 <div style="color: white;">
-                    {disk_details_html}
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
+                        <span style="opacity: 0.7;">Total Memory:</span>
+                        <span style="font-weight: bold;">{get_size(mem_info['total'])}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
+                        <span style="opacity: 0.7;">Used:</span>
+                        <span style="font-weight: bold;">{get_size(mem_info['used'])}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
+                        <span style="opacity: 0.7;">Available:</span>
+                        <span style="font-weight: bold;">{get_size(mem_info['available'])}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                        <span style="opacity: 0.7;">Swap:</span>
+                        <span style="font-weight: bold; font-size: 10px;">{swap_text}</span>
+                    </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div style="background: #1f1f28; 
-                        padding: 10px 20px 20px 20px; 
-                        border-radius: 0 0 10px 10px; 
-                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                        margin-top: -20px;
-                        height: 140px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;">
-                <div style="color: white; text-align: center; opacity: 0.7;">
-                    No disk info available
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("")
-    
-    # ========================================================================
-    # ROW 4: NETWORK & PROCESSES
-    # ========================================================================
-    
-    row4_col1, row4_col2 = st.columns([1, 1])
-    
-    # NETWORK TRAFFIC CARD
-    with row4_col1:
+        
+        # Add Network Traffic card under the three gauge cards (within main_left_col)
+        st.markdown("")
+        
+        # NETWORK TRAFFIC CARD
         st.markdown("""
         <div style="background: #1f1f28; 
-                    padding: 20px 20px 10px 20px; 
+                    padding: 10px 20px 5px 20px; 
                     border-radius: 10px 10px 0 0; 
                     border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
             <div style="color: white;">
-                <div style="font-size: 18px; font-weight: bold; text-align: center;">Network Traffic</div>
+                <div style="font-size: 16px; font-weight: bold; text-align: center;">Network Traffic</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -977,268 +759,337 @@ def update_dashboard():
         
         st.markdown(f"""
         <div style="background: #1f1f28; 
-                    padding: 10px 20px 20px 20px; 
+                    padding: 5px 15px 10px 15px; 
                     border-radius: 0 0 10px 10px; 
                     border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
                     margin-top: -20px;
-                    height: 140px;">
+                    height: 70px;">
             <div style="color: white;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Upload Speed:</span>
-                    <span style="font-weight: bold; color: #dc3545;">{sent_speed:.2f} Kbps</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Download Speed:</span>
-                    <span style="font-weight: bold; color: #007bff;">{recv_speed:.2f} Kbps</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Total Sent:</span>
-                    <span style="font-weight: bold;">{get_size(net_info['bytes_sent'])}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.7;">Total Received:</span>
-                    <span style="font-weight: bold;">{get_size(net_info['bytes_recv'])}</span>
+                <div style="display: flex; justify-content: space-around; margin-bottom: 5px;">
+                    <div style="text-align: center;">
+                        <span style="opacity: 0.7; display: block; font-size: 10px;">Upload</span>
+                        <span style="font-weight: bold; color: #dc3545; font-size: 12px;">{sent_speed:.2f} Kbps</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <span style="opacity: 0.7; display: block; font-size: 10px;">Download</span>
+                        <span style="font-weight: bold; color: #007bff; font-size: 12px;">{recv_speed:.2f} Kbps</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <span style="opacity: 0.7; display: block; font-size: 10px;">Total Sent</span>
+                        <span style="font-weight: bold; font-size: 12px;">{get_size(net_info['bytes_sent'])}</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <span style="opacity: 0.7; display: block; font-size: 10px;">Total Received</span>
+                        <span style="font-weight: bold; font-size: 12px;">{get_size(net_info['bytes_recv'])}</span>
+                    </div>
                 </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
     
-    # TOP PROCESSES CARD
-    with row4_col2:
-        processes = []
-        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
-            try:
-                processes.append(proc.info)
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-        
-        processes_df = pd.DataFrame(processes)
-        processes_df = processes_df.sort_values('cpu_percent', ascending=False).head(10)
-        processes_df['memory_percent'] = processes_df['memory_percent'].round(2)
-        processes_df['cpu_percent'] = processes_df['cpu_percent'].round(2)
-        
-        # Create process table HTML
-        process_rows = []
-        for idx, row in processes_df.iterrows():
-            process_name = row['name'][:25] + "..." if len(str(row['name'])) > 25 else row['name']
-            process_rows.append(f'<tr><td style="padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">{process_name}</td><td style="padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 11px;">{row["cpu_percent"]}%</td><td style="padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 11px;">{row["memory_percent"]}%</td></tr>')
-        
-        process_table_html = ''.join(process_rows)
-        
-        st.markdown(f"""
-        <div style="background: #1f1f28; 
-                    padding: 20px; 
-                    border-radius: 10px; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-            <div style="color: white;">
-                <div style="font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 15px;">Top Processes</div>
-                <div style="background: #1a1a22; padding: 15px; border-radius: 8px; height: 322px; overflow-y: auto;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead style="position: sticky; top: 0; background: #1a1a22; z-index: 1;">
-                            <tr style="border-bottom: 2px solid rgba(0, 123, 255, 0.5);">
-                                <th style="padding: 10px; text-align: left; font-size: 12px;">Process Name</th>
-                                <th style="padding: 10px; text-align: center; font-size: 12px;">CPU %</th>
-                                <th style="padding: 10px; text-align: center; font-size: 12px;">Memory %</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {process_table_html}
-                        </tbody>
-                    </table>
+    # Now add the System Resources card in the right column
+    with main_right_col:
+        # UNIFIED SYSTEM RESOURCES CARD (VERTICAL) - Single container with one background
+        with st.container():
+            st.markdown("""
+            <div style="background: #1f1f28; 
+                        padding: 10px 20px 5px 20px; 
+                        border-radius: 10px 10px 0 0; 
+                        border: 1px solid #3a4150; 
+                        box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
+                <div style="color: white;">
+                    <div style="font-size: 16px; font-weight: bold; text-align: center;">System Resources</div>
                 </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Summary stats below the table
-        st.markdown(f"""
-        <div style="background: #1f1f28; 
-                    padding: 10px 20px 20px 20px; 
-                    border-radius: 0 0 10px 10px; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                    margin-top: -20px;
-                    height: 140px;">
-            <div style="color: white;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Total Processes:</span>
-                    <span style="font-weight: bold;">{len(processes)}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Top CPU User:</span>
-                    <span style="font-weight: bold; font-size: 11px;">{processes_df.iloc[0]['name'][:20] if len(processes_df) > 0 else 'N/A'}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">CPU Usage:</span>
-                    <span style="font-weight: bold; color: #dc3545;">{processes_df.iloc[0]['cpu_percent'] if len(processes_df) > 0 else 0}%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.7;">Memory Usage:</span>
-                    <span style="font-weight: bold; color: #007bff;">{processes_df.iloc[0]['memory_percent'] if len(processes_df) > 0 else 0}%</span>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("")
-    
-    # ========================================================================
-    # ROW 5: DETAILED STATISTICS
-    # ========================================================================
-    
-    row5_col1, row5_col2 = st.columns([1, 1])
-    
-    # CPU CORES CARD
-    with row5_col1:
-        st.markdown("""
-        <div style="background: #1f1f28; 
-                    padding: 20px 20px 10px 20px; 
-                    border-radius: 10px 10px 0 0; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-            <div style="color: white;">
-                <div style="font-size: 18px; font-weight: bold; text-align: center;">CPU Usage by Core</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if cpu_info['per_core']:
-            fig = go.Figure()
+            """, unsafe_allow_html=True)
             
-            # Add background bars (empty bars at 100%) with black background
-            fig.add_trace(go.Bar(
-                x=[f"Core {i}" for i in range(len(cpu_info['per_core']))],
-                y=[100] * len(cpu_info['per_core']),
-                name='Max',
+            # RAM section
+            st.markdown("""
+            <div style="background: #1f1f28; 
+                        padding: 0 20px; 
+                        margin-top: -20px;
+                        border-left: 1px solid #3a4150;
+                        border-right: 1px solid #3a4150;">
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Create vertical RAM bar chart
+            used_percent = (mem_info['used'] / mem_info['total'] * 100) if mem_info['total'] > 0 else 0
+            
+            fig_ram_vert = go.Figure()
+            
+            # Add background bar (100% capacity)
+            fig_ram_vert.add_trace(go.Bar(
+                y=['RAM'],
+                x=[100],
+                orientation='h',
+                name='Capacity',
                 marker=dict(
-                    color='rgba(0, 0, 0, 0.5)', 
+                    color='rgba(0, 0, 0, 0.5)',
                     line=dict(color='#000000', width=2),
                     cornerradius="30%"
                 ),
-                width=0.4,
+                width=0.3,
                 showlegend=False
             ))
             
-            # Add usage bars (filled based on actual usage) with color based on usage level
-            colors = ['#dc3545' if usage > 80 else '#007bff' for usage in cpu_info['per_core']]
-            
-            fig.add_trace(go.Bar(
-                x=[f"Core {i}" for i in range(len(cpu_info['per_core']))],
-                y=cpu_info['per_core'],
-                name='Usage',
+            # Add available bar
+            fig_ram_vert.add_trace(go.Bar(
+                y=['RAM'],
+                x=[100],
+                orientation='h',
+                name='Available',
                 marker=dict(
-                    color=colors, 
-                    opacity=0.9,
+                    color='#007bff',
                     line=dict(color='#000000', width=1),
                     cornerradius="30%"
                 ),
-                width=0.4,
+                width=0.3,
                 showlegend=False
             ))
             
-            fig.update_layout(
-                height=280,
-                margin=dict(l=40, r=20, t=20, b=40),
+            # Add used bar
+            fig_ram_vert.add_trace(go.Bar(
+                y=['RAM'],
+                x=[used_percent],
+                orientation='h',
+                name='Used',
+                marker=dict(
+                    color='#dc3545',
+                    line=dict(color='#000000', width=1),
+                    cornerradius="30%"
+                ),
+                width=0.3,
+                showlegend=False
+            ))
+            
+            fig_ram_vert.update_layout(
+                height=100,
+                margin=dict(l=60, r=20, t=5, b=5),
+                xaxis={'tickfont': {'size': 10, 'color': 'white'}, 'range': [0, 100], 'title': '%'},
+                yaxis={'tickfont': {'color': 'white', 'size': 12}},
                 paper_bgcolor="#1f1f28",
                 plot_bgcolor="#1f1f28",
                 font={'color': 'white'},
-                xaxis=dict(gridcolor='rgba(255,255,255,0.1)', color='white', title=''),
-                yaxis=dict(gridcolor='rgba(255,255,255,0.1)', color='white', title='Usage (%)', range=[0, 100]),
                 barmode='overlay',
-                showlegend=False,
-                bargap=0.3
+                showlegend=False
             )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Core statistics
-        avg_usage = sum(cpu_info['per_core']) / len(cpu_info['per_core']) if cpu_info['per_core'] else 0
-        max_core = max(cpu_info['per_core']) if cpu_info['per_core'] else 0
-        min_core = min(cpu_info['per_core']) if cpu_info['per_core'] else 0
-        
-        st.markdown(f"""
-        <div style="background: #1f1f28; 
-                    padding: 10px 20px 20px 20px; 
-                    border-radius: 0 0 10px 10px; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                    margin-top: -20px;
-                    height: 140px;">
-            <div style="color: white;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Total Cores:</span>
-                    <span style="font-weight: bold;">{len(cpu_info['per_core'])}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Average Usage:</span>
-                    <span style="font-weight: bold; color: #007bff;">{avg_usage:.1f}%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="opacity: 0.7;">Highest Core:</span>
-                    <span style="font-weight: bold; color: #dc3545;">{max_core:.1f}%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="opacity: 0.7;">Lowest Core:</span>
-                    <span style="font-weight: bold; color: #dc3545;">{min_core:.1f}%</span>
+            
+            st.markdown("""
+            <div style="background: #1f1f28; 
+                        padding: 0 20px; 
+                        margin-top: -20px;
+                        border-left: 1px solid #3a4150;
+                        border-right: 1px solid #3a4150;">
+            """, unsafe_allow_html=True)
+            st.plotly_chart(fig_ram_vert, use_container_width=True, key="ram_vertical")
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            st.markdown(f"""
+            <div style="background: #1f1f28; 
+                        padding: 0 20px; 
+                        margin-top: -40px;
+                        border-left: 1px solid #3a4150;
+                        border-right: 1px solid #3a4150;">
+                <div style="color: white; font-size: 11px; text-align: center; margin-bottom: 0px;">
+                    <span style="opacity: 0.7;">Used: </span><span style="font-weight: bold; color: #dc3545;">{get_size(mem_info['used'])}</span>
+                    <span style="opacity: 0.7;"> / </span>
+                    <span style="font-weight: bold;">{get_size(mem_info['total'])}</span>
                 </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+            
+            # Disk Usage section
+            if disk_info:
+                disk_df = pd.DataFrame(disk_info)
+                
+                # Create vertical disk bar chart
+                fig_disk_vert = go.Figure()
+                
+                # Add background bars (100% capacity)
+                fig_disk_vert.add_trace(go.Bar(
+                    y=disk_df['device'],
+                    x=[100] * len(disk_df),
+                    orientation='h',
+                    name='Capacity',
+                    marker=dict(
+                        color='rgba(0, 0, 0, 0.5)',
+                        line=dict(color='#000000', width=2),
+                        cornerradius="30%"
+                    ),
+                    width=0.3,
+                    showlegend=False
+                ))
+                
+                # Add usage bars with color based on percentage
+                colors = ['#007bff' if percent < 80 else '#dc3545' for percent in disk_df['percent']]
+                fig_disk_vert.add_trace(go.Bar(
+                    y=disk_df['device'],
+                    x=disk_df['percent'],
+                    orientation='h',
+                    name='Usage',
+                    marker=dict(
+                        color=colors,
+                        line=dict(color='#000000', width=1),
+                        cornerradius="30%"
+                    ),
+                    width=0.3,
+                    showlegend=False
+                ))
+                
+                fig_disk_vert.update_layout(
+                    height=max(100, len(disk_df) * 50),
+                    margin=dict(l=60, r=20, t=5, b=5),
+                    xaxis={'tickfont': {'size': 10, 'color': 'white'}, 'range': [0, 100], 'title': '%'},
+                    yaxis={'tickfont': {'color': 'white', 'size': 10}},
+                    paper_bgcolor="#1f1f28",
+                    plot_bgcolor="#1f1f28",
+                    font={'color': 'white'},
+                    barmode='overlay',
+                    showlegend=False
+                )
+                
+                st.markdown("""
+                <div style="background: #1f1f28; 
+                            padding: 0 20px; 
+                            margin-top: -20px;
+                            border-left: 1px solid #3a4150;
+                            border-right: 1px solid #3a4150;">
+                """, unsafe_allow_html=True)
+                st.plotly_chart(fig_disk_vert, use_container_width=True, key="disk_vertical")
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                # Disk details
+                disk_items = []
+                for disk in disk_info[:5]:
+                    device_short = disk['device'][:15] + "..." if len(disk['device']) > 15 else disk['device']
+                    disk_items.append(f'<div style="margin-bottom: 6px; font-size: 10px;"><span style="opacity: 0.7;">{device_short}</span><br/><span style="font-weight: bold;">{disk["percent"]:.1f}%</span> <span style="opacity: 0.7;">({get_size(disk["used"])} / {get_size(disk["total"])})</span></div>')
+                
+                disk_details_html = ''.join(disk_items)
+                
+                st.markdown(f"""
+                <div style="background: #1f1f28; 
+                            padding: 0 20px; 
+                            margin-top: -40px;
+                            border-left: 1px solid #3a4150;
+                            border-right: 1px solid #3a4150;">
+                    <div style="color: white; padding: 0 0; max-height: 180px; overflow-y: auto;">
+                        {disk_details_html}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="background: #1f1f28; 
+                            padding: 20px; 
+                            margin-top: -20px;
+                            border-left: 1px solid #3a4150;
+                            border-right: 1px solid #3a4150;">
+                    <div style="color: white; text-align: center; opacity: 0.7; font-size: 12px;">
+                        No disk info available
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # CPU Usage by Core vertical section
+            if cpu_info['per_core']:
+                fig_cpu_vert = go.Figure()
+                
+                # Reverse the order so Core 0 is at the top
+                core_labels = [f"Core {i}" for i in range(len(cpu_info['per_core']))]
+                core_values = cpu_info['per_core']
+                
+                # Add background bars (100% capacity)
+                fig_cpu_vert.add_trace(go.Bar(
+                    y=core_labels,
+                    x=[100] * len(core_values),
+                    orientation='h',
+                    name='Max',
+                    marker=dict(
+                        color='rgba(0, 0, 0, 0.5)',
+                        line=dict(color='#000000', width=2),
+                        cornerradius="30%"
+                    ),
+                    width=0.5,
+                    showlegend=False
+                ))
+                
+                # Add usage bars with color based on usage level
+                colors = ['#dc3545' if usage > 80 else '#007bff' for usage in core_values]
+                
+                fig_cpu_vert.add_trace(go.Bar(
+                    y=core_labels,
+                    x=core_values,
+                    orientation='h',
+                    name='Usage',
+                    marker=dict(
+                        color=colors,
+                        opacity=0.9,
+                        line=dict(color='#000000', width=1),
+                        cornerradius="30%"
+                    ),
+                    width=0.5,
+                    showlegend=False
+                ))
+                
+                fig_cpu_vert.update_layout(
+                    height=max(250, len(core_values) * 30),
+                    margin=dict(l=60, r=20, t=5, b=5),
+                    xaxis={'tickfont': {'size': 10, 'color': 'white'}, 'range': [0, 100], 'title': '%'},
+                    yaxis={'tickfont': {'color': 'white', 'size': 10}},
+                    paper_bgcolor="#1f1f28",
+                    plot_bgcolor="#1f1f28",
+                    font={'color': 'white'},
+                    barmode='overlay',
+                    showlegend=False
+                )
+                
+                st.markdown("""
+                <div style="background: #1f1f28; 
+                            padding: 0 20px; 
+                            margin-top: -20px;
+                            border-left: 1px solid #3a4150;
+                            border-right: 1px solid #3a4150;">
+                """, unsafe_allow_html=True)
+                st.plotly_chart(fig_cpu_vert, use_container_width=True, key="cpu_cores_vertical")
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                # CPU Core statistics
+                avg_usage = sum(cpu_info['per_core']) / len(cpu_info['per_core']) if cpu_info['per_core'] else 0
+                max_core = max(cpu_info['per_core']) if cpu_info['per_core'] else 0
+                min_core = min(cpu_info['per_core']) if cpu_info['per_core'] else 0
+                
+                st.markdown(f"""
+                <div style="background: #1f1f28; 
+                            padding: 0 20px 10px 20px; 
+                            margin-top: -40px;
+                            border-radius: 0 0 10px 10px;
+                            border-left: 1px solid #3a4150;
+                            border-right: 1px solid #3a4150;
+                            border-bottom: 1px solid #3a4150;
+                            box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
+                    <div style="color: white; padding: 0;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px;">
+                            <span style="opacity: 0.7;">Cores:</span>
+                            <span style="font-weight: bold;">{len(cpu_info['per_core'])}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px;">
+                            <span style="opacity: 0.7;">Avg:</span>
+                            <span style="font-weight: bold; color: #007bff;">{avg_usage:.1f}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px;">
+                            <span style="opacity: 0.7;">Max:</span>
+                            <span style="font-weight: bold; color: #dc3545;">{max_core:.1f}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 10px;">
+                            <span style="opacity: 0.7;">Min:</span>
+                            <span style="font-weight: bold; color: #28a745;">{min_core:.1f}%</span>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
     
-    # DETAILED PROCESSES TABLE CARD
-    with row5_col2:
-        st.markdown("""
-        <div style="background: #1f1f28; 
-                    padding: 20px 20px 10px 20px; 
-                    border-radius: 10px 10px 0 0; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-            <div style="color: white;">
-                <div style="font-size: 18px; font-weight: bold; text-align: center;">Detailed Process List</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        processes = []
-        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
-            try:
-                processes.append(proc.info)
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-        
-        processes_df = pd.DataFrame(processes)
-        processes_df = processes_df.sort_values('cpu_percent', ascending=False).head(12)
-        processes_df['memory_percent'] = processes_df['memory_percent'].round(2)
-        processes_df['cpu_percent'] = processes_df['cpu_percent'].round(2)
-        
-        # Create detailed process table HTML
-        detailed_rows = []
-        for idx, row in processes_df.iterrows():
-            process_name = row['name'][:30] + "..." if len(str(row['name'])) > 30 else row['name']
-            detailed_rows.append(f'<tr><td style="padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 10px;">{row["pid"]}</td><td style="padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 10px;">{process_name}</td><td style="padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 10px;">{row["cpu_percent"]}%</td><td style="padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 10px;">{row["memory_percent"]}%</td></tr>')
-        
-        detailed_table_html = ''.join(detailed_rows)
-        
-        st.markdown(f"""
-        <div style="background: #1f1f28; 
-                    padding: 10px 20px 20px 20px; 
-                    border-radius: 0 0 10px 10px; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                    margin-top: -20px;
-                    height: 440px;
-                    overflow-y: auto;">
-            <div style="color: white;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
-                    <thead style="position: sticky; top: 0; background: #1f1f28; z-index: 1;">
-                        <tr style="border-bottom: 2px solid rgba(0, 123, 255, 0.5);">
-                            <th style="padding: 8px; text-align: left; font-size: 11px;">PID</th>
-                            <th style="padding: 8px; text-align: left; font-size: 11px;">Process Name</th>
-                            <th style="padding: 8px; text-align: center; font-size: 11px;">CPU %</th>
-                            <th style="padding: 8px; text-align: center; font-size: 11px;">Mem %</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {detailed_table_html}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown("")
 
 
 def main():
