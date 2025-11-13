@@ -104,7 +104,6 @@ def load_config(config_file):
                 config = yaml.safe_load(f)
                 return config if config is not None else {}
         else:
-            st.warning(f"Configuration file {config_file} not found. Using defaults.")
             return {}
     except Exception as e:
         st.error(f"Error loading {config_file}: {e}")
@@ -122,7 +121,6 @@ db_config = load_config("db_config.yaml")
 
 st.set_page_config(
     page_title="Login - Cyber Defense Platform",
-    page_icon="🔐",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
