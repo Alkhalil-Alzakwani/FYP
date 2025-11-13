@@ -1,13 +1,11 @@
-﻿"""
+﻿# How to run:
+# C:\Users\s131028\Documents\GitHub\FYP\.venv\Scripts\streamlit.exe run app.py
+# Or from terminal: streamlit run app.py
+
+"""
 ================================================================================
 MULTILAYERED CYBER DEFENSE PLATFORM - HOME PAGE
 ================================================================================
-
-How to run:
-    C:\Users\s131028\Documents\GitHub\FYP\.venv\Scripts\streamlit.exe run app.py
-
-    Or from terminal:
-    streamlit run app.py
 
 File: app.py
 Purpose: Main introductory landing page for the Cyber Defense Platform
@@ -76,10 +74,11 @@ LINKED PAGES:
     - pages/Live_Threat_Monitor.py: Real-time monitoring (requires authentication)
 
 Author: Multilayered Cyber Defense Team
-Last Modified: October 28, 2025
-Version: 1.0.0
+
 ================================================================================
 """
+
+
 
 import streamlit as st
 
