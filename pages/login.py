@@ -264,7 +264,6 @@ def render_login_page():
     with col2:
         st.title("Cyber Defense Platform")
         st.subheader("Secure Login")
-        st.markdown("---")
     
     # Check for account lockout (after 5 failed attempts)
     max_attempts = security_config.get('max_login_attempts', 5)
@@ -273,44 +272,43 @@ def render_login_page():
         st.info("Please contact your system administrator.")
         return
     
-    # Login form
-    with st.form("login_form", clear_on_submit=False):
-        username = st.text_input(
-            "Username",
-            placeholder="Enter your username",
-            key="login_username"
-        )
-        
-        password = st.text_input(
-            "Password",
-            type="password",
-            placeholder="Enter your password",
-            key="login_password"
-        )
-        
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
+    # Login form with narrower width
+    col_left, col_center, col_right = st.columns([1.5, 1, 1.5])
+    with col_center:
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input(
+                "Username",
+                placeholder="Enter your username",
+                key="login_username"
+            )
+            
+            password = st.text_input(
+                "Password",
+                type="password",
+                placeholder="Enter your password",
+                key="login_password"
+            )
+            
             submit_button = st.form_submit_button("Login", use_container_width=True)
-        
-        if submit_button:
-            if not username or not password:
-                st.error("Please enter both username and password")
-            else:
-                with st.spinner("Authenticating..."):
-                    if handle_login(username, password):
-                        st.success(f"Welcome back, {username}!")
-                        st.balloons()
-                        # Rerun to redirect to dashboard
-                        st.rerun()
-                    else:
-                        remaining = max_attempts - st.session_state.login_attempts
-                        if remaining > 0:
-                            st.error(f"Invalid credentials. {remaining} attempts remaining.")
+            
+            if submit_button:
+                if not username or not password:
+                    st.error("Please enter both username and password")
+                else:
+                    with st.spinner("Authenticating..."):
+                        if handle_login(username, password):
+                            st.success(f"Welcome back, {username}!")
+                            st.balloons()
+                            # Rerun to redirect to dashboard
+                            st.rerun()
                         else:
-                            st.error("Account locked due to too many failed attempts.")
+                            remaining = max_attempts - st.session_state.login_attempts
+                            if remaining > 0:
+                                st.error(f"Invalid credentials. {remaining} attempts remaining.")
+                            else:
+                                st.error("Account locked due to too many failed attempts.")
     
     # Footer information
-    st.markdown("---")
     st.markdown(
         """
         <div style='text-align: center; color: gray; font-size: 12px;'>
