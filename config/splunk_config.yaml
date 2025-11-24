@@ -1,0 +1,23 @@
+# Splunk Configuration
+splunk:
+  host: "172.20.10.3"
+  port: 8089  # Management port for REST API
+  username: "kumail"
+  password: "kumailalajmi"
+  scheme: "https"
+  
+# Search Configuration
+search:
+  # Time range for initial data fetch
+  earliest_time: "-30d@d"  # Last 30 days
+  latest_time: "now"
+  
+  # Search query - fetch ONLY relevant sourcetypes for the project
+  # Includes: pfSense firewall, Snort IDS, Syslog, Phishing emails (message_rfc822), Windows Event Logs
+  query: "search index=* (sourcetype=pfsense:syslog OR sourcetype=snort:alert OR sourcetype=syslog OR sourcetype=message_rfc822 OR sourcetype=WinEventLog:System OR sourcetype=WinEventLog:Security)"
+  
+  # Maximum results per search
+  max_results: 250000
+  
+  # Auto-refresh interval (seconds)
+  refresh_interval: 300  # 5 minutes

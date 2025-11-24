@@ -1,0 +1,54 @@
+"""
+Summary of Changes - Optimized Splunk Log Fetching
+===================================================
+
+BASED ON README.md ANALYSIS:
+
+Required Sourcetypes for the Project:
+--------------------------------------
+1. pfsense:syslog       - Firewall logs (pfSense)
+2. snort:alert          - IDS/IPS alerts (Snort)
+3. syslog               - General system logs
+4. message_rfc822       - Phishing emails (CRITICAL for project)
+5. WinEventLog:System   - Windows Event Logs
+6. WinEventLog:Security - Windows Security Logs
+
+Changes Made:
+-------------
+1. ✅ Cleared splunk_logs database table
+2. ✅ Updated search query to fetch ONLY needed sourcetypes
+3. ✅ Updated config/splunk_config.yaml with filtered query
+4. ✅ Updated models/splunk_connector.py default query
+5. ✅ Updated Live_Threat_Monitor.py statistics display
+6. ✅ Highlighted message_rfc822 as critical for phishing detection
+
+New Search Query:
+-----------------
+search index=* (sourcetype=pfsense:syslog OR sourcetype=snort:alert OR 
+                sourcetype=syslog OR sourcetype=message_rfc822 OR 
+                sourcetype=WinEventLog:System OR sourcetype=WinEventLog:Security)
+
+Expected Results:
+-----------------
+- Total: ~214,613 logs (based on Splunk stats)
+- snort:alert: ~107,670 (50.2%)
+- pfsense:syslog: ~104,173 (48.5%)
+- WinEventLog:System: ~1,219 (0.6%)
+- syslog: ~852 (0.4%)
+- message_rfc822: ~460 (0.2%) ⭐ PHISHING EMAILS
+- WinEventLog:Security: ~239 (0.1%)
+
+Next Steps:
+-----------
+1. Go to Live Threat Monitor page
+2. Click "Fetch All Logs (30 days)"
+3. Wait for all logs to be fetched (progress shown in terminal)
+4. Verify all 6 sourcetypes are present in the statistics table
+5. Confirm message_rfc822 emails are available for AI analysis
+
+Purpose:
+--------
+The message_rfc822 logs contain phishing emails that will be analyzed by:
+- Mistral LLM (AI_Log_Analysis.py)
+- Threat Scoring Engine (Threat_Scoring.py)
+- Detection algorithms for the multilayered cyber defense system

@@ -1,11 +1,476 @@
 """
 Live Threat Monitor (pages/Live_Threat_Monitor.py)
 
-Purpose: Stream real-time logs from Splunk API Features:
+Purpose: Stream real-time logs from Splunk API and display in database
 
-    Live updating data table (auto-refresh every 10 seconds)
-    Filters by source, severity, type
-    Color-coded severity badges
-    Option to block IP via pfSense API Linked to: Splunk REST API (localhost:8000), pfSense API
+Features:
+    - Fetch logs from last 30 days from Splunk
+    - Store logs in database without duplication
+    - Auto-refresh to fetch new logs
+    - Display logs in a filterable table
+    - Color-coded severity badges
+    - Search and filter capabilities
 
+Linked to: Splunk REST API (172.20.10.3:8000)
 """
+
+import streamlit as st
+import pandas as pd
+import sys
+from pathlib import Path
+from datetime import datetime, timedelta
+import time
+
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from models.splunk_connector import get_splunk_connector
+from database.queries import (
+    insert_splunk_logs, 
+    get_splunk_logs, 
+    get_splunk_logs_count,
+    get_last_splunk_log_timestamp,
+    delete_all_splunk_logs
+)
+
+# ============================================================================
+# PAGE CONFIGURATION
+# ============================================================================
+
+st.set_page_config(
+    page_title="Live Threat Monitor",
+    layout="wide"
+)
+
+# ============================================================================
+# CUSTOM CSS FOR SCROLLING
+# ============================================================================
+
+st.markdown("""
+<style>
+    /* Enable scrolling for main container */
+    .main {
+        overflow-y: auto !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+    }
+    
+    /* Fix block container */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 100% !important;
+        overflow-y: visible !important;
+    }
+    
+    /* Enable scrolling on app view container */
+    .appview-container {
+        overflow-y: auto !important;
+    }
+    
+    /* Make sure content doesn't get cut off */
+    div[data-testid="stVerticalBlock"] {
+        overflow: visible !important;
+    }
+    
+    /* Custom scrollbar styling */
+    ::-webkit-scrollbar {
+        width: 12px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #1e1e1e;
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    /* For Firefox */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: #888 #1e1e1e;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================================
+# SESSION STATE INITIALIZATION
+# ============================================================================
+
+if 'last_fetch_time' not in st.session_state:
+    st.session_state.last_fetch_time = None
+if 'total_logs' not in st.session_state:
+    st.session_state.total_logs = 0
+if 'new_logs_count' not in st.session_state:
+    st.session_state.new_logs_count = 0
+if 'fetch_status' not in st.session_state:
+    st.session_state.fetch_status = "Not started"
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def get_severity_badge(severity):
+    """Return HTML badge for severity level"""
+    colors = {
+        'critical': '#dc3545',
+        'high': '#fd7e14',
+        'medium': '#ffc107',
+        'low': '#17a2b8',
+        'info': '#6c757d'
+    }
+    
+    color = colors.get(severity.lower() if severity else 'info', '#6c757d')
+    
+    return f"""
+    <span style="background-color: {color}; 
+                 color: white; 
+                 padding: 3px 10px; 
+                 border-radius: 12px; 
+                 font-size: 11px;
+                 font-weight: bold;
+                 text-transform: uppercase;">
+        {severity if severity else 'unknown'}
+    </span>
+    """
+
+def get_unique_hosts():
+    """Get list of unique hosts from database"""
+    from database.queries import get_db_connection
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT DISTINCT host FROM splunk_logs WHERE host IS NOT NULL ORDER BY host")
+            hosts = [row[0] for row in cursor.fetchall()]
+            conn.close()
+            return hosts
+    except:
+        return []
+    return []
+
+def get_unique_sources():
+    """Get list of unique sources from database"""
+    from database.queries import get_db_connection
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT DISTINCT source FROM splunk_logs WHERE source IS NOT NULL ORDER BY source")
+            sources = [row[0] for row in cursor.fetchall()]
+            conn.close()
+            return sources
+    except:
+        return []
+    return []
+
+def get_sourcetype_stats():
+    """Get count of logs by sourcetype"""
+    from database.queries import get_db_connection
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT sourcetype, COUNT(*) as count 
+                FROM splunk_logs 
+                WHERE sourcetype IS NOT NULL 
+                GROUP BY sourcetype 
+                ORDER BY count DESC
+            """)
+            stats = cursor.fetchall()
+            conn.close()
+            return stats
+    except:
+        return []
+    return []
+
+def fetch_and_store_logs(initial_fetch=False):
+    """
+    Fetch logs from Splunk and store in database
+    
+    Args:
+        initial_fetch (bool): Whether this is the initial 30-day fetch
+        
+    Returns:
+        tuple: (success: bool, message: str, logs_added: int)
+    """
+    try:
+        connector = get_splunk_connector()
+        
+        # Connect to Splunk
+        if not connector.connect():
+            return (False, "Failed to connect to Splunk", 0)
+        
+        # Fetch logs
+        if initial_fetch:
+            st.session_state.fetch_status = "Fetching last 30 days of logs..."
+            logs = connector.fetch_logs(earliest_time="-19d@d", latest_time="now")
+        else:
+            # Fetch only new logs since last fetch
+            last_timestamp = get_last_splunk_log_timestamp()
+            if last_timestamp:
+                st.session_state.fetch_status = "Fetching new logs..."
+                logs = connector.fetch_logs_since(last_timestamp)
+            else:
+                st.session_state.fetch_status = "Fetching last 19 days of logs..."
+                logs = connector.fetch_logs(earliest_time="-19d@d", latest_time="now")
+        
+        connector.disconnect()
+        
+        # Store logs in database
+        if logs:
+            print(f"Storing {len(logs)} logs in database...")
+            st.session_state.fetch_status = f"Storing {len(logs)} logs in database..."
+            logs_added = insert_splunk_logs(logs)
+            st.session_state.new_logs_count = logs_added
+            st.session_state.last_fetch_time = datetime.now()
+            
+            print(f"Successfully stored {logs_added} new logs (duplicates skipped: {len(logs) - logs_added})")
+            return (True, f"Successfully added {logs_added} new logs out of {len(logs)} fetched", logs_added)
+        else:
+            return (True, "No new logs found", 0)
+            
+    except Exception as e:
+        return (False, f"Error fetching logs: {str(e)}", 0)
+
+# ============================================================================
+# MAIN PAGE UI
+# ============================================================================
+
+st.title("Live Threat Monitor")
+st.markdown("Real-time log monitoring from Splunk")
+st.markdown("---")
+
+# ============================================================================
+# CONTROL PANEL
+# ============================================================================
+
+col1, col2, col3 = st.columns([3, 3, 3])
+
+with col1:
+    if st.button("Fetch Initial Logs (30 days)", use_container_width=True):
+        with st.spinner("Fetching logs from Splunk..."):
+            success, message, count = fetch_and_store_logs(initial_fetch=True)
+            if success:
+                st.success(message)
+                st.rerun()
+            else:
+                st.error(message)
+
+with col2:
+    if st.button("Sync New Logs", use_container_width=True):
+        with st.spinner("Syncing new logs..."):
+            success, message, count = fetch_and_store_logs(initial_fetch=False)
+            if success:
+                st.success(message)
+                st.rerun()
+            else:
+                st.error(message)
+
+with col3:
+    if st.button("Delete All Logs", use_container_width=True, type="secondary"):
+        # Confirmation dialog
+        if 'confirm_delete' not in st.session_state:
+            st.session_state.confirm_delete = False
+        
+        if not st.session_state.confirm_delete:
+            st.session_state.confirm_delete = True
+            st.warning("Click again to confirm deletion of ALL logs!")
+            st.rerun()
+        else:
+            with st.spinner("Deleting all logs..."):
+                success, message, count = delete_all_splunk_logs()
+                st.session_state.confirm_delete = False
+                if success:
+                    st.success(message)
+                    st.session_state.new_logs_count = 0
+                    st.rerun()
+                else:
+                    st.error(message)
+
+# Additional options row
+col_a, col_b = st.columns([2, 2])
+
+with col_a:
+    auto_refresh = st.checkbox("🔄 Auto-refresh (5 min)", value=False)
+
+with col_b:
+    if st.session_state.last_fetch_time:
+        st.info(f"Last sync: {st.session_state.last_fetch_time.strftime('%H:%M:%S')}")
+
+# Auto-refresh logic
+if auto_refresh:
+    time.sleep(300)  # 5 minutes
+    st.rerun()
+
+# ============================================================================
+# STATISTICS
+# ============================================================================
+
+st.markdown("Statistics")
+
+col1, col2, col3, col4 = st.columns(4)
+
+total_count = get_splunk_logs_count()
+
+with col1:
+    st.metric("Total Logs", f"{total_count:,}")
+
+with col2:
+    critical_count = get_splunk_logs_count(severity_filter='critical')
+    st.metric("Critical", critical_count)
+
+with col3:
+    high_count = get_splunk_logs_count(severity_filter='high')
+    st.metric("High Severity", high_count)
+
+with col4:
+    if st.session_state.new_logs_count > 0:
+        st.metric("New Logs", st.session_state.new_logs_count)
+    else:
+        st.metric("New Logs", 0)
+
+# Show sourcetype distribution
+st.markdown("####Logs by Sourcetype")
+sourcetype_stats = get_sourcetype_stats()
+if sourcetype_stats:
+    stats_col1, stats_col2 = st.columns([3, 1])
+    with stats_col1:
+        stats_df = pd.DataFrame(sourcetype_stats, columns=['Sourcetype', 'Count'])
+        stats_df['Percentage'] = (stats_df['Count'] / stats_df['Count'].sum() * 100).round(2)
+        st.dataframe(stats_df, use_container_width=True, hide_index=True)
+    with stats_col2:
+        st.markdown("**Project Sourcetypes:**")
+        st.markdown("**snort:alert** - IDS/IPS Alerts")
+        st.markdown("**pfsense:syslog** - Firewall Logs")
+        st.markdown("**message_rfc822** - Phishing Emails")
+        st.markdown("**syslog** - General System Logs")
+        st.markdown("**WinEventLog:System** - Windows Events")
+        st.markdown("**WinEventLog:Security** - Windows Security")
+        st.markdown("")
+        st.info("message_rfc822 is critical for phishing detection!")
+
+st.markdown("---")
+
+# ============================================================================
+# FILTERS
+# ============================================================================
+
+st.markdown("Filters")
+
+# Get unique hosts and sources
+unique_hosts = get_unique_hosts()
+unique_sources = get_unique_sources()
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    severity_options = ["All", "critical", "high", "medium", "low", "info"]
+    severity_filter = st.selectbox("Severity", severity_options)
+
+with col2:
+    host_options = ["All"] + unique_hosts
+    host_filter = st.selectbox("Host", host_options)
+
+with col3:
+    source_options = ["All"] + unique_sources
+    source_filter_select = st.selectbox("Source", source_options)
+
+with col4:
+    search_text = st.text_input("Search in logs", "")
+
+# Pagination
+logs_per_page = st.slider("Logs per page", min_value=10, max_value=500, value=50, step=10)
+
+st.markdown("---")
+
+# ============================================================================
+# LOGS TABLE
+# ============================================================================
+
+st.markdown("###Logs")
+
+# Apply filters
+severity = None if severity_filter == "All" else severity_filter
+host = None if host_filter == "All" else host_filter
+source = None if source_filter_select == "All" else source_filter_select
+search = search_text if search_text else None
+
+# Get filtered logs with host filter
+logs = get_splunk_logs(
+    limit=logs_per_page,
+    offset=0,
+    severity_filter=severity,
+    source_filter=source,
+    search_text=search
+)
+
+# Apply host filter manually (since queries.py doesn't have host_filter parameter)
+if host:
+    logs = [log for log in logs if log.get('host') == host]
+
+if logs:
+    # Convert to DataFrame
+    df = pd.DataFrame(logs)
+    
+    # Display count
+    if host:
+        st.info(f"Showing {len(logs)} logs (filtered by host)")
+    else:
+        filtered_count = get_splunk_logs_count(
+            severity_filter=severity,
+            source_filter=source,
+            search_text=search
+        )
+        st.info(f"Showing {len(logs)} of {filtered_count:,} logs")
+    
+    # Display table with custom formatting
+    for idx, log in enumerate(logs):
+        with st.expander(
+            f"[{log['timestamp']}] {log['host']} - {log['source']} - Severity: {log['severity'] or 'unknown'}",
+            expanded=False
+        ):
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                st.markdown("**Details:**")
+                st.markdown(f"**ID:** `{log['id']}`")
+                st.markdown(f"**Host:** `{log['host']}`")
+                st.markdown(f"**Source:** `{log['source']}`")
+                st.markdown(f"**Type:** `{log['sourcetype']}`")
+                st.markdown(f"**Severity:** {get_severity_badge(log['severity'])}", unsafe_allow_html=True)
+                st.markdown(f"**Timestamp:** `{log['timestamp']}`")
+            
+            with col2:
+                st.markdown("**Raw Log:**")
+                st.code(log['raw_log'], language='text')
+                
+                if log['event_data']:
+                    st.markdown("**Event Data:**")
+                    st.json(log['event_data'])
+    
+else:
+    st.warning("No logs found. Click 'Fetch Initial Logs' to retrieve data from Splunk.")
+
+# ============================================================================
+# FOOTER
+# ============================================================================
+
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center; color: gray; font-size: 12px;'>
+    <p>Live Threat Monitor - Connected to Splunk at 172.20.10.3:8000</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)

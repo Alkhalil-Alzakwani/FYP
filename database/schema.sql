@@ -91,3 +91,22 @@ CREATE TABLE IF NOT EXISTS system_config (
     parameter TEXT UNIQUE NOT NULL,
     value TEXT NOT NULL
 );
+
+-- Splunk logs table
+CREATE TABLE IF NOT EXISTS splunk_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT UNIQUE NOT NULL,
+    timestamp TEXT NOT NULL,
+    host TEXT,
+    source TEXT,
+    sourcetype TEXT,
+    event_data TEXT NOT NULL,
+    severity TEXT,
+    raw_log TEXT,
+    indexed_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index for faster queries
+CREATE INDEX IF NOT EXISTS idx_splunk_logs_timestamp ON splunk_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_splunk_logs_event_id ON splunk_logs(event_id);
