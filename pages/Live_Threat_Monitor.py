@@ -142,6 +142,94 @@ def get_severity_badge(severity):
     </span>
     """
 
+def get_severity_reasons(log):
+    """
+    Generate organized reasons why a log has its assigned severity level
+    
+    Args:
+        log (dict): Log entry from database
+        
+    Returns:
+        list: Organized reasons for the severity assignment
+    """
+    reasons = []
+    severity = (log.get('severity') or 'info').lower()
+    sourcetype = (log.get('sourcetype') or '').lower()
+    source = (log.get('source') or '').lower()
+    raw_log = (log.get('raw_log') or '').lower()
+    
+    # Critical severity indicators
+    if severity == 'critical':
+        reasons.append("**Attack detected** - Confirmed malicious activity")
+        if 'exploit' in raw_log:
+            reasons.append("Exploit attempt detected in traffic")
+        if 'ransomware' in raw_log or 'encryption' in raw_log:
+            reasons.append("Ransomware/encryption activity flagged")
+        if 'breach' in raw_log or 'compromised' in raw_log:
+            reasons.append("System breach or compromise suspected")
+        if 'failed' in raw_log and 'attempts' in raw_log:
+            reasons.append("Multiple failed access attempts")
+        if 'snort' in sourcetype or 'alert' in sourcetype:
+            reasons.append("IDS/IPS intrusion alert triggered")
+        if not reasons:
+            reasons.append("Critical threat level assigned by security system")
+    
+    # High severity indicators
+    elif severity == 'high':
+        reasons.append("**Potential threat** - Suspicious activity detected")
+        if 'phishing' in raw_log or 'suspicious' in raw_log:
+            reasons.append("Phishing or social engineering attempt")
+        if 'malware' in raw_log or 'virus' in raw_log:
+            reasons.append("Malicious software signature detected")
+        if 'unauthorized' in raw_log or 'denied' in raw_log:
+            reasons.append("Unauthorized access attempt blocked")
+        if 'port scan' in raw_log or 'scanning' in raw_log:
+            reasons.append("Network reconnaissance/port scanning detected")
+        if 'pfsense' in sourcetype or 'firewall' in source:
+            reasons.append("Firewall flagged suspicious traffic pattern")
+        if not reasons:
+            reasons.append("High risk event classified by threat analysis")
+    
+    # Medium severity indicators
+    elif severity == 'medium':
+        reasons.append("**Watch alert** - Unusual activity detected")
+        if 'error' in raw_log or 'failed' in raw_log:
+            reasons.append("Application/system error or failure")
+        if 'login' in raw_log or 'authentication' in raw_log:
+            reasons.append("Authentication anomaly detected")
+        if 'policy' in raw_log or 'violation' in raw_log:
+            reasons.append("Security policy violation detected")
+        if 'update' in raw_log or 'patch' in raw_log:
+            reasons.append("Unpatched or outdated system flagged")
+        if not reasons:
+            reasons.append("Moderate risk event requiring monitoring")
+    
+    # Low severity indicators
+    elif severity == 'low':
+        reasons.append("**Minor issue** - Non-critical event")
+        if 'warning' in raw_log:
+            reasons.append("System warning or advisory message")
+        if 'temporary' in raw_log or 'transient' in raw_log:
+            reasons.append("Temporary connection or service issue")
+        if 'cache' in raw_log or 'timeout' in raw_log:
+            reasons.append("Cache/timeout issue, likely recoverable")
+        if not reasons:
+            reasons.append("Low risk event, routine monitoring only")
+    
+    # Info level (default)
+    else:
+        reasons.append("**Informational** - Normal activity logged")
+        if 'connected' in raw_log or 'started' in raw_log:
+            reasons.append("Service/process started successfully")
+        if 'completed' in raw_log or 'success' in raw_log:
+            reasons.append("Operation completed successfully")
+        if 'request' in raw_log or 'response' in raw_log:
+            reasons.append("Normal request/response logged")
+        if not reasons:
+            reasons.append("Informational event for audit logging")
+    
+    return reasons
+
 def get_unique_hosts():
     """Get list of unique hosts from database"""
     from database.queries import get_db_connection
@@ -343,21 +431,9 @@ with col4:
 st.markdown("####Logs by Sourcetype")
 sourcetype_stats = get_sourcetype_stats()
 if sourcetype_stats:
-    stats_col1, stats_col2 = st.columns([3, 1])
-    with stats_col1:
-        stats_df = pd.DataFrame(sourcetype_stats, columns=['Sourcetype', 'Count'])
-        stats_df['Percentage'] = (stats_df['Count'] / stats_df['Count'].sum() * 100).round(2)
-        st.dataframe(stats_df, use_container_width=True, hide_index=True)
-    with stats_col2:
-        st.markdown("**Project Sourcetypes:**")
-        st.markdown("**snort:alert** - IDS/IPS Alerts")
-        st.markdown("**pfsense:syslog** - Firewall Logs")
-        st.markdown("**message_rfc822** - Phishing Emails")
-        st.markdown("**syslog** - General System Logs")
-        st.markdown("**WinEventLog:System** - Windows Events")
-        st.markdown("**WinEventLog:Security** - Windows Security")
-        st.markdown("")
-        st.info("message_rfc822 is critical for phishing detection!")
+    stats_df = pd.DataFrame(sourcetype_stats, columns=['Sourcetype', 'Count'])
+    stats_df['Percentage'] = (stats_df['Count'] / stats_df['Count'].sum() * 100).round(2)
+    st.dataframe(stats_df, use_container_width=True, hide_index=True)
 
 st.markdown("---")
 
@@ -455,7 +531,7 @@ if logs:
             f"[{log['timestamp']}] {log['host']} - {log['source']} - Severity: {log['severity'] or 'unknown'}",
             expanded=False
         ):
-            col1, col2 = st.columns([1, 3])
+            col1, col2, col3 = st.columns([2, 2, 2])
             
             with col1:
                 st.markdown("**Details:**")
@@ -468,11 +544,34 @@ if logs:
             
             with col2:
                 st.markdown("**Raw Log:**")
-                st.code(log['raw_log'], language='text')
+                st.code(log['raw_log'][:500] + ("..." if len(log['raw_log']) > 500 else ""), language='text')
+            
+            with col3:
+                st.markdown("**Severity Assessment:**")
+                severity_reasons = get_severity_reasons(log)
+                for reason in severity_reasons:
+                    st.markdown(f"• {reason}")
+                
+                st.markdown("---")
                 
                 if log['event_data']:
-                    st.markdown("**Event Data:**")
+                    st.markdown("**Event Data (JSON):**")
                     st.json(log['event_data'])
+                else:
+                    st.info("No structured event data available")
+                
+                st.markdown("---")
+                
+                # AI Analysis button
+                if st.button(
+                    f"🤖 Analyze Source: {log['source']}",
+                    key=f"analyze_{log['id']}",
+                    use_container_width=True,
+                    type="primary"
+                ):
+                    st.switch_page("pages/AI_Log_Analysis.py")
+                    # Store source in session for AI page to use
+                    st.session_state.selected_source_for_analysis = log['source']
     
 else:
     st.warning("No logs found. Click 'Fetch Initial Logs' to retrieve data from Splunk.")
