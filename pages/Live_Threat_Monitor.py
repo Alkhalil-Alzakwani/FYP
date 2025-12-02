@@ -371,7 +371,7 @@ st.markdown("Filters")
 unique_hosts = get_unique_hosts()
 unique_sources = get_unique_sources()
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     severity_options = ["All", "critical", "high", "medium", "low", "info"]
@@ -387,6 +387,13 @@ with col3:
 
 with col4:
     search_text = st.text_input("Search in logs", "")
+
+with col5:
+    sort_order = st.selectbox(
+        "Sort by Severity",
+        options=["Highest First", "Lowest First"],
+        help="Sort logs by severity level"
+    )
 
 # Pagination
 logs_per_page = st.slider("Logs per page", min_value=10, max_value=500, value=50, step=10)
@@ -417,6 +424,15 @@ logs = get_splunk_logs(
 # Apply host filter manually (since queries.py doesn't have host_filter parameter)
 if host:
     logs = [log for log in logs if log.get('host') == host]
+
+# Sort by severity
+if logs:
+    severity_order = {'critical': 5, 'high': 4, 'medium': 3, 'low': 2, 'info': 1, 'unknown': 0, None: 0}
+    
+    if sort_order == "Highest First":
+        logs = sorted(logs, key=lambda x: severity_order.get(x.get('severity', 'unknown'), 0), reverse=True)
+    else:  # Lowest First
+        logs = sorted(logs, key=lambda x: severity_order.get(x.get('severity', 'unknown'), 0), reverse=False)
 
 if logs:
     # Convert to DataFrame
