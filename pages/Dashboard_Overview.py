@@ -87,15 +87,19 @@ except ImportError as e:
 
 def check_authentication():
     """Verify user is authenticated before rendering page"""
+    import time
+    
     if not st.session_state.get('authenticated', False):
         st.error("Access Denied: Please login to access this page.")
         st.info("Redirecting to login page...")
+        time.sleep(4)
         st.switch_page("app.py")
         st.stop()
     
     # Check session timeout
     if not check_session_timeout():
         st.warning("Session expired. Please login again.")
+        time.sleep(4)
         st.switch_page("app.py")
         st.stop()
 
@@ -106,7 +110,6 @@ def check_authentication():
 
 st.set_page_config(
     page_title="Dashboard Overview - Cyber Defense Platform",
-    page_icon="�️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -308,6 +311,16 @@ def calculate_false_positive_rate():
 
 def render_header():
     """Render page header with user info"""
+    # Check for logout action
+    query_params = st.query_params
+    if 'action' in query_params and query_params['action'] == 'logout':
+        clear_session()
+        st.session_state.authenticated = False
+        st.success("Logged out successfully!")
+        import time
+        time.sleep(2)
+        st.switch_page("app.py")
+    
     # Top navigation bar
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     st.markdown(f"""
@@ -340,8 +353,7 @@ def render_header():
 
     <div class="topbar">
         <div class="left">
-            <span class="brand">Dashboard Overview</span>
-            <span class="user-info">👤 {st.session_state.get('username', 'Unknown')} | {st.session_state.get('role', 'Unknown').upper()}</span>
+            <span class="user-info">{st.session_state.get('username', 'Unknown')} | {st.session_state.get('role', 'Unknown').upper()}</span>
         </div>
         <div class="links">
             <a href="Live_Threat_Monitor" title="Live Threats">Live Monitor</a>
@@ -350,23 +362,79 @@ def render_header():
             <a href="Performance_Metrics" title="Metrics">Metrics</a>
             <a href="Server_Performance" title="Server">Server</a>
             <a class="cta" href="System_Configuration" title="Configuration">Configuration</a>
+            <a class="logout" href="?action=logout" title="Logout">Logout</a>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("<div style='height:15px'></div>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns([3, 1])
+    # Load and display hero card with background image
+    from pathlib import Path
+    import base64
     
-    with col1:
-        st.title("Real-time Security Operations Center")
-        st.markdown("**Comprehensive threat monitoring and analytics dashboard**")
+    img_path = Path(__file__).parent.parent / "assets" / "photos" / "What-Makes-SOC-Security-Operations-Centre-Effective-People-Process-and-Technology.jpg"
     
-    with col2:
-        if st.button("Logout", key="logout_btn", use_container_width=True):
-            clear_session()
-            st.session_state.authenticated = False
-            st.switch_page("app.py")
+    if img_path.exists():
+        with open(img_path, "rb") as img_file:
+            img_data = base64.b64encode(img_file.read()).decode()
+        
+        st.markdown(f"""
+        <style>
+            .hero-card {{
+                background-image: url('data:image/jpeg;base64,{img_data}');
+                background-size: cover;
+                background-position: center;
+                border-radius: 12px;
+                padding: 60px;
+                color: white;
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+                min-height: 500px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: flex-start;
+                text-align: left;
+                margin-top: 5px;
+            }}
+            .hero-card h2 {{
+                font-size: 48px;
+                font-weight: 700;
+                margin: 0 0 24px 0;
+                line-height: 1.2;
+                max-width: 600px;
+            }}
+            .hero-card p {{
+                font-size: 16px;
+                margin: 0 0 30px 0;
+                max-width: 700px;
+                line-height: 1.6;
+            }}
+            .hero-card-button {{
+                display: inline-block;
+                background: #243447;
+                color: white;
+                padding: 12px 28px;
+                border-radius: 6px;
+                text-decoration: none;
+                font-weight: 700;
+                font-size: 16px;
+                border: none;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }}
+            .hero-card-button:hover {{
+                background: #243447;
+                transform: translateY(-2px);
+            }}
+        </style>
+        <div class="hero-card">
+            <h2>Real-time Security Operations Center</h2>
+            <p>
+                Comprehensive threat monitoring and analytics dashboard
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     
     st.markdown("---")
 
@@ -375,39 +443,93 @@ def render_key_metrics():
     """Render key performance metrics cards"""
     st.subheader("Key Performance Indicators")
     
-    col1, col2, col3, col4 = st.columns(4)
     
-    with col1:
-        total_attacks = get_total_attacks()
-        st.metric(
-            label="Total Attacks Detected",
-            value=f"{total_attacks:,}",
-            delta="Real-time"
-        )
+    # Get data
+    total_attacks = get_total_attacks()
+    high_threats = get_high_severity_threats()
+    blocked = get_blocked_connections()
+    detection_rate = calculate_detection_rate()
     
-    with col2:
-        high_threats = get_high_severity_threats()
-        st.metric(
-            label="High Severity Threats",
-            value=f"{high_threats:,}",
-            delta="-12%" if high_threats > 0 else "0%",
-            delta_color="inverse"
-        )
-    
-    with col3:
-        blocked = get_blocked_connections()
-        st.metric(
-            label="Blocked Connections",
-            value=f"{blocked:,}",
-            delta="+8%"
-        )
-    
-    with col4:
-        st.metric(
-            label="System Status",
-            value="OPERATIONAL",
-            delta="99.8% Uptime"
-        )
+    st.markdown(f"""
+    <style>
+        .stats-card {{
+            background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+            border: 2px solid #ffffff;
+            border-radius: 12px;
+            padding: 30px;
+            color: #E2E2D2;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }}
+        .stats-content {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }}
+        .stat-inline {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        .stat-inline-value {{
+            font-size: 28px;
+            font-weight: 700;
+            color: #65c1f9;
+        }}
+        .stat-inline-label {{
+            font-size: 12px;
+            color: #E2E2D2;
+            opacity: 0.85;
+            line-height: 1.3;
+        }}
+        .stats-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+        }}
+    </style>
+    <div class="stats-card">
+        <div class="stats-content">
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">{total_attacks:,}</div>
+                    <div class="stat-inline-label">Total Attacks Detected</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">{high_threats:,}</div>
+                    <div class="stat-inline-label">High Severity Threats</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">{blocked:,}</div>
+                    <div class="stat-inline-label">Blocked Connections</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">{detection_rate:.1f}%</div>
+                    <div class="stat-inline-label">Detection Rate</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">&lt;2s</div>
+                    <div class="stat-inline-label">Response Time</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">OPERATIONAL</div>
+                    <div class="stat-inline-label">System Status</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def render_performance_metrics():
