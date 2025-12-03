@@ -162,11 +162,11 @@ st.markdown(f"""
     <div class="left">
     </div>
     <div class="links">
-        <a href="#" title="Login">Login</a>
-        <a href="#" title="Dashboard">Dashboard</a>
-        <a href="#" title="Live Monitor">Live Monitor</a>
-        <a class="cta" href="#" title="Get Support">Get Support</a>
-        <a href="#" title="Shutdown">⏻ Shutdown</a>
+        <a href="?nav=login" title="Login">Login</a>
+        <a href="#platform-capabilities" title="Capabilities">Capabilities</a>
+        <a href="#technology-stack" title="Technology">Technology</a>
+        <a class="cta" href="#contact-information" title="Get Support">Get Support</a>
+        <a href="#" onclick="window.close(); return false;" title="Shutdown">⏻ Shutdown</a>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -179,6 +179,11 @@ st.markdown(f"""
 
 def main():
     """Main application entry point - Introductory landing page"""
+    
+    # Check for navigation from topbar
+    query_params = st.query_params
+    if 'nav' in query_params and query_params['nav'] == 'login':
+        st.switch_page('pages/login.py')
 
     st.markdown('')
     
@@ -215,7 +220,7 @@ def main():
                 margin-top: 5px;
             }}
             .hero-card h2 {{
-                font-size: 60px;
+                font-size: 48px;
                 font-weight: 700;
                 margin: 0 0 24px 0;
                 line-height: 1.2;
@@ -223,7 +228,7 @@ def main():
             }}
             .hero-card p {{
                 font-size: 16px;
-                margin: 0 0 40px 0;
+                margin: 0 0 30px 0;
                 max-width: 700px;
                 line-height: 1.6;
             }}
@@ -376,6 +381,9 @@ def main():
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    st.markdown('---')
+
         
     # ========================================================================
     # PLATFORM CAPABILITIES
@@ -427,8 +435,8 @@ def main():
             margin-right: 8px;
         }}
     </style>
-    <div class="capabilities-section">
-        <h2 style="color: #E2E2D2; margin-bottom: 10px; text-align: center;">Platform Capabilities</h2>
+    <div class="capabilities-section" id="platform-capabilities">
+        <h2 style="color: #E2E2D2; margin-bottom: 10px;text-align: center;">Platform Capabilities</h2>
         <div class="capabilities-grid">
             <div class="capability-card">
                 <h4>Security</h4>
@@ -464,65 +472,126 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    st.markdown('---')
     
     # ========================================================================
     # TECHNOLOGY STACK
     # ========================================================================
-
-    st.markdown('## Technology Stack')
-
+    
+    st.markdown("""
+    <h2 id="technology-stack" style="color: #E2E2D2; text-align: center; margin-bottom: 20px;">Technology Stack</h2>
+    """, unsafe_allow_html=True)
+    
     tech_col1, tech_col2, tech_col3, tech_col4 = st.columns(4)
-
+    
     with tech_col1:
         st.markdown('**Frontend**')
-        st.markdown('- Streamlit (UI)')
-        st.markdown('- Plotly (visualizations)')
-
+        st.markdown('- Streamlit')
+        st.markdown('- Plotly')
+        st.markdown('- Altair')
+        
     with tech_col2:
-        st.markdown('**Backend / Data**')
+        st.markdown('**Backend**')
         st.markdown('- Python 3.12')
-        st.markdown('- SQLite (persistent store)')
-        st.markdown('- Pandas (data processing)')
-
+        st.markdown('- SQLite')
+        st.markdown('- Pandas')
+        
     with tech_col3:
-        st.markdown('**Integrations & Ops**')
-        st.markdown('- Splunk SDK (SIEM ingestion)')
-        st.markdown('- pfSense (firewall integration via API/syslog)')
-        st.markdown('- psutil (server metrics)')
-
+        st.markdown('**AI/ML**')
+        st.markdown('- Mistral AI')
+        st.markdown('- NumPy')
+        st.markdown('- Scikit-learn')
+        
     with tech_col4:
-        st.markdown('**AI / Security**')
-        st.markdown('- Mistral LLM (analysis & context)')
-        st.markdown('- bcrypt (password hashing)')
-        st.markdown('- PyYAML (configuration)')
-
+        st.markdown('**Security**')
+        st.markdown('- bcrypt')
+        st.markdown('- JWT')
+        st.markdown('- YAML Config')
+    
     st.markdown('---')
     
     # ========================================================================
     # GETTING STARTED
     # ========================================================================
     
-    st.markdown('## Getting Started')
-    
-    start_col1, start_col2, start_col3 = st.columns(3)
-    
-    with start_col1:
-        st.markdown('### 1. Login')
-        st.markdown('Access the platform with your credentials')
-        if st.button('Go to Login', use_container_width=True, type='primary'):
-            st.switch_page('pages/login.py')
-            
-    with start_col2:
-        st.markdown('### 2. Dashboard')
-        st.markdown('View real-time security metrics')
-        if st.button('View Dashboard', use_container_width=True):
-            st.info('Please login first to access the dashboard')
-            
-    with start_col3:
-        st.markdown('### 3. Monitor')
-        st.markdown('Track threats and incidents')
-        if st.button('Live Monitor', use_container_width=True):
-            st.info('Please login first to access monitoring')
+    st.markdown(f"""
+    <style>
+        .getting-started-section {{
+            margin: 20px 0;
+            margin-top: 20px;
+        }}
+        .getting-started-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }}
+        .getting-started-card {{
+            background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+            border: 2px solid #fffff;
+            border-radius: 12px;
+            padding: 30px;
+            color: #E2E2D2;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }}
+        .getting-started-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+        }}
+        .getting-started-card h4 {{
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0 0 12px 0;
+            color: #65c1f9;
+        }}
+        .getting-started-card p {{
+            font-size: 14px;
+            margin: 0 0 20px 0;
+            opacity: 0.9;
+            line-height: 1.5;
+        }}
+        .getting-started-button {{
+            background: #243447;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }}
+        .getting-started-button:hover {{
+            background: #c51f5d;
+            transform: translateY(-2px);
+        }}
+    </style>
+    <div class="getting-started-section">
+        <h2 style="color: #E2E2D2; text-align: center; margin-bottom: 20px;">Getting Started</h2>
+        <div class="getting-started-grid">
+            <div class="getting-started-card">
+                <h4>Login</h4>
+                <p>Access the platform with your credentials</p>
+                <button class="getting-started-button" onclick="window.location.href='?page=pages/login'">Go to Login</button>
+            </div>
+            <div class="getting-started-card">
+                <h4>Dashboard</h4>
+                <p>View real-time security metrics</p>
+                <button class="getting-started-button" onclick="alert('Please login first to access the dashboard')">View Dashboard</button>
+            </div>
+            <div class="getting-started-card">
+                <h4>Monitor</h4>
+                <p>Track threats and incidents</p>
+                <button class="getting-started-button" onclick="alert('Please login first to access monitoring')">Live Monitor</button>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown('---')
     
@@ -530,23 +599,93 @@ def main():
     # FOOTER
     # ========================================================================
     
-    footer_col1, footer_col2, footer_col3 = st.columns(3)
-    
-    with footer_col1:
-        st.markdown('**Contact**')
-        st.markdown('support@cyberdefense.com')
-        
-    with footer_col2:
-        st.markdown('**Documentation**')
-        st.markdown('docs.cyberdefense.com')
-        
-    with footer_col3:
-        st.markdown('**Security**')
-        st.markdown('security@cyberdefense.com')
-    
-    st.markdown('---')
-    st.caption('© 2025 Multilayered Cyber Defense Platform | Version 1.0')
-    st.caption('Unauthorized access is prohibited and will be logged')
+    st.markdown(f"""
+    <style>
+        .footer-section {{
+            margin-top: 40px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }}
+        .footer-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 900px;
+        }}
+        .footer-card {{
+            border: 2px solid #E2E2D2;
+            border-radius: 12px;
+            padding: 30px;
+            color: #fffff;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }}
+        .footer-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+        }}
+        .footer-card h4 {{
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0 0 14px 0;
+            color: #65c1f9;
+        }}
+        .footer-card p {{
+            font-size: 14px;
+            margin: 8px 0;
+            opacity: 0.9;
+            line-height: 1.6;
+        }}
+        .footer-card a {{
+            color: #E2E2D2;
+            text-decoration: none;
+            font-weight: 600;
+        }}
+        .footer-card a:hover {{
+            text-decoration: underline;
+            color: #c51f5d;
+        }}
+        .footer-bottom {{
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid rgba(229, 192, 218, 0.2);
+            opacity: 0.8;
+            font-size: 12px;
+            color: #E2E2D2;
+            width: 100%;
+        }}
+    </style>
+    <div class="footer-section" id="contact-information">
+        <h2 style="color: #E2E2D2; text-align: center; margin-bottom: 30px;">Contact & Information</h2>
+        <div class="footer-grid">
+            <div class="footer-card">
+                <h4>Email</h4>
+                <p><a href="mailto:kh.zakwani1@gmail.com">kh.zakwani1@gmail.com</a></p>
+            </div>
+            <div class="footer-card">
+                <h4>Phone</h4>
+                <p>+968 71777979</p>
+            </div>
+            <div class="footer-card">
+                <h4>Institution</h4>
+                <p><a href="https://www.squ.edu.om" target="_blank">squ.edu.om</a></p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2025 Multilayered Cyber Defense Platform | Version 1.0</p>
+            <p>Unauthorized access is prohibited and will be logged</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -571,16 +710,6 @@ def render_sidebar():
         st.markdown('- [API Reference](#)')
         st.markdown('- [Support Portal](#)')
         st.markdown('- [Security Advisories](#)')
-        
-        st.markdown('---')
-        st.markdown('### System Info')
-        st.info('''
-        **Platform Version:** 1.0.0
-        
-        **Status:** Operational
-        
-        **Last Update:** Oct 28, 2025
-        ''')
 
 
 # ============================================================================
