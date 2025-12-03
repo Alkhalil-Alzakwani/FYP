@@ -126,40 +126,91 @@ st.set_page_config(
 )
 
 # ============================================================================
-# CUSTOM CSS FOR SCROLLING
+# CUSTOM CSS FOR STYLING
 # ============================================================================
 
 st.markdown("""
 <style>
-    /* Ensure main container is scrollable */
+    /* Main container styling */
     .main {
+        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
         overflow-y: auto !important;
         height: 100vh !important;
-        max-height: 100vh !important;
     }
     
-    /* Fix block container */
+    /* Block container */
     .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-        max-width: 100% !important;
-        overflow-y: visible !important;
+        padding-top: 3rem !important;
+        padding-bottom: 3rem !important;
+        max-width: 500px !important;
+        margin: 0 auto !important;
     }
     
-    /* Sidebar scrolling */
+    /* Hide sidebar */
     section[data-testid="stSidebar"] {
-        height: 100vh !important;
-        overflow-y: auto !important;
+        display: none;
     }
     
-    /* Force scrolling on app view container */
-    .appview-container {
-        overflow-y: auto !important;
+    /* Streamlit elements styling */
+    .stTextInput > div > div > input {
+        background-color: #243447;
+        color: #E2E2D2;
+        border: 1px solid #fffff;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 16px;
     }
     
-    /* Make sure content doesn't get cut off */
-    div[data-testid="stVerticalBlock"] {
-        overflow: visible !important;
+    .stTextInput > div > div > input:focus {
+        border-color: #fffff;
+        box-shadow: 0 0 0 1px #E2E2D2;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #E2E2D2 0%, #d63574 100%);
+        color: #E2E2D2;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        width: 100%;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(197, 31, 93, 0.3);
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #d63574 0%, #e74489 100%);
+        box-shadow: 0 6px 12px rgba(197, 31, 93, 0.5);
+        transform: translateY(-2px);
+    }
+    
+    /* Form styling */
+    .stForm {
+        background-color: #141d26;
+        border: 1px solid #243447;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    
+    /* Text styling */
+    h1, h2, h3, h4, h5, h6, p, label {
+        color: #E2E2D2 !important;
+    }
+    
+    /* Input labels */
+    .stTextInput > label {
+        color: #E2E2D2 !important;
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+    
+    /* Success/Error messages */
+    .stSuccess, .stError, .stWarning, .stInfo {
+        border-radius: 8px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -259,11 +310,20 @@ def check_existing_session():
 def render_login_page():
     """Render the login page UI"""
     
-    # Header
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.title("Cyber Defense Platform")
-        st.subheader("Secure Login")
+    # Add spacing
+    st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
+    
+    # Header with logo/icon
+    st.markdown("""
+        <div style='text-align: center; margin-bottom: 2rem;'>
+            <h1 style='color: #E2E2D2; font-size: 32px; margin-bottom: 0.5rem; font-weight: 700;'>
+                Cyber Defense Platform
+            </h1>
+            <p style='color: #E2E2D2; font-size: 16px; opacity: 0.8;'>
+                Secure Authentication Portal
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
     
     # Check for account lockout (after 5 failed attempts)
     max_attempts = security_config.get('max_login_attempts', 5)
@@ -272,48 +332,57 @@ def render_login_page():
         st.info("Please contact your system administrator.")
         return
     
-    # Login form with narrower width
-    col_left, col_center, col_right = st.columns([1.5, 1, 1.5])
-    with col_center:
-        with st.form("login_form", clear_on_submit=False):
-            username = st.text_input(
-                "Username",
-                placeholder="Enter your username",
-                key="login_username"
-            )
-            
-            password = st.text_input(
-                "Password",
-                type="password",
-                placeholder="Enter your password",
-                key="login_password"
-            )
-            
-            submit_button = st.form_submit_button("Login", use_container_width=True)
-            
-            if submit_button:
-                if not username or not password:
-                    st.error("Please enter both username and password")
-                else:
-                    with st.spinner("Authenticating..."):
-                        if handle_login(username, password):
-                            st.success(f"Welcome back, {username}!")
-                            st.balloons()
-                            # Rerun to redirect to dashboard
-                            st.rerun()
+    # Login form
+    with st.form("login_form", clear_on_submit=False):
+        st.markdown("<div style='margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
+        
+        username = st.text_input(
+            "Username",
+            placeholder="Enter your username",
+            key="login_username"
+        )
+        
+        password = st.text_input(
+            "Password",
+            type="password",
+            placeholder="Enter your password",
+            key="login_password"
+        )
+        
+        st.markdown("<div style='margin-top: 1.5rem;'></div>", unsafe_allow_html=True)
+        
+        submit_button = st.form_submit_button("Login", use_container_width=True)
+        
+        if submit_button:
+            if not username or not password:
+                st.error("Please enter both username and password")
+            else:
+                with st.spinner("Authenticating..."):
+                    if handle_login(username, password):
+                        st.success(f"Welcome back, {username}!")
+                        st.balloons()
+                        # Rerun to redirect to dashboard
+                        st.rerun()
+                    else:
+                        remaining = max_attempts - st.session_state.login_attempts
+                        if remaining > 0:
+                            st.error(f"Invalid credentials. {remaining} attempts remaining.")
                         else:
-                            remaining = max_attempts - st.session_state.login_attempts
-                            if remaining > 0:
-                                st.error(f"Invalid credentials. {remaining} attempts remaining.")
-                            else:
-                                st.error("Account locked due to too many failed attempts.")
+                            st.error("Account locked due to too many failed attempts.")
     
     # Footer information
+    st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
     st.markdown(
         """
-        <div style='text-align: center; color: gray; font-size: 12px;'>
-        <p>Multilayered Cyber Defense Platform v1.0</p>
-        <p>Unauthorized access is prohibited and will be logged.</p>
+        <div style='text-align: center; padding: 2rem 0;'>
+            <div style='border-top: 1px solid #243447; padding-top: 1.5rem; margin-top: 1rem;'>
+                <p style='color: #E2E2D2; font-size: 14px; margin-bottom: 0.5rem; opacity: 0.8;'>
+                    <strong>Multilayered Cyber Defense Platform</strong> v1.0
+                </p>
+                <p style='color: #E2E2D2; font-size: 12px; margin-bottom: 0;'>
+                    Unauthorized access is prohibited and will be logged
+                </p>
+            </div>
         </div>
         """,
         unsafe_allow_html=True
@@ -322,11 +391,26 @@ def render_login_page():
 
 def render_authenticated_page():
     """Render page for authenticated users with redirect"""
-    st.success(f"Welcome, {st.session_state.username}!")
-    st.info(f"Role: {st.session_state.role.upper()}")
+    st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
     
-    st.markdown("---")
-    st.markdown("### Redirecting to Dashboard...")
+    st.markdown("""
+        <div style='text-align: center; padding: 2rem;'>
+            <div style='background: linear-gradient(135deg, #E2E2D2 0%, #d63574 100%); 
+                        width: 100px; height: 100px; border-radius: 50%; 
+                        margin: 0 auto 1.5rem auto; display: flex; 
+                        align-items: center; justify-content: center;
+                        box-shadow: 0 8px 16px rgba(197, 31, 93, 0.4);'>
+                <span style='font-size: 50px;'></span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.success(f"Welcome, **{st.session_state.username}**!")
+    st.info(f"Role: **{st.session_state.role.upper()}**")
+    
+    st.markdown("<div style='text-align: center; margin-top: 2rem;'>", unsafe_allow_html=True)
+    st.markdown("###Redirecting to Dashboard...")
+    st.markdown("</div>", unsafe_allow_html=True)
     
     # Automatic redirect to Dashboard Overview
     st.switch_page("pages/Dashboard_Overview.py")
