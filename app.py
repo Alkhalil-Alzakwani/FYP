@@ -136,22 +136,6 @@ st.markdown("""
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 st.markdown(f"""
 <style>
-    .topboarding {{
-        background: linear-gradient(90deg, #E2E2D2 0%, #E2E2D2 100%);
-        color: #141d26;
-        padding: 4px 18px;
-        font-size: 13px;
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        border-bottom: 1px solid #243447;
-        border-radius: 8px;
-        overflow: hidden;
-    }}
-    .topboarding .left {{ display:flex; gap:14px; align-items:center; }}
-    .topboarding .pill {{ background:#141d26; color:#E2E2D2; padding:4px 8px; border-radius:12px; font-weight:600; font-size:12px; }}
-    .topboarding .status {{ color:#141d26; opacity:0.9; font-size:12px; }}
-
     .topbar {{
         background: #141d26;
         color: #E2E2D2;
@@ -159,7 +143,6 @@ st.markdown(f"""
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border-bottom: 3px solid #243447;
         gap: 12px;
         border-radius: 8px;
         overflow: hidden;
@@ -172,14 +155,11 @@ st.markdown(f"""
     .topbar .cta {{ background: #c51f5d; color: #ffffff; padding:8px 12px; border-radius:6px; }}
     @media (max-width: 700px) {{
         .topbar {{ flex-direction: column; align-items: flex-start; gap:8px; }}
-        .topboarding {{ flex-direction:column; align-items:flex-start; gap:6px; }}
     }}
 </style>
 
 <div class="topbar">
     <div class="left">
-        <div class="brand">Multilayered Cyber Defense Platform</div>
-        <div style="color:#E2E2D2; opacity:0.85; font-size:13px;">— AI Threat Detection & Response</div>
     </div>
     <div class="links">
         <a href="#" title="Login">Login</a>
@@ -199,60 +179,198 @@ st.markdown(f"""
 
 def main():
     """Main application entry point - Introductory landing page"""
+
+    st.markdown('')
     
     # ========================================================================
-    # HERO SECTION
+    # HERO CARD WITH BACKGROUND IMAGE
     # ========================================================================
     
-    # Header with login button
-    header_col1, header_col2 = st.columns([4, 1])
+    # Load and display hero card with background image
+    from pathlib import Path
+    import base64
     
-    with header_col1:
-        st.markdown('# Multilayered Cyber Defense Platform')
-        st.markdown('### AI-Powered Threat Detection and Response System')
+    img_path = Path(__file__).parent / "assets" / "photos" / "abstract-technology-cyber-security-privacy-information-network-concept-padlock-protection-digital-network-internet-link-on-hi-tech-blue-future-background-vector.jpg"
     
-    with header_col2:
-        st.markdown('')  # Add spacing
-        if st.button('Login', use_container_width=True, type='primary'):
-            st.switch_page('pages/login.py')
+    if img_path.exists():
+        with open(img_path, "rb") as img_file:
+            img_data = base64.b64encode(img_file.read()).decode()
+        
+        st.markdown(f"""
+        <style>
+            .hero-card {{
+                background-image: url('data:image/jpeg;base64,{img_data}');
+                background-size: cover;
+                background-position: center;
+                border-radius: 12px;
+                padding: 60px;
+                color: white;
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+                min-height: 500px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: flex-start;
+                text-align: left;
+                margin-top: 16px;
+            }}
+            .hero-card h2 {{
+                font-size: 48px;
+                font-weight: 700;
+                margin: 0 0 24px 0;
+                line-height: 1.2;
+                max-width: 600px;
+            }}
+            .hero-card p {{
+                font-size: 16px;
+                margin: 0 0 30px 0;
+                max-width: 700px;
+                line-height: 1.6;
+            }}
+            .hero-card-button {{
+                display: inline-block;
+                background: #243447 ;
+                color: white;
+                padding: 12px 28px;
+                border-radius: 6px;
+                text-decoration: none;
+                font-weight: 700;
+                font-size: 16px;
+                border: none;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }}
+            .hero-card-button:hover {{
+                background: #243447 ;
+                transform: translateY(-2px);
+            }}
+        </style>
+        <div class="hero-card">
+            <h2>Multilayered Cyber Defense Platform</h2>
+            <p>
+                The Multilayered Cyber Defense Platform is an advanced security solution 
+                that combines artificial intelligence, real-time monitoring, and automated 
+                response systems to protect your infrastructure from evolving cyber threats.
+            </p>
+            <button class="hero-card-button" onclick="window.location.href='?page=pages/login'">Get Started</button>
+        </div>
+        """, unsafe_allow_html=True)
+
+    else:
+        st.warning(f"Image not found at: {img_path}")
     
-    st.markdown('---')
     
     # ========================================================================
-    # INTRODUCTION & QUICK STATS
+    # STATISTICS CARD WITH REAL DATABASE DATA
     # ========================================================================
     
-    col1, col2 = st.columns([2, 1])
+    from database.queries import get_db_connection
+    import sqlite3
     
-    with col1:
-        st.markdown('''
-        ## About the Platform
-        
-        The **Multilayered Cyber Defense Platform** is an advanced security solution that combines 
-        artificial intelligence, real-time monitoring, and automated response systems to protect 
-        your infrastructure from evolving cyber threats.
-        
-        ### Key Features
-        
-        - **AI-Powered Log Analysis**: Leverage Mistral AI to analyze security logs and detect anomalies
-        - **Real-Time Threat Monitoring**: Live visualization of security events and threats
-        - **Automated Response System**: Intelligent threat mitigation and incident response
-        - **Performance Metrics**: Comprehensive analytics and reporting dashboard
-        - **Forensics & Investigation**: Detailed analysis tools for security incidents
-        - **Threat Scoring**: Advanced algorithms to prioritize and classify threats
-        - **User Management**: Role-based access control and user administration
-        ''')
-        
-    with col2:
-        st.markdown('### Quick Stats')
-        
-        metric_col1, metric_col2 = st.columns(2)
-        with metric_col1:
-            st.metric('Threat Detection', '99.7%', '2.1%')
-            st.metric('Response Time', '< 2s', '-0.3s')
-        with metric_col2:
-            st.metric('Uptime', '99.9%', '0.1%')
-            st.metric('Active Modules', '7', '+1')
+    # Fetch real data from database
+    stats_data = {
+        'total_threats': 0,
+        'critical_threats': 0,
+        'avg_response_time': '< 2s',
+        'platform_uptime': '99.9%',
+        'active_analyses': 0
+    }
+    
+    try:
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            # Get total threat scores
+            cur.execute("SELECT COUNT(*) FROM threat_scores")
+            stats_data['total_threats'] = cur.fetchone()[0] or 0
+            
+            # Get critical threats
+            cur.execute("SELECT COUNT(*) FROM threat_scores WHERE severity = 'High'")
+            stats_data['critical_threats'] = cur.fetchone()[0] or 0
+            
+            # Get active modules count
+            cur.execute("SELECT COUNT(DISTINCT source) FROM splunk_logs")
+            stats_data['active_analyses'] = cur.fetchone()[0] or 0
+            
+            conn.close()
+    except Exception as e:
+        st.warning(f"Could not fetch real-time stats: {e}")
+    
+    st.markdown(f"""
+    <style>
+        .stats-card {{
+            background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+            border: 2px solid #fffff;
+            border-radius: 12px;
+            padding: 30px;
+            color: #E2E2D2;
+            margin-top: 16px;
+        }}
+        .stats-content {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }}
+        .stat-inline {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        .stat-inline-value {{
+            font-size: 28px;
+            font-weight: 700;
+            color: #65c1f9;
+        }}
+        .stat-inline-label {{
+            font-size: 12px;
+            color: #E2E2D2;
+            opacity: 0.85;
+            line-height: 1.3;
+        }}
+    </style>
+    <div class="stats-card">
+        <div class="stats-content">
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">{stats_data['total_threats']}</div>
+                    <div class="stat-inline-label">Total Analyses</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">{stats_data['critical_threats']}</div>
+                    <div class="stat-inline-label">High Priority</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">{stats_data['active_analyses']}</div>
+                    <div class="stat-inline-label">Active Sources</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">99.7%</div>
+                    <div class="stat-inline-label">Detection Rate</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">&lt;2s</div>
+                    <div class="stat-inline-label">Response Time</div>
+                </div>
+            </div>
+            <div class="stat-inline">
+                <div>
+                    <div class="stat-inline-value">99.9%</div>
+                    <div class="stat-inline-label">Uptime</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown('---')
     
