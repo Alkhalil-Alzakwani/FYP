@@ -308,16 +308,62 @@ def calculate_false_positive_rate():
 
 def render_header():
     """Render page header with user info"""
+    # Top navigation bar
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <style>
+        .topbar {{
+            background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+            color: #E2E2D2;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }}
+        .topbar .left {{ display:flex; align-items:center; gap:15px; }}
+        .topbar .brand {{ font-weight:700; font-size:20px; color:#E2E2D2; }}
+        .topbar .user-info {{ font-size:13px; color:#E2E2D2; opacity:0.9; }}
+        .topbar .links {{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }}
+        .topbar a {{ color: #E2E2D2; text-decoration: none; padding:8px 14px; border-radius:6px; font-size:14px; transition: all 0.3s ease; }}
+        .topbar a:hover {{ background:#243447; color:#E2E2D2; transform: translateY(-2px); }}
+        .topbar .cta {{ background: #c51f5d; color: #ffffff; padding:8px 14px; border-radius:6px; font-weight:600; }}
+        .topbar .cta:hover {{ background: #d63574; }}
+        @media (max-width: 900px) {{
+            .topbar {{ flex-direction: column; align-items: flex-start; gap:10px; }}
+            .topbar .links {{ width: 100%; justify-content: flex-start; }}
+        }}
+    </style>
+
+    <div class="topbar">
+        <div class="left">
+            <span class="brand">Dashboard Overview</span>
+            <span class="user-info">👤 {st.session_state.get('username', 'Unknown')} | {st.session_state.get('role', 'Unknown').upper()}</span>
+        </div>
+        <div class="links">
+            <a href="Live_Threat_Monitor" title="Live Threats">Live Monitor</a>
+            <a href="AI_Log_Analysis" title="AI Analysis">AI Analysis</a>
+            <a href="Threat_Scoring" title="Threat Scoring">Scoring</a>
+            <a href="Performance_Metrics" title="Metrics">Metrics</a>
+            <a href="Server_Performance" title="Server">Server</a>
+            <a class="cta" href="System_Configuration" title="Configuration">Configuration</a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<div style='height:15px'></div>", unsafe_allow_html=True)
+    
     col1, col2 = st.columns([3, 1])
     
     with col1:
-        st.title("Dashboard Overview")
-        st.markdown("**Real-time Security Operations Center**")
+        st.title("Real-time Security Operations Center")
+        st.markdown("**Comprehensive threat monitoring and analytics dashboard**")
     
     with col2:
-        st.markdown(f"**User:** {st.session_state.get('username', 'Unknown')}")
-        st.markdown(f"**Role:** {st.session_state.get('role', 'Unknown').upper()}")
-        if st.button("Logout", key="logout_btn"):
+        if st.button("Logout", key="logout_btn", use_container_width=True):
             clear_session()
             st.session_state.authenticated = False
             st.switch_page("app.py")

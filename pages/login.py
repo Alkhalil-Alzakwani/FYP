@@ -144,6 +144,16 @@ st.markdown("""
         padding-bottom: 3rem !important;
         max-width: 500px !important;
         margin: 0 auto !important;
+        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+        border: 2px solid #ffffff;
+        border-radius: 18px;
+        padding: 30px;
+        color: #E2E2D2;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
     }
     
     /* Hide sidebar */
