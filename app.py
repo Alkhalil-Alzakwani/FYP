@@ -182,8 +182,23 @@ def main():
     
     # Check for navigation from topbar
     query_params = st.query_params
-    if 'nav' in query_params and query_params['nav'] == 'login':
-        st.switch_page('pages/login.py')
+    if 'nav' in query_params:
+        if query_params['nav'] == 'login':
+            st.switch_page('pages/login.py')
+        elif query_params['nav'] == 'dashboard':
+            # Check if user is logged in
+            if 'authenticated' in st.session_state and st.session_state['authenticated']:
+                st.switch_page('pages/Dashboard_Overview.py')
+            else:
+                st.warning('Please login first to access the dashboard')
+                st.switch_page('pages/login.py')
+        elif query_params['nav'] == 'monitor':
+            # Check if user is logged in
+            if 'authenticated' in st.session_state and st.session_state['authenticated']:
+                st.switch_page('pages/Live_Threat_Monitor.py')
+            else:
+                st.warning('Please login first to access monitoring')
+                st.switch_page('pages/login.py')
 
     st.markdown('')
     
@@ -257,7 +272,7 @@ def main():
                 that combines artificial intelligence, real-time monitoring, and automated 
                 response systems to protect your infrastructure from evolving cyber threats.
             </p>
-            <button class="hero-card-button" onclick="window.location.href='?page=pages/login'">Get Started</button>
+            <a href="#getting-started" class="hero-card-button" style="text-decoration: none; display: inline-block;">Get Started</a>
         </div>
         """, unsafe_allow_html=True)
 
@@ -571,23 +586,23 @@ def main():
             transform: translateY(-2px);
         }}
     </style>
-    <div class="getting-started-section">
+    <div class="getting-started-section" id="getting-started">
         <h2 style="color: #E2E2D2; text-align: center; margin-bottom: 20px;">Getting Started</h2>
         <div class="getting-started-grid">
             <div class="getting-started-card">
                 <h4>Login</h4>
                 <p>Access the platform with your credentials</p>
-                <button class="getting-started-button" onclick="window.location.href='?page=pages/login'">Go to Login</button>
+                <a href="?nav=login" class="getting-started-button" style="text-decoration: none; display: block; line-height: 1.5;">Go to Login</a>
             </div>
             <div class="getting-started-card">
                 <h4>Dashboard</h4>
                 <p>View real-time security metrics</p>
-                <button class="getting-started-button" onclick="alert('Please login first to access the dashboard')">View Dashboard</button>
+                <a href="?nav=dashboard" class="getting-started-button" style="text-decoration: none; display: block; line-height: 1.5;">View Dashboard</a>
             </div>
             <div class="getting-started-card">
                 <h4>Monitor</h4>
                 <p>Track threats and incidents</p>
-                <button class="getting-started-button" onclick="alert('Please login first to access monitoring')">Live Monitor</button>
+                <a href="?nav=monitor" class="getting-started-button" style="text-decoration: none; display: block; line-height: 1.5;">Live Monitor</a>
             </div>
         </div>
     </div>
