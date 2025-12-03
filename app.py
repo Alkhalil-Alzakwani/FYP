@@ -137,7 +137,7 @@ st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 st.markdown(f"""
 <style>
     .topbar {{
-        background: #141d26;
+        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
         color: #E2E2D2;
         padding: 10px 18px;
         display: flex;
@@ -212,10 +212,10 @@ def main():
                 justify-content: center;
                 align-items: flex-start;
                 text-align: left;
-                margin-top: 16px;
+                margin-top: 5px;
             }}
             .hero-card h2 {{
-                font-size: 48px;
+                font-size: 60px;
                 font-weight: 700;
                 margin: 0 0 24px 0;
                 line-height: 1.2;
@@ -223,7 +223,7 @@ def main():
             }}
             .hero-card p {{
                 font-size: 16px;
-                margin: 0 0 30px 0;
+                margin: 0 0 40px 0;
                 max-width: 700px;
                 line-height: 1.6;
             }}
@@ -304,7 +304,8 @@ def main():
             border-radius: 12px;
             padding: 30px;
             color: #E2E2D2;
-            margin-top: 16px;
+            margin-top: 20px;
+            transition: all 0.3s ease;
         }}
         .stats-content {{
             display: flex;
@@ -328,6 +329,10 @@ def main():
             color: #E2E2D2;
             opacity: 0.85;
             line-height: 1.3;
+        }}
+        .stats-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
         }}
     </style>
     <div class="stats-card">
@@ -371,81 +376,126 @@ def main():
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown('---')
-    
+        
     # ========================================================================
     # PLATFORM CAPABILITIES
     # ========================================================================
     
-    st.markdown('## Platform Capabilities')
+    st.markdown(f"""
+    <style>
+        .capabilities-section {{
+            margin: 20px 0;
+            margin-top: 20px;
+
+        }}
+        .capabilities-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }}
+        .capability-card {{
+            background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+            border: 2px solid #fffff;
+            border-radius: 12px;
+            padding: 30px;
+            color: #E2E2D2;
+            transition: all 0.3s ease;
+        }}
+        .capability-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+        }}
+        .capability-card h4 {{
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0 0 16px 0;
+        }}
+        .capability-card ul {{
+            margin: 0;
+            padding-left: 20px;
+            list-style: none;
+        }}
+        .capability-card li {{
+            font-size: 14px;
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }}
+        .capability-card li:before {{
+            content: "▸ ";
+            font-weight: 700;
+            margin-right: 8px;
+        }}
+    </style>
+    <div class="capabilities-section">
+        <h2 style="color: #E2E2D2; margin-bottom: 10px; text-align: center;">Platform Capabilities</h2>
+        <div class="capabilities-grid">
+            <div class="capability-card">
+                <h4>Security</h4>
+                <ul>
+                    <li>Multi-factor authentication</li>
+                    <li>Role-based access control</li>
+                    <li>Session management</li>
+                    <li>Audit logging</li>
+                    <li>Encrypted communications</li>
+                </ul>
+            </div>
+            <div class="capability-card">
+                <h4>Intelligence</h4>
+                <ul>
+                    <li>Machine learning models</li>
+                    <li>Behavioral analysis</li>
+                    <li>Threat intelligence feeds</li>
+                    <li>Predictive analytics</li>
+                    <li>Pattern recognition</li>
+                </ul>
+            </div>
+            <div class="capability-card">
+                <h4>Operations</h4>
+                <ul>
+                    <li>Real-time dashboards</li>
+                    <li>Automated responses</li>
+                    <li>Alert management</li>
+                    <li>Incident workflows</li>
+                    <li>Integration APIs</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown('''
-        #### Security
-        - Multi-factor authentication
-        - Role-based access control
-        - Session management
-        - Audit logging
-        - Encrypted communications
-        ''')
-        
-    with col2:
-        st.markdown('''
-        #### Intelligence
-        - Machine learning models
-        - Behavioral analysis
-        - Threat intelligence feeds
-        - Predictive analytics
-        - Pattern recognition
-        ''')
-        
-    with col3:
-        st.markdown('''
-        #### Operations
-        - Real-time dashboards
-        - Automated responses
-        - Alert management
-        - Incident workflows
-        - Integration APIs
-        ''')
-    
-    st.markdown('---')
     
     # ========================================================================
     # TECHNOLOGY STACK
     # ========================================================================
-    
+
     st.markdown('## Technology Stack')
-    
+
     tech_col1, tech_col2, tech_col3, tech_col4 = st.columns(4)
-    
+
     with tech_col1:
         st.markdown('**Frontend**')
-        st.markdown('- Streamlit')
-        st.markdown('- Plotly')
-        st.markdown('- Altair')
-        
+        st.markdown('- Streamlit (UI)')
+        st.markdown('- Plotly (visualizations)')
+
     with tech_col2:
-        st.markdown('**Backend**')
+        st.markdown('**Backend / Data**')
         st.markdown('- Python 3.12')
-        st.markdown('- SQLite')
-        st.markdown('- Pandas')
-        
+        st.markdown('- SQLite (persistent store)')
+        st.markdown('- Pandas (data processing)')
+
     with tech_col3:
-        st.markdown('**AI/ML**')
-        st.markdown('- Mistral AI')
-        st.markdown('- NumPy')
-        st.markdown('- Scikit-learn')
-        
+        st.markdown('**Integrations & Ops**')
+        st.markdown('- Splunk SDK (SIEM ingestion)')
+        st.markdown('- pfSense (firewall integration via API/syslog)')
+        st.markdown('- psutil (server metrics)')
+
     with tech_col4:
-        st.markdown('**Security**')
-        st.markdown('- bcrypt')
-        st.markdown('- JWT')
-        st.markdown('- YAML Config')
-    
+        st.markdown('**AI / Security**')
+        st.markdown('- Mistral LLM (analysis & context)')
+        st.markdown('- bcrypt (password hashing)')
+        st.markdown('- PyYAML (configuration)')
+
     st.markdown('---')
     
     # ========================================================================
