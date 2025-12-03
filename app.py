@@ -131,6 +131,67 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Top boarding strip + navigation bar (visual)
+# Small spacer so the boarding/topbar show clearly separated from the very top
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+st.markdown(f"""
+<style>
+    .topboarding {{
+        background: linear-gradient(90deg, #E2E2D2 0%, #E2E2D2 100%);
+        color: #141d26;
+        padding: 4px 18px;
+        font-size: 13px;
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        border-bottom: 1px solid #243447;
+        border-radius: 8px;
+        overflow: hidden;
+    }}
+    .topboarding .left {{ display:flex; gap:14px; align-items:center; }}
+    .topboarding .pill {{ background:#141d26; color:#E2E2D2; padding:4px 8px; border-radius:12px; font-weight:600; font-size:12px; }}
+    .topboarding .status {{ color:#141d26; opacity:0.9; font-size:12px; }}
+
+    .topbar {{
+        background: #141d26;
+        color: #E2E2D2;
+        padding: 10px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 3px solid #243447;
+        gap: 12px;
+        border-radius: 8px;
+        overflow: hidden;
+    }}
+    .topbar .left {{ display:flex; align-items:center; gap:12px; }}
+    .topbar .brand {{ font-weight:700; font-size:18px; color:#E2E2D2; }}
+    .topbar .links {{ display:flex; gap:10px; align-items:center; }}
+    .topbar a {{ color: #E2E2D2; text-decoration: none; padding:8px 12px; border-radius:6px; font-size:14px; }}
+    .topbar a:hover {{ background:#243447; color:#E2E2D2; }}
+    .topbar .cta {{ background: #c51f5d; color: #ffffff; padding:8px 12px; border-radius:6px; }}
+    @media (max-width: 700px) {{
+        .topbar {{ flex-direction: column; align-items: flex-start; gap:8px; }}
+        .topboarding {{ flex-direction:column; align-items:flex-start; gap:6px; }}
+    }}
+</style>
+
+<div class="topbar">
+    <div class="left">
+        <div class="brand">Multilayered Cyber Defense Platform</div>
+        <div style="color:#E2E2D2; opacity:0.85; font-size:13px;">— AI Threat Detection & Response</div>
+    </div>
+    <div class="links">
+        <a href="#" title="Login">Login</a>
+        <a href="#" title="Dashboard">Dashboard</a>
+        <a href="#" title="Live Monitor">Live Monitor</a>
+        <a class="cta" href="#" title="Get Support">Get Support</a>
+        <a href="#" title="Shutdown">⏻ Shutdown</a>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
 
 # ============================================================================
 # MAIN CONTENT
