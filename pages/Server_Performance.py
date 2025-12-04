@@ -449,99 +449,187 @@ def update_dashboard():
             'time': current_time
         }
         
+        # Determine status colors for cards
+        cpu_color = "#65c1f9" if cpu_info['percent'] <= 60 else "#ffa726" if cpu_info['percent'] <= 80 else "#ff4444"
+        mem_color = "#65c1f9" if mem_info['percent'] <= 60 else "#ffa726" if mem_info['percent'] <= 80 else "#ff4444"
+        
+        high_disk = any(d['percent'] > 80 for d in disk_info)
+        moderate_disk = any(d['percent'] > 60 for d in disk_info)
+        max_disk = max([d['percent'] for d in disk_info]) if disk_info else 0
+        disk_color = "#65c1f9" if not moderate_disk else "#ffa726" if not high_disk else "#ff4444"
+        
+        if gpu_info['available']:
+            gpu_color = "#65c1f9" if gpu_info['load'] <= 60 else "#ffa726" if gpu_info['load'] <= 80 else "#ff4444"
+            gpu_text = f"{gpu_info['load']:.1f}%"
+        else:
+            gpu_color = "#B0B0A0"
+            gpu_text = "N/A"
+        
         # ====================================================================
-        # SYSTEM INFO BAR CARD
+        # SYSTEM INFO CARD
         # ====================================================================
         
         uptime_str = str(sys_info['uptime']).split('.')[0]
         
-        # Create compact system info bar
         st.markdown(f"""
-        <div style="background: #1f1f28; 
-                    padding: 10px 20px; 
-                    border-radius: 10px; 
-                    margin-bottom: 20px;
-                    border: 1px solid #3a4150;
-                    box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; color: white;">
-                <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">System</div>
-                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['system']} {sys_info['release']}</div>
+        <style>
+            .stats-card {{
+                background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                border-radius: 12px;
+                padding: 30px;
+                color: #E2E2D2;
+                margin-top: 20px;
+                transition: all 0.3s ease;
+            }}
+            .stats-content {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 20px;
+            }}
+            .stat-inline {{
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }}
+            .stat-inline-value {{
+                font-size: 16px;
+                font-weight: 700;
+                color: #65c1f9;
+            }}
+            .stat-inline-label {{
+                font-size: 12px;
+                color: #E2E2D2;
+                opacity: 0.85;
+                line-height: 1.3;
+            }}
+            .stats-card:hover {{
+                transform: translateY(-4px);
+                box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+            }}
+        </style>
+        <div class="stats-card">
+            <div class="stats-content">
+                <div class="stat-inline">
+                    <div>
+                        <div class="stat-inline-value">{sys_info['system']} {sys_info['release']}</div>
+                        <div class="stat-inline-label">System</div>
+                    </div>
                 </div>
-                <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Machine</div>
-                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['machine']}</div>
+                <div class="stat-inline">
+                    <div>
+                        <div class="stat-inline-value">{sys_info['machine']}</div>
+                        <div class="stat-inline-label">Machine</div>
+                    </div>
                 </div>
-                <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Processor</div>
-                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['processor'][:30]}</div>
+                <div class="stat-inline">
+                    <div>
+                        <div class="stat-inline-value">{sys_info['processor'][:20]}</div>
+                        <div class="stat-inline-label">Processor</div>
+                    </div>
                 </div>
-                <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Boot Time</div>
-                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{sys_info['boot_time'].strftime("%Y-%m-%d %H:%M")}</div>
+                <div class="stat-inline">
+                    <div>
+                        <div class="stat-inline-value">{sys_info['boot_time'].strftime("%Y-%m-%d")}</div>
+                        <div class="stat-inline-label">Boot Time</div>
+                    </div>
                 </div>
-                <div style="flex: 1; text-align: center; padding: 0 15px;">
-                    <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Uptime</div>
-                    <div style="font-size: 14px; font-weight: bold; margin-top: 3px;">{uptime_str}</div>
+                <div class="stat-inline">
+                    <div>
+                        <div class="stat-inline-value">{uptime_str}</div>
+                        <div class="stat-inline-label">Uptime</div>
+                    </div>
                 </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
         # ====================================================================
-        # SYSTEM STATUS BAR CARD
+        # SYSTEM STATUS CARD
         # ====================================================================
         
-        # Determine status colors and levels
-        cpu_status = "HIGH" if cpu_info['percent'] > 80 else "MODERATE" if cpu_info['percent'] > 60 else "NORMAL"
-        cpu_color = "#ff4444" if cpu_info['percent'] > 80 else "#ffa726" if cpu_info['percent'] > 60 else "#66bb6a"
-    
-    mem_status = "HIGH" if mem_info['percent'] > 80 else "MODERATE" if mem_info['percent'] > 60 else "NORMAL"
-    mem_color = "#ff4444" if mem_info['percent'] > 80 else "#ffa726" if mem_info['percent'] > 60 else "#66bb6a"
-    
-    high_disk = any(d['percent'] > 80 for d in disk_info)
-    moderate_disk = any(d['percent'] > 60 for d in disk_info)
-    max_disk = max([d['percent'] for d in disk_info]) if disk_info else 0
-    disk_status = "HIGH" if high_disk else "MODERATE" if moderate_disk else "NORMAL"
-    disk_color = "#ff4444" if high_disk else "#ffa726" if moderate_disk else "#66bb6a"
-    
-    if gpu_info['available']:
-        gpu_status = "HIGH" if gpu_info['load'] > 80 else "MODERATE" if gpu_info['load'] > 60 else "NORMAL"
-        gpu_color = "#ff4444" if gpu_info['load'] > 80 else "#ffa726" if gpu_info['load'] > 60 else "#66bb6a"
-        gpu_text = f"{gpu_info['load']:.1f}%"
-    else:
-        gpu_status = "N/A"
-        gpu_color = "#78909c"
-        gpu_text = "N/A"
-    
-    # Create compact system status bar
-    st.markdown(f"""
-    <div style="background: #1f1f28; 
-                padding: 10px 20px; 
-                border-radius: 10px; 
-                margin-bottom: 20px;
-                border: 1px solid #3a4150;
-                box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-        <div style="display: flex; justify-content: space-between; align-items: center; color: white;">
-            <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">CPU</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 3px; color: {cpu_color};">{cpu_info['percent']:.1f}%</div>
-            </div>
-            <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Memory</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 3px; color: {mem_color};">{mem_info['percent']:.1f}%</div>
-            </div>
-            <div style="flex: 1; text-align: center; border-right: 1px solid #3a4150; padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">Disk</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 3px; color: {disk_color};">{max_disk:.1f}%</div>
-            </div>
-            <div style="flex: 1; text-align: center; padding: 0 15px;">
-                <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px;">GPU</div>
-                <div style="font-size: 14px; font-weight: bold; margin-top: 3px; color: {gpu_color};">{gpu_text}</div>
+        st.markdown(f"""
+        <style>
+            .status-card {{
+                background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                border-radius: 12px;
+                padding: 30px;
+                color: #E2E2D2;
+                margin-top: 20px;
+                transition: all 0.3s ease;
+            }}
+            .status-content {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 20px;
+            }}
+            .status-inline {{
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }}
+            .status-inline-value {{
+                font-size: 20px;
+                font-weight: 700;
+                color: #65c1f9;
+            }}
+            .status-inline-label {{
+                font-size: 12px;
+                color: #E2E2D2;
+                opacity: 0.85;
+                line-height: 1.3;
+            }}
+            .status-card:hover {{
+                transform: translateY(-4px);
+                box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+            }}
+        </style>
+        <div class="status-card">
+            <div class="status-content">
+                <div class="status-inline">
+                    <div>
+                        <div class="status-inline-value" style="color: {cpu_color};">{cpu_info['percent']:.1f}%</div>
+                        <div class="status-inline-label">CPU Usage</div>
+                    </div>
+                </div>
+                <div class="status-inline">
+                    <div>
+                        <div class="status-inline-value" style="color: {mem_color};">{mem_info['percent']:.1f}%</div>
+                        <div class="status-inline-label">Memory Usage</div>
+                    </div>
+                </div>
+                <div class="status-inline">
+                    <div>
+                        <div class="status-inline-value" style="color: {disk_color};">{max_disk:.1f}%</div>
+                        <div class="status-inline-label">Disk Usage</div>
+                    </div>
+                </div>
+                <div class="status-inline">
+                    <div>
+                        <div class="status-inline-value" style="color: {gpu_color};">{gpu_text}</div>
+                        <div class="status-inline-label">GPU Usage</div>
+                    </div>
+                </div>
+                <div class="status-inline">
+                    <div>
+                        <div class="status-inline-value">{cpu_info['count_logical']}</div>
+                        <div class="status-inline-label">CPU Cores</div>
+                    </div>
+                </div>
+                <div class="status-inline">
+                    <div>
+                        <div class="status-inline-value">{get_size(mem_info['total'])}</div>
+                        <div class="status-inline-label">Total RAM</div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
     
     # ========================================================================
     # ROW 2: CPU, GPU & MEMORY (LEFT) + SYSTEM RESOURCES (RIGHT)
@@ -556,46 +644,67 @@ def update_dashboard():
         
         # CPU CARD
         with row2_col1:
-            st.markdown("""
-            <div style="background: #1f1f28; 
-                        padding: 10px 20px 5px 20px; 
-                        border-radius: 10px 10px 0 0; 
-                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-                <div style="color: white;">
-                    <div style="font-size: 16px; font-weight: bold; text-align: center;">CPU Usage</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.plotly_chart(
-                create_gauge_chart(cpu_info['percent'], "", height=160),
-                use_container_width=True
-            )
-            
             st.markdown(f"""
-            <div style="background: #1f1f28; 
-                        padding: 5px 15px 10px 15px; 
-                        border-radius: 0 0 10px 10px; 
-                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                        margin-top: -20px;
-                        height: 100px;">
-                <div style="color: white;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
-                        <span style="opacity: 0.7;">Physical Cores:</span>
-                        <span style="font-weight: bold;">{cpu_info['count_physical']}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
-                        <span style="opacity: 0.7;">Logical Cores:</span>
-                        <span style="font-weight: bold;">{cpu_info['count_logical']}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
-                        <span style="opacity: 0.7;">Current Freq:</span>
-                        <span style="font-weight: bold;">{cpu_info['frequency_current']:.0f} MHz</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                        <span style="opacity: 0.7;">Max Freq:</span>
-                        <span style="font-weight: bold;">{cpu_info['frequency_max']:.0f} MHz</span>
-                    </div>
+            <style>
+                .detail-card {{
+                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                    border-radius: 12px;
+                    padding: 20px;
+                    color: #E2E2D2;
+                    margin-top: 20px;
+                    transition: all 0.3s ease;
+                    min-height: 320px;
+                    display: flex;
+                    flex-direction: column;
+                }}
+                .detail-card h5 {{
+                    font-size: 16px;
+                    font-weight: bold;
+                    text-align: center;
+                    margin: 0 0 15px 0;
+                    color: #65c1f9;
+                }}
+                .detail-item {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                    font-size: 12px;
+                }}
+                .detail-item-label {{
+                    opacity: 0.85;
+                    color: #E2E2D2;
+                }}
+                .detail-item-value {{
+                    font-weight: 700;
+                    color: #65c1f9;
+                }}
+                .detail-card:hover {{
+                    transform: translateY(-4px);
+                    box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+                }}
+            </style>
+            <div class="detail-card">
+                <h5>CPU Usage</h5>
+                <div class="detail-item">
+                    <span class="detail-item-label">Physical Cores:</span>
+                    <span class="detail-item-value">{cpu_info['count_physical']}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Logical Cores:</span>
+                    <span class="detail-item-value">{cpu_info['count_logical']}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Current Freq:</span>
+                    <span class="detail-item-value">{cpu_info['frequency_current']:.0f} MHz</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Max Freq:</span>
+                    <span class="detail-item-value">{cpu_info['frequency_max']:.0f} MHz</span>
+                </div>
+                <div class="detail-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(101, 193, 249, 0.2);">
+                    <span class="detail-item-label">Overall Usage:</span>
+                    <span class="detail-item-value" style="font-size: 14px;">{cpu_info['percent']:.1f}%</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -603,53 +712,74 @@ def update_dashboard():
         # GPU CARD
         with row2_col2:
             if gpu_info['available']:
-                gpu_name = gpu_info['name'][:30] + "..." if len(gpu_info['name']) > 30 else gpu_info['name']
+                gpu_name = gpu_info['name'][:25] + "..." if len(gpu_info['name']) > 25 else gpu_info['name']
                 temp_display = f"{gpu_info['temperature']:.1f} °C" if gpu_info['temperature'] > 0 else "N/A"
                 
-                st.markdown("""
-                <div style="background: #1f1f28; 
-                            padding: 10px 20px 5px 20px; 
-                            border-radius: 10px 10px 0 0; 
-                            border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-                    <div style="color: white;">
-                        <div style="font-size: 16px; font-weight: bold; text-align: center;">GPU Usage</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.plotly_chart(
-                    create_gauge_chart(gpu_info['load'], "", height=160),
-                    use_container_width=True
-                )
-                
                 st.markdown(f"""
-                <div style="background: #1f1f28; 
-                            padding: 5px 15px 10px 15px; 
-                            border-radius: 0 0 10px 10px; 
-                            border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                            margin-top: -20px;
-                            height: 100px;">
-                    <div style="color: white;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10px;">
-                            <span style="opacity: 0.7;">GPU Name:</span>
-                            <span style="font-weight: bold;">{gpu_name}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10px;">
-                            <span style="opacity: 0.7;">Memory Used:</span>
-                            <span style="font-weight: bold;">{gpu_info['memory_used']:.0f} MB</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10px;">
-                            <span style="opacity: 0.7;">Memory Total:</span>
-                            <span style="font-weight: bold;">{gpu_info['memory_total']:.0f} MB</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10px;">
-                            <span style="opacity: 0.7;">Memory Usage:</span>
-                            <span style="font-weight: bold;">{gpu_info['memory_percent']:.1f}%</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                            <span style="opacity: 0.7;">Temperature:</span>
-                            <span style="font-weight: bold;">{temp_display}</span>
-                        </div>
+                <style>
+                    .detail-card {{
+                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                        border-radius: 12px;
+                        padding: 20px;
+                        color: #E2E2D2;
+                        margin-top: 20px;
+                        transition: all 0.3s ease;
+                        min-height: 320px;
+                        display: flex;
+                        flex-direction: column;
+                    }}
+                    .detail-card h5 {{
+                        font-size: 16px;
+                        font-weight: bold;
+                        text-align: center;
+                        margin: 0 0 15px 0;
+                        color: #65c1f9;
+                    }}
+                    .detail-item {{
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 10px;
+                        font-size: 12px;
+                    }}
+                    .detail-item-label {{
+                        opacity: 0.85;
+                        color: #E2E2D2;
+                    }}
+                    .detail-item-value {{
+                        font-weight: 700;
+                        color: #65c1f9;
+                    }}
+                    .detail-card:hover {{
+                        transform: translateY(-4px);
+                        box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+                    }}
+                </style>
+                <div class="detail-card">
+                    <h5>GPU Usage</h5>
+                    <div class="detail-item">
+                        <span class="detail-item-label">GPU Name:</span>
+                        <span class="detail-item-value" style="font-size: 11px;">{gpu_name}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-item-label">Memory Used:</span>
+                        <span class="detail-item-value">{gpu_info['memory_used']:.0f} MB</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-item-label">Memory Total:</span>
+                        <span class="detail-item-value">{gpu_info['memory_total']:.0f} MB</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-item-label">Memory Usage:</span>
+                        <span class="detail-item-value">{gpu_info['memory_percent']:.1f}%</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-item-label">Temperature:</span>
+                        <span class="detail-item-value">{temp_display}</span>
+                    </div>
+                    <div class="detail-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(101, 193, 249, 0.2);">
+                        <span class="detail-item-label">Overall Usage:</span>
+                        <span class="detail-item-value" style="font-size: 14px;">{gpu_info['load']:.1f}%</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -657,82 +787,97 @@ def update_dashboard():
                 error_type = gpu_info.get('error', 'unknown')
                 error_msg = "No GPU detected" if error_type == 'no_gpu' else "GPU unavailable"
                 
-                st.markdown("""
-                <div style="background: #1f1f28; 
-                            padding: 10px 20px 5px 20px; 
-                            border-radius: 10px 10px 0 0; 
-                            border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-                    <div style="color: white;">
-                        <div style="font-size: 16px; font-weight: bold; text-align: center;">GPU Usage</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.plotly_chart(
-                    create_gauge_chart(0, "", height=160),
-                    use_container_width=True
-                )
-                
                 st.markdown(f"""
-                <div style="background: #1f1f28; 
-                            padding: 5px 15px 10px 15px; 
-                            border-radius: 0 0 10px 10px; 
-                            border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                            margin-top: -20px;
-                            height: 100px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;">
-                    <div style="color: white; text-align: center; opacity: 0.7;">
-                        {error_msg}
-                    </div>
+                <style>
+                    .detail-card {{
+                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                        border-radius: 12px;
+                        padding: 20px;
+                        color: #E2E2D2;
+                        margin-top: 20px;
+                        transition: all 0.3s ease;
+                        text-align: center;
+                        min-height: 320px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                    }}
+                    .detail-card:hover {{
+                        transform: translateY(-4px);
+                        box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+                    }}
+                </style>
+                <div class="detail-card">
+                    <h5 style="color: #65c1f9; margin: 0;">GPU Usage</h5>
+                    <div style="margin-top: 20px; opacity: 0.7; font-size: 14px;">{error_msg}</div>
                 </div>
                 """, unsafe_allow_html=True)
         
         # MEMORY CARD
         with row2_col3:
-            st.markdown("""
-            <div style="background: #1f1f28; 
-                        padding: 10px 20px 5px 20px; 
-                        border-radius: 10px 10px 0 0; 
-                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-                <div style="color: white;">
-                    <div style="font-size: 16px; font-weight: bold; text-align: center;">Memory Usage</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.plotly_chart(
-                create_gauge_chart(mem_info['percent'], "", height=160),
-                use_container_width=True
-            )
-            
             swap_text = f"{get_size(mem_info['swap_total'])} ({mem_info['swap_percent']:.1f}%)" if mem_info['swap_total'] > 0 else "Not configured"
             
             st.markdown(f"""
-            <div style="background: #1f1f28; 
-                        padding: 5px 15px 10px 15px; 
-                        border-radius: 0 0 10px 10px; 
-                        border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                        margin-top: -20px;
-                        height: 100px;">
-                <div style="color: white;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
-                        <span style="opacity: 0.7;">Total Memory:</span>
-                        <span style="font-weight: bold;">{get_size(mem_info['total'])}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
-                        <span style="opacity: 0.7;">Used:</span>
-                        <span style="font-weight: bold;">{get_size(mem_info['used'])}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px;">
-                        <span style="opacity: 0.7;">Available:</span>
-                        <span style="font-weight: bold;">{get_size(mem_info['available'])}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                        <span style="opacity: 0.7;">Swap:</span>
-                        <span style="font-weight: bold; font-size: 10px;">{swap_text}</span>
-                    </div>
+            <style>
+                .detail-card {{
+                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                    border-radius: 12px;
+                    padding: 20px;
+                    color: #E2E2D2;
+                    margin-top: 20px;
+                    transition: all 0.3s ease;
+                    min-height: 320px;
+                    display: flex;
+                    flex-direction: column;
+                }}
+                .detail-card h5 {{
+                    font-size: 16px;
+                    font-weight: bold;
+                    text-align: center;
+                    margin: 0 0 15px 0;
+                    color: #65c1f9;
+                }}
+                .detail-item {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                    font-size: 12px;
+                }}
+                .detail-item-label {{
+                    opacity: 0.85;
+                    color: #E2E2D2;
+                }}
+                .detail-item-value {{
+                    font-weight: 700;
+                    color: #65c1f9;
+                }}
+                .detail-card:hover {{
+                    transform: translateY(-4px);
+                    box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+                }}
+            </style>
+            <div class="detail-card">
+                <h5>Memory Usage</h5>
+                <div class="detail-item">
+                    <span class="detail-item-label">Total Memory:</span>
+                    <span class="detail-item-value">{get_size(mem_info['total'])}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Used:</span>
+                    <span class="detail-item-value">{get_size(mem_info['used'])}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Available:</span>
+                    <span class="detail-item-value">{get_size(mem_info['available'])}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Swap:</span>
+                    <span class="detail-item-value" style="font-size: 11px;">{swap_text}</span>
+                </div>
+                <div class="detail-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(101, 193, 249, 0.2);">
+                    <span class="detail-item-label">Overall Usage:</span>
+                    <span class="detail-item-value" style="font-size: 14px;">{mem_info['percent']:.1f}%</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -741,14 +886,55 @@ def update_dashboard():
         st.markdown("")
         
         # NETWORK TRAFFIC CARD
-        st.markdown("""
-        <div style="background: #1f1f28; 
-                    padding: 10px 20px 5px 20px; 
-                    border-radius: 10px 10px 0 0; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-            <div style="color: white;">
-                <div style="font-size: 16px; font-weight: bold; text-align: center;">Network Traffic</div>
-            </div>
+        st.markdown(f"""
+        <style>
+            .network-card {{
+                background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                border-radius: 12px;
+                padding: 20px;
+                color: #E2E2D2;
+                margin-top: 20px;
+                transition: all 0.3s ease;
+            }}
+            .network-card h5 {{
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+                margin: 0 0 15px 0;
+                color: #65c1f9;
+            }}
+            .network-stats {{
+                display: flex;
+                justify-content: space-around;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 15px;
+                margin-top: 15px;
+                padding-top: 15px;
+                border-top: 1px solid rgba(101, 193, 249, 0.2);
+            }}
+            .network-stat-item {{
+                text-align: center;
+            }}
+            .network-stat-label {{
+                opacity: 0.85;
+                color: #E2E2D2;
+                font-size: 11px;
+                display: block;
+                margin-bottom: 5px;
+            }}
+            .network-stat-value {{
+                font-weight: 700;
+                color: #65c1f9;
+                font-size: 13px;
+            }}
+            .network-card:hover {{
+                transform: translateY(-4px);
+                box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+            }}
+        </style>
+        <div class="network-card">
+            <h5>Network Traffic</h5>
         </div>
         """, unsafe_allow_html=True)
         
@@ -758,30 +944,23 @@ def update_dashboard():
         )
         
         st.markdown(f"""
-        <div style="background: #1f1f28; 
-                    padding: 5px 15px 10px 15px; 
-                    border-radius: 0 0 10px 10px; 
-                    border: 1px solid #3a4150; box-shadow: 0 2px 4px rgba(255,255,255,0.1);
-                    margin-top: -20px;
-                    height: 70px;">
-            <div style="color: white;">
-                <div style="display: flex; justify-content: space-around; margin-bottom: 5px;">
-                    <div style="text-align: center;">
-                        <span style="opacity: 0.7; display: block; font-size: 10px;">Upload</span>
-                        <span style="font-weight: bold; color: #dc3545; font-size: 12px;">{sent_speed:.2f} Kbps</span>
-                    </div>
-                    <div style="text-align: center;">
-                        <span style="opacity: 0.7; display: block; font-size: 10px;">Download</span>
-                        <span style="font-weight: bold; color: #007bff; font-size: 12px;">{recv_speed:.2f} Kbps</span>
-                    </div>
-                    <div style="text-align: center;">
-                        <span style="opacity: 0.7; display: block; font-size: 10px;">Total Sent</span>
-                        <span style="font-weight: bold; font-size: 12px;">{get_size(net_info['bytes_sent'])}</span>
-                    </div>
-                    <div style="text-align: center;">
-                        <span style="opacity: 0.7; display: block; font-size: 10px;">Total Received</span>
-                        <span style="font-weight: bold; font-size: 12px;">{get_size(net_info['bytes_recv'])}</span>
-                    </div>
+        <div class="network-card" style="margin-top: -15px; border-radius: 0 0 12px 12px; padding-top: 0;">
+            <div class="network-stats">
+                <div class="network-stat-item">
+                    <span class="network-stat-label">Upload</span>
+                    <span class="network-stat-value" style="color: #dc3545;">{sent_speed:.2f} Kbps</span>
+                </div>
+                <div class="network-stat-item">
+                    <span class="network-stat-label">Download</span>
+                    <span class="network-stat-value" style="color: #007bff;">{recv_speed:.2f} Kbps</span>
+                </div>
+                <div class="network-stat-item">
+                    <span class="network-stat-label">Total Sent</span>
+                    <span class="network-stat-value">{get_size(net_info['bytes_sent'])}</span>
+                </div>
+                <div class="network-stat-item">
+                    <span class="network-stat-label">Total Received</span>
+                    <span class="network-stat-value">{get_size(net_info['bytes_recv'])}</span>
                 </div>
             </div>
         </div>
@@ -792,24 +971,44 @@ def update_dashboard():
         # UNIFIED SYSTEM RESOURCES CARD (VERTICAL) - Single container with one background
         with st.container():
             st.markdown("""
-            <div style="background: #1f1f28; 
-                        padding: 10px 20px 5px 20px; 
-                        border-radius: 10px 10px 0 0; 
-                        border: 1px solid #3a4150; 
-                        box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
-                <div style="color: white;">
-                    <div style="font-size: 16px; font-weight: bold; text-align: center;">System Resources</div>
-                </div>
+            <style>
+                .system-resources-card {
+                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                    border-radius: 12px;
+                    padding: 20px;
+                    color: #E2E2D2;
+                    margin-top: 20px;
+                    transition: all 0.3s ease;
+                }
+                .system-resources-card h5 {
+                    font-size: 16px;
+                    font-weight: bold;
+                    text-align: center;
+                    margin: 0 0 15px 0;
+                    color: #65c1f9;
+                }
+                .system-resources-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+                }
+            </style>
+            <div class="system-resources-card">
+                <h5>System Resources</h5>
             </div>
             """, unsafe_allow_html=True)
             
             # RAM section
             st.markdown("""
-            <div style="background: #1f1f28; 
-                        padding: 0 20px; 
-                        margin-top: -20px;
-                        border-left: 1px solid #3a4150;
-                        border-right: 1px solid #3a4150;">
+            <style>
+                .resource-section {
+                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                    padding: 0 20px;
+                    margin-top: -15px;
+                    border-left: none;
+                    border-right: none;
+                }
+            </style>
+            <div class="resource-section">
             </div>
             """, unsafe_allow_html=True)
             
@@ -876,22 +1075,32 @@ def update_dashboard():
             )
             
             st.markdown("""
-            <div style="background: #1f1f28; 
-                        padding: 0 20px; 
-                        margin-top: -20px;
-                        border-left: 1px solid #3a4150;
-                        border-right: 1px solid #3a4150;">
+            <style>
+                .resource-section {
+                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                    padding: 0 20px;
+                    margin-top: -15px;
+                    border-left: none;
+                    border-right: none;
+                }
+            </style>
+            <div class="resource-section">
             """, unsafe_allow_html=True)
             st.plotly_chart(fig_ram_vert, use_container_width=True, key="ram_vertical")
             st.markdown("</div>", unsafe_allow_html=True)
             
             st.markdown(f"""
-            <div style="background: #1f1f28; 
-                        padding: 0 20px; 
-                        margin-top: -40px;
-                        border-left: 1px solid #3a4150;
-                        border-right: 1px solid #3a4150;">
-                <div style="color: white; font-size: 11px; text-align: center; margin-bottom: 0px;">
+            <style>
+                .resource-stats {{
+                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                    padding: 0 20px 15px 20px;
+                    margin-top: -15px;
+                    border-left: none;
+                    border-right: none;
+                }}
+            </style>
+            <div class="resource-stats">
+                <div style="color: white; font-size: 11px; text-align: center;">
                     <span style="opacity: 0.7;">Used: </span><span style="font-weight: bold; color: #dc3545;">{get_size(mem_info['used'])}</span>
                     <span style="opacity: 0.7;"> / </span>
                     <span style="font-weight: bold;">{get_size(mem_info['total'])}</span>
@@ -950,11 +1159,16 @@ def update_dashboard():
                 )
                 
                 st.markdown("""
-                <div style="background: #1f1f28; 
-                            padding: 0 20px; 
-                            margin-top: -20px;
-                            border-left: 1px solid #3a4150;
-                            border-right: 1px solid #3a4150;">
+                <style>
+                    .resource-section {
+                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                        padding: 0 20px;
+                        margin-top: -15px;
+                        border-left: none;
+                        border-right: none;
+                    }
+                </style>
+                <div class="resource-section">
                 """, unsafe_allow_html=True)
                 st.plotly_chart(fig_disk_vert, use_container_width=True, key="disk_vertical")
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -968,11 +1182,16 @@ def update_dashboard():
                 disk_details_html = ''.join(disk_items)
                 
                 st.markdown(f"""
-                <div style="background: #1f1f28; 
-                            padding: 0 20px; 
-                            margin-top: -40px;
-                            border-left: 1px solid #3a4150;
-                            border-right: 1px solid #3a4150;">
+                <style>
+                    .resource-stats {{
+                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                        padding: 0 20px 15px 20px;
+                        margin-top: -15px;
+                        border-left: none;
+                        border-right: none;
+                    }}
+                </style>
+                <div class="resource-stats">
                     <div style="color: white; padding: 0 0; max-height: 180px; overflow-y: auto;">
                         {disk_details_html}
                     </div>
@@ -980,11 +1199,16 @@ def update_dashboard():
                 """, unsafe_allow_html=True)
             else:
                 st.markdown("""
-                <div style="background: #1f1f28; 
-                            padding: 20px; 
-                            margin-top: -20px;
-                            border-left: 1px solid #3a4150;
-                            border-right: 1px solid #3a4150;">
+                <style>
+                    .resource-stats {
+                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                        padding: 20px;
+                        margin-top: -15px;
+                        border-left: none;
+                        border-right: none;
+                    }
+                </style>
+                <div class="resource-stats">
                     <div style="color: white; text-align: center; opacity: 0.7; font-size: 12px;">
                         No disk info available
                     </div>
@@ -1045,11 +1269,16 @@ def update_dashboard():
                 )
                 
                 st.markdown("""
-                <div style="background: #1f1f28; 
-                            padding: 0 20px; 
-                            margin-top: -20px;
-                            border-left: 1px solid #3a4150;
-                            border-right: 1px solid #3a4150;">
+                <style>
+                    .resource-section {
+                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                        padding: 0 20px;
+                        margin-top: -15px;
+                        border-left: none;
+                        border-right: none;
+                    }
+                </style>
+                <div class="resource-section">
                 """, unsafe_allow_html=True)
                 st.plotly_chart(fig_cpu_vert, use_container_width=True, key="cpu_cores_vertical")
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -1060,14 +1289,17 @@ def update_dashboard():
                 min_core = min(cpu_info['per_core']) if cpu_info['per_core'] else 0
                 
                 st.markdown(f"""
-                <div style="background: #1f1f28; 
-                            padding: 0 20px 10px 20px; 
-                            margin-top: -40px;
-                            border-radius: 0 0 10px 10px;
-                            border-left: 1px solid #3a4150;
-                            border-right: 1px solid #3a4150;
-                            border-bottom: 1px solid #3a4150;
-                            box-shadow: 0 2px 4px rgba(255,255,255,0.1);">
+                <style>
+                    .resource-stats {{
+                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                        padding: 0 20px 15px 20px;
+                        margin-top: -15px;
+                        border-left: none;
+                        border-right: none;
+                        border-radius: 0 0 12px 12px;
+                    }}
+                </style>
+                <div class="resource-stats">
                     <div style="color: white; padding: 0;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px;">
                             <span style="opacity: 0.7;">Cores:</span>
@@ -1095,8 +1327,49 @@ def update_dashboard():
 def main():
     """Main function for server performance monitoring"""
     
-    st.markdown('<h1>Server Performance Dashboard</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="font-size: 16px;">Real-time system monitoring and resource utilization (Auto-refresh: 2 seconds)</p>', unsafe_allow_html=True)
+    # Top boarding strip + navigation bar (visual)
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <style>
+        .topbar {{
+            background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+            color: #E2E2D2;
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }}
+        .topbar .left {{ display:flex; align-items:center; gap:12px; }}
+        .topbar .brand {{ font-weight:700; font-size:18px; color:#E2E2D2; }}
+        .topbar .links {{ display:flex; gap:10px; align-items:center; }}
+        .topbar a {{ color: #E2E2D2; text-decoration: none; padding:8px 12px; border-radius:6px; font-size:14px; transition: all 0.3s ease; }}
+        .topbar a:hover {{ background:#243447; color:#E2E2D2; }}
+        .topbar .cta {{ background: #c51f5d; color: #ffffff; padding:8px 12px; border-radius:6px; font-weight:600; }}
+        .topbar .cta:hover {{ background: #d63574; }}
+        @media (max-width: 700px) {{
+            .topbar {{ flex-direction: column; align-items: flex-start; gap:8px; }}
+        }}
+    </style>
+
+    <div class="topbar">
+        <div class="left">
+            <span class="brand"></span>
+        </div>
+        <div class="links">
+            <a href="Dashboard_Overview" title="Dashboard">Dashboard</a>
+            <a href="Live_Threat_Monitor" title="Threats">Monitor</a>
+            <a href="Performance_Metrics" title="Metrics">Metrics</a>
+            <a class="cta" href="System_Configuration" title="Configuration">Configuration</a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<h1 style="text-align: center; margin-bottom: 5px;">Server Performance Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size: 16px; text-align: center; color: #B0B0A0;">Real-time system monitoring and resource utilization (Auto-refresh: 2 seconds)</p>', unsafe_allow_html=True)
     
     # Initialize session state for network history
     if 'network_history' not in st.session_state:
