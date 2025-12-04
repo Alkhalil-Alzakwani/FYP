@@ -283,7 +283,7 @@ Please provide:
 Format your response clearly with these sections."""
 
     # Call Mistral
-    with st.spinner("🤖 Mistral LLM analyzing logs..."):
+    with st.spinner("Mistral LLM analyzing logs..."):
         analysis = call_mistral(ollama_host, model, prompt)
     
     return {
@@ -299,13 +299,13 @@ Format your response clearly with these sections."""
 # ============================================================================
 
 def main():
-    st.title("🤖 AI Log Analysis - Mistral LLM")
+    st.title("AI Log Analysis - Mistral LLM")
     st.markdown("Analyze security logs using local Mistral model via Ollama")
     st.markdown("---")
     
     # Sidebar configuration
     with st.sidebar:
-        st.markdown("## ⚙️ Configuration")
+        st.markdown("##Configuration")
         
         ollama_host = st.text_input(
             "Ollama Host",
@@ -320,7 +320,7 @@ def main():
         )
         
         st.markdown("---")
-        st.markdown("## ℹ️ About")
+        st.markdown("##About")
         st.info(
             "This page analyzes security logs using Mistral LLM running locally via Ollama. "
             "Ensure Ollama is running and Mistral model is installed."

@@ -208,17 +208,51 @@ def get_recent_threats(limit=10):
     try:
         conn = get_db_connection()
         if conn:
+            # Get from splunk_logs with normalized severity
             query = """
-                SELECT id, score, severity, category, timestamp 
-                FROM threat_scores 
-                ORDER BY timestamp DESC 
+                SELECT 
+                    id,
+                    CASE 
+                        WHEN LOWER(TRIM(severity)) IN ('critical', 'crit') THEN 'Critical'
+                        WHEN LOWER(TRIM(severity)) IN ('high', 'hi') THEN 'High'
+                        WHEN LOWER(TRIM(severity)) IN ('medium', 'med', 'moderate') THEN 'Medium'
+                        WHEN LOWER(TRIM(severity)) IN ('low', 'lo') THEN 'Low'
+                        WHEN LOWER(TRIM(severity)) IN ('info', 'information', 'informational') THEN 'Info'
+                        ELSE UPPER(SUBSTR(TRIM(severity), 1, 1)) || LOWER(SUBSTR(TRIM(severity), 2))
+                    END as severity,
+                    CASE 
+                        WHEN sourcetype LIKE '%snort%' THEN 'IDS Alert'
+                        WHEN sourcetype LIKE '%pfsense%' THEN 'Firewall'
+                        WHEN sourcetype LIKE '%message_rfc822%' THEN 'Phishing Email'
+                        WHEN sourcetype LIKE '%WinEventLog:Security%' THEN 'Security'
+                        WHEN sourcetype LIKE '%WinEventLog:System%' THEN 'System'
+                        WHEN sourcetype = 'syslog' THEN 'Syslog'
+                        ELSE sourcetype
+                    END as category,
+                    host,
+                    source,
+                    timestamp
+                FROM splunk_logs
+                WHERE timestamp IS NOT NULL
+                ORDER BY timestamp DESC
                 LIMIT ?
             """
             df = pd.read_sql_query(query, conn, params=(limit,))
+            
+            # If splunk_logs is empty, try threat_scores
+            if df.empty:
+                query = """
+                    SELECT id, score, severity, category, timestamp 
+                    FROM threat_scores 
+                    ORDER BY timestamp DESC 
+                    LIMIT ?
+                """
+                df = pd.read_sql_query(query, conn, params=(limit,))
+            
             conn.close()
             return df
         return pd.DataFrame()
-    except:
+    except Exception as e:
         return pd.DataFrame()
 
 
@@ -227,16 +261,88 @@ def get_threat_distribution():
     try:
         conn = get_db_connection()
         if conn:
+            # Try to get from both splunk_logs and threat_scores with normalized severity
             query = """
-                SELECT severity, COUNT(*) as count 
-                FROM threat_scores 
-                GROUP BY severity
+                SELECT 
+                    CASE 
+                        WHEN LOWER(TRIM(severity)) IN ('critical', 'crit') THEN 'Critical'
+                        WHEN LOWER(TRIM(severity)) IN ('high', 'hi') THEN 'High'
+                        WHEN LOWER(TRIM(severity)) IN ('medium', 'med', 'moderate') THEN 'Medium'
+                        WHEN LOWER(TRIM(severity)) IN ('low', 'lo') THEN 'Low'
+                        WHEN LOWER(TRIM(severity)) IN ('info', 'information', 'informational') THEN 'Info'
+                        ELSE UPPER(SUBSTR(TRIM(severity), 1, 1)) || LOWER(SUBSTR(TRIM(severity), 2))
+                    END as severity,
+                    COUNT(*) as count 
+                FROM (
+                    SELECT severity FROM splunk_logs WHERE severity IS NOT NULL AND severity != ''
+                    UNION ALL
+                    SELECT severity FROM threat_scores WHERE severity IS NOT NULL
+                )
+                GROUP BY 
+                    CASE 
+                        WHEN LOWER(TRIM(severity)) IN ('critical', 'crit') THEN 'Critical'
+                        WHEN LOWER(TRIM(severity)) IN ('high', 'hi') THEN 'High'
+                        WHEN LOWER(TRIM(severity)) IN ('medium', 'med', 'moderate') THEN 'Medium'
+                        WHEN LOWER(TRIM(severity)) IN ('low', 'lo') THEN 'Low'
+                        WHEN LOWER(TRIM(severity)) IN ('info', 'information', 'informational') THEN 'Info'
+                        ELSE UPPER(SUBSTR(TRIM(severity), 1, 1)) || LOWER(SUBSTR(TRIM(severity), 2))
+                    END
+                ORDER BY 
+                    CASE 
+                        WHEN LOWER(TRIM(severity)) IN ('critical', 'crit') THEN 1
+                        WHEN LOWER(TRIM(severity)) IN ('high', 'hi') THEN 2
+                        WHEN LOWER(TRIM(severity)) IN ('medium', 'med', 'moderate') THEN 3
+                        WHEN LOWER(TRIM(severity)) IN ('low', 'lo') THEN 4
+                        WHEN LOWER(TRIM(severity)) IN ('info', 'information', 'informational') THEN 5
+                        ELSE 6
+                    END
             """
             df = pd.read_sql_query(query, conn)
             conn.close()
             return df
         return pd.DataFrame()
-    except:
+    except Exception as e:
+        # Fallback to just splunk_logs if union fails
+        try:
+            conn = get_db_connection()
+            if conn:
+                query = """
+                    SELECT 
+                        CASE 
+                            WHEN LOWER(TRIM(severity)) IN ('critical', 'crit') THEN 'Critical'
+                            WHEN LOWER(TRIM(severity)) IN ('high', 'hi') THEN 'High'
+                            WHEN LOWER(TRIM(severity)) IN ('medium', 'med', 'moderate') THEN 'Medium'
+                            WHEN LOWER(TRIM(severity)) IN ('low', 'lo') THEN 'Low'
+                            WHEN LOWER(TRIM(severity)) IN ('info', 'information', 'informational') THEN 'Info'
+                            ELSE UPPER(SUBSTR(TRIM(severity), 1, 1)) || LOWER(SUBSTR(TRIM(severity), 2))
+                        END as severity,
+                        COUNT(*) as count 
+                    FROM splunk_logs 
+                    WHERE severity IS NOT NULL AND severity != ''
+                    GROUP BY 
+                        CASE 
+                            WHEN LOWER(TRIM(severity)) IN ('critical', 'crit') THEN 'Critical'
+                            WHEN LOWER(TRIM(severity)) IN ('high', 'hi') THEN 'High'
+                            WHEN LOWER(TRIM(severity)) IN ('medium', 'med', 'moderate') THEN 'Medium'
+                            WHEN LOWER(TRIM(severity)) IN ('low', 'lo') THEN 'Low'
+                            WHEN LOWER(TRIM(severity)) IN ('info', 'information', 'informational') THEN 'Info'
+                            ELSE UPPER(SUBSTR(TRIM(severity), 1, 1)) || LOWER(SUBSTR(TRIM(severity), 2))
+                        END
+                    ORDER BY 
+                        CASE 
+                            WHEN LOWER(TRIM(severity)) IN ('critical', 'crit') THEN 1
+                            WHEN LOWER(TRIM(severity)) IN ('high', 'hi') THEN 2
+                            WHEN LOWER(TRIM(severity)) IN ('medium', 'med', 'moderate') THEN 3
+                            WHEN LOWER(TRIM(severity)) IN ('low', 'lo') THEN 4
+                            WHEN LOWER(TRIM(severity)) IN ('info', 'information', 'informational') THEN 5
+                            ELSE 6
+                        END
+                """
+                df = pd.read_sql_query(query, conn)
+                conn.close()
+                return df
+        except:
+            pass
         return pd.DataFrame()
 
 
@@ -245,18 +351,43 @@ def get_attack_types():
     try:
         conn = get_db_connection()
         if conn:
+            # Get from splunk_logs sourcetype (attack types)
             query = """
-                SELECT category, COUNT(*) as count 
-                FROM threat_scores 
-                WHERE category IS NOT NULL
+                SELECT 
+                    CASE 
+                        WHEN sourcetype LIKE '%snort%' THEN 'IDS Alerts'
+                        WHEN sourcetype LIKE '%pfsense%' THEN 'Firewall Events'
+                        WHEN sourcetype LIKE '%message_rfc822%' THEN 'Phishing Emails'
+                        WHEN sourcetype LIKE '%WinEventLog:Security%' THEN 'Security Events'
+                        WHEN sourcetype LIKE '%WinEventLog:System%' THEN 'System Events'
+                        WHEN sourcetype = 'syslog' THEN 'Syslog Events'
+                        ELSE sourcetype
+                    END as category,
+                    COUNT(*) as count
+                FROM splunk_logs
+                WHERE sourcetype IS NOT NULL
                 GROUP BY category
                 ORDER BY count DESC
+                LIMIT 10
             """
             df = pd.read_sql_query(query, conn)
+            
+            # If splunk_logs is empty, try threat_scores
+            if df.empty:
+                query = """
+                    SELECT category, COUNT(*) as count 
+                    FROM threat_scores 
+                    WHERE category IS NOT NULL
+                    GROUP BY category
+                    ORDER BY count DESC
+                    LIMIT 10
+                """
+                df = pd.read_sql_query(query, conn)
+            
             conn.close()
             return df
         return pd.DataFrame()
-    except:
+    except Exception as e:
         return pd.DataFrame()
 
 
@@ -441,7 +572,7 @@ def render_header():
 
 def render_key_metrics():
     """Render key performance metrics cards"""
-    st.subheader("Key Performance Indicators")
+    st.markdown("<h3 style='text-align: center;'>Key Performance Indicators</h3>", unsafe_allow_html=True)
     
     
     # Get data
@@ -454,7 +585,6 @@ def render_key_metrics():
     <style>
         .stats-card {{
             background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-            border: 2px solid #ffffff;
             border-radius: 12px;
             padding: 30px;
             color: #E2E2D2;
@@ -534,87 +664,244 @@ def render_key_metrics():
 
 def render_performance_metrics():
     """Render performance rate metrics"""
-    st.subheader("Detection & Prevention Performance")
-    
-    col1, col2, col3 = st.columns(3)
+    st.markdown("<h3 style='text-align: center;'>Detection & Prevention Performance</h3>", unsafe_allow_html=True)
     
     detection_rate = calculate_detection_rate()
     prevention_rate = calculate_prevention_rate()
     fp_rate = calculate_false_positive_rate()
     
+    col1, col2, col3 = st.columns(3)
+    
+    # Detection Rate Card
     with col1:
-        st.metric(
-            label="Detection Rate",
-            value=f"{detection_rate:.1f}%",
-            delta="+2.3%"
-        )
-        st.progress(detection_rate / 100)
+        st.markdown(f"""
+        <style>
+            .perf-metric-card {{
+                background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                border-radius: 12px;
+                padding: 25px;
+                color: #E2E2D2;
+                text-align: center;
+                transition: all 0.3s ease;
+            }}
+            .perf-metric-value {{
+                font-size: 36px;
+                font-weight: 700;
+                color: #65c1f9;
+                margin: 10px 0;
+            }}
+            .perf-metric-label {{
+                font-size: 14px;
+                color: #E2E2D2;
+                opacity: 0.85;
+            }}
+            .perf-metric-delta {{
+                font-size: 12px;
+                color: #4CAF50;
+                font-weight: 600;
+                margin-top: 8px;
+            }}
+            .perf-metric-card:hover {{
+                transform: translateY(-4px);
+                box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+            }}
+        </style>
+        <div class="perf-metric-card">
+            <div class="perf-metric-label">Detection Rate</div>
+            <div class="perf-metric-value">{detection_rate:.1f}%</div>
+            <div class="perf-metric-delta">↑ +2.3%</div>
+        </div>
+        """, unsafe_allow_html=True)
     
+    # Prevention Rate Card
     with col2:
-        st.metric(
-            label="Prevention Rate",
-            value=f"{prevention_rate:.1f}%",
-            delta="+1.8%"
-        )
-        st.progress(prevention_rate / 100)
+        st.markdown(f"""
+        <style>
+            .perf-metric-card {{
+                background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                border-radius: 12px;
+                padding: 25px;
+                color: #E2E2D2;
+                text-align: center;
+                transition: all 0.3s ease;
+            }}
+            .perf-metric-value {{
+                font-size: 36px;
+                font-weight: 700;
+                color: #65c1f9;
+                margin: 10px 0;
+            }}
+            .perf-metric-label {{
+                font-size: 14px;
+                color: #E2E2D2;
+                opacity: 0.85;
+            }}
+            .perf-metric-delta {{
+                font-size: 12px;
+                color: #4CAF50;
+                font-weight: 600;
+                margin-top: 8px;
+            }}
+            .perf-metric-card:hover {{
+                transform: translateY(-4px);
+                box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+            }}
+        </style>
+        <div class="perf-metric-card">
+            <div class="perf-metric-label">Prevention Rate</div>
+            <div class="perf-metric-value">{prevention_rate:.1f}%</div>
+            <div class="perf-metric-delta">↑ +1.8%</div>
+        </div>
+        """, unsafe_allow_html=True)
     
+    # False Positive Rate Card
     with col3:
-        st.metric(
-            label="False Positive Rate",
-            value=f"{fp_rate:.1f}%",
-            delta="-0.5%",
-            delta_color="inverse"
-        )
-        st.progress(fp_rate / 100)
+        st.markdown(f"""
+        <style>
+            .perf-metric-card {{
+                background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                border-radius: 12px;
+                padding: 25px;
+                color: #E2E2D2;
+                text-align: center;
+                transition: all 0.3s ease;
+            }}
+            .perf-metric-value {{
+                font-size: 36px;
+                font-weight: 700;
+                color: #65c1f9;
+                margin: 10px 0;
+            }}
+            .perf-metric-label {{
+                font-size: 14px;
+                color: #E2E2D2;
+                opacity: 0.85;
+            }}
+            .perf-metric-delta {{
+                font-size: 12px;
+                color: #FF6B6B;
+                font-weight: 600;
+                margin-top: 8px;
+            }}
+            .perf-metric-card:hover {{
+                transform: translateY(-4px);
+                box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+            }}
+        </style>
+        <div class="perf-metric-card">
+            <div class="perf-metric-label">False Positive Rate</div>
+            <div class="perf-metric-value">{fp_rate:.1f}%</div>
+            <div class="perf-metric-delta">↓ -0.5%</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def render_threat_charts():
     """Render threat visualization charts"""
-    st.subheader("Threat Analysis & Distribution")
+    st.markdown("<h3 style='text-align: center;'>Threat Analysis & Distribution</h3>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
     # Severity Distribution Pie Chart
     with col1:
-        st.markdown("##### Threat Severity Distribution")
+        st.markdown("<h5 style='text-align: center; color: #65c1f9; margin-top: 20px;'>Threat Severity Distribution</h5>", unsafe_allow_html=True)
+        
         severity_df = get_threat_distribution()
         
         if not severity_df.empty:
-            fig = px.pie(
-                severity_df,
-                values='count',
-                names='severity',
-                color='severity',
-                color_discrete_map={
-                    'High': '#FF4B4B',
-                    'Medium': '#FFA500',
-                    'Low': '#4CAF50'
-                },
-                hole=0.4
+            # Create color mapping based on actual severity values
+            severity_colors = {
+                'High': '#2B5A7A',      # Deep blue
+                'Medium': '#4A7BA7',    # Medium blue
+                'Low': '#6B9BC3',       # Light blue
+                'Critical': '#1A3A52'   # Darkest blue (if exists)
+            }
+            
+            # Map colors to actual data
+            colors = [severity_colors.get(sev, '#65c1f9') for sev in severity_df['severity']]
+            
+            fig = go.Figure(data=[go.Pie(
+                labels=severity_df['severity'],
+                values=severity_df['count'],
+                hole=.5,
+                marker=dict(
+                    colors=colors,
+                    line=dict(color='#141d26', width=2)
+                ),
+                textfont=dict(color='white', size=14, family='Arial'),
+                textposition='auto',
+                textinfo='label+percent'
+            )])
+            
+            fig.update_layout(
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#E2E2D2', size=13),
+                margin=dict(l=20, r=20, t=40, b=20),
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.15,
+                    xanchor="center",
+                    x=0.5,
+                    font=dict(color='#E2E2D2', size=12),
+                    bgcolor='rgba(0,0,0,0)'
+                ),
+                annotations=[dict(
+                    text=f'<b>Total<br>{severity_df["count"].sum()}</b>',
+                    x=0.5, y=0.5,
+                    font=dict(size=16, color='#65c1f9', family='Arial'),
+                    showarrow=False
+                )]
             )
-            fig.update_layout(height=350)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No threat data available")
     
     # Attack Types Bar Chart
     with col2:
-        st.markdown("##### Attack Type Distribution")
+        st.markdown("<h5 style='text-align: center; color: #65c1f9; margin-top: 20px;'>Attack Type Distribution</h5>", unsafe_allow_html=True)
+        
         attack_types_df = get_attack_types()
         
         if not attack_types_df.empty:
-            fig = px.bar(
-                attack_types_df,
-                x='category',
-                y='count',
-                color='count',
-                color_continuous_scale='Reds'
-            )
+            # Generate blue gradient colors based on actual number of categories
+            n_colors = len(attack_types_df)
+            colors = [f'rgb({int(43 + i * (107-43)/max(n_colors-1, 1))}, {int(90 + i * (155-90)/max(n_colors-1, 1))}, {int(122 + i * (195-122)/max(n_colors-1, 1))})' 
+                     for i in range(n_colors)]
+            
+            fig = go.Figure(data=[go.Bar(
+                x=attack_types_df['category'],
+                y=attack_types_df['count'],
+                marker=dict(
+                    color=colors,
+                    line=dict(color='#141d26', width=1)
+                ),
+                text=attack_types_df['count'],
+                textposition='auto',
+                textfont=dict(color='white', size=12)
+            )])
+            
             fig.update_layout(
-                height=350,
+                height=400,
                 xaxis_title="Attack Category",
                 yaxis_title="Count",
-                showlegend=False
+                showlegend=False,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#E2E2D2', size=12),
+                xaxis=dict(
+                    gridcolor='rgba(101, 193, 249, 0.1)',
+                    title_font=dict(color='#65c1f9', size=14),
+                    tickangle=-45
+                ),
+                yaxis=dict(
+                    gridcolor='rgba(101, 193, 249, 0.1)',
+                    title_font=dict(color='#65c1f9', size=14)
+                ),
+                margin=dict(l=20, r=20, t=40, b=80)
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
@@ -623,55 +910,153 @@ def render_threat_charts():
 
 def render_recent_threats_table():
     """Render table of recent threats"""
-    st.subheader("Recent Security Events")
+    st.markdown("<h3 style='text-align: center;'>Recent Security Events</h3>", unsafe_allow_html=True)
     
-    recent_df = get_recent_threats(10)
+    recent_df = get_recent_threats(15)
     
     if not recent_df.empty:
         # Format the dataframe for display
         display_df = recent_df.copy()
-        display_df.columns = ['ID', 'Threat Score', 'Severity', 'Category', 'Timestamp']
         
-        # Apply color coding
+        # Format timestamp to be more readable
+        if 'timestamp' in display_df.columns:
+            try:
+                display_df['timestamp'] = pd.to_datetime(display_df['timestamp']).dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pass
+        
+        # Rename columns based on what's available
+        if len(display_df.columns) == 6:
+            display_df.columns = ['ID', 'Severity', 'Type', 'Host', 'Source', 'Timestamp']
+        else:
+            display_df.columns = ['ID', 'Score', 'Severity', 'Category', 'Timestamp']
+        
+        # Apply color coding with blue theme
         def highlight_severity(row):
-            if row['Severity'] == 'High':
-                return ['background-color: #FFE5E5'] * len(row)
-            elif row['Severity'] == 'Medium':
-                return ['background-color: #FFF4E5'] * len(row)
+            severity = row.get('Severity', '')
+            if severity == 'Critical':
+                return ['background-color: #1A3A52; color: white'] * len(row)
+            elif severity == 'High':
+                return ['background-color: #2B5A7A; color: white'] * len(row)
+            elif severity == 'Medium':
+                return ['background-color: #4A7BA7; color: white'] * len(row)
+            elif severity == 'Low':
+                return ['background-color: #6B9BC3; color: white'] * len(row)
+            elif severity == 'Info':
+                return ['background-color: #8BB8D8; color: black'] * len(row)
             else:
-                return ['background-color: #E5F5E5'] * len(row)
+                return ['background-color: #E8F4F8; color: black'] * len(row)
         
         styled_df = display_df.style.apply(highlight_severity, axis=1)
-        st.dataframe(styled_df, use_container_width=True, height=400)
+        st.dataframe(styled_df, use_container_width=True, height=450)
+        
+        # Show summary stats centered
+        critical_high = len(display_df[display_df['Severity'].isin(['Critical', 'High'])])
+        if 'Type' in display_df.columns:
+            most_common = display_df['Type'].value_counts().index[0] if len(display_df) > 0 else 'N/A'
+        else:
+            most_common = display_df['Category'].value_counts().index[0] if len(display_df) > 0 else 'N/A'
+        
+        st.markdown(f"<div style='text-align: center; color: #E2E2D2; font-size: 14px; margin-top: 15px;'><strong>Total Events: {len(display_df)}</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Critical/High: {critical_high}</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Most Common: {most_common}</strong></div>", unsafe_allow_html=True)
     else:
-        st.info("No recent threats detected")
+        st.info("No recent security events found")
 
 
 def render_quick_navigation():
     """Render quick navigation links to other pages"""
-    st.subheader("Quick Access")
-    
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        if st.button("Live Threat Monitor", use_container_width=True):
-            st.switch_page("pages/Live_Threat_Monitor.py")
-    
-    with col2:
-        if st.button("AI Log Analysis", use_container_width=True):
-            st.switch_page("pages/AI_Log_Analysis.py")
-    
-    with col3:
-        if st.button("Threat Scoring", use_container_width=True):
-            st.switch_page("pages/Threat_Scoring.py")
-    
-    with col4:
-        if st.button("Performance Metrics", use_container_width=True):
-            st.switch_page("pages/Performance_Metrics.py")
-    
-    with col5:
-        if st.button("Server Performance", use_container_width=True):
-            st.switch_page("pages/Server_Performance.py")
+    st.markdown(f"""
+    <style>
+        .quick-access-section {{
+            margin: 20px 0;
+            margin-top: 20px;
+        }}
+        .quick-access-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }}
+        .quick-access-card {{
+            background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+            border-radius: 12px;
+            padding: 30px;
+            color: #E2E2D2;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }}
+        .quick-access-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+        }}
+        .quick-access-card h4 {{
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0 0 12px 0;
+            color: #65c1f9;
+        }}
+        .quick-access-card p {{
+            font-size: 14px;
+            margin: 0 0 20px 0;
+            opacity: 0.9;
+            line-height: 1.5;
+        }}
+        .quick-access-button {{
+            background: #243447;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }}
+        .quick-access-button:hover {{
+            background: #c51f5d;
+            transform: translateY(-2px);
+        }}
+    </style>
+    <div class="quick-access-section">
+        <h3 style='text-align: center;'>Quick Access</h3>
+        <div class="quick-access-grid">
+            <div class="quick-access-card">
+                <h4>Live Threat Monitor</h4>
+                <p>Real-time threat detection and monitoring</p>
+                <button class="quick-access-button" onclick="window.location.href='?page=Live_Threat_Monitor'">View Threats</button>
+            </div>
+            <div class="quick-access-card">
+                <h4>AI Log Analysis</h4>
+                <p>Intelligent log analysis with machine learning</p>
+                <button class="quick-access-button" onclick="window.location.href='?page=AI_Log_Analysis'">Analyze Logs</button>
+            </div>
+            <div class="quick-access-card">
+                <h4>Threat Scoring</h4>
+                <p>Advanced threat risk assessment and scoring</p>
+                <button class="quick-access-button" onclick="window.location.href='?page=Threat_Scoring'">View Scores</button>
+            </div>
+            <div class="quick-access-card">
+                <h4>Performance Metrics</h4>
+                <p>System performance analytics and trends</p>
+                <button class="quick-access-button" onclick="window.location.href='?page=Performance_Metrics'">View Metrics</button>
+            </div>
+            <div class="quick-access-card">
+                <h4>Server Performance</h4>
+                <p>Server health monitoring and resources</p>
+                <p></p>
+                <button class="quick-access-button" onclick="window.location.href='?page=Server_Performance'">View Server</button>
+            </div>
+            <div class="quick-access-card">
+                <h4>System Configuration</h4>
+                <p>Configure system settings and preferences</p>
+                <button class="quick-access-button" onclick="window.location.href='?page=System_Configuration'">Configure</button>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def render_sidebar():
@@ -717,15 +1102,15 @@ def main():
     # Render main content
     render_header()
     
-    # Auto-refresh indicator
-    st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Auto-refresh: Every 30 seconds")
-    
     # Key metrics
     render_key_metrics()
     st.markdown("---")
     
     # Performance metrics
     render_performance_metrics()
+    
+    # Auto-refresh indicator
+    st.markdown(f"<div style='text-align: center; color: gray; font-size: 12px;'>Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Auto-refresh: Every 30 seconds</div>", unsafe_allow_html=True)
     st.markdown("---")
     
     # Threat charts

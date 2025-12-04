@@ -1,8 +1,8 @@
 streamlit>=1.24.0
-sqlite3
 psutil>=5.9.0
 plotly>=5.14.0
 pandas>=2.0.0
 gputil>=1.4.0
 splunk-sdk>=1.7.0
 pyyaml>=6.0
+bcrypt>=4.0.0

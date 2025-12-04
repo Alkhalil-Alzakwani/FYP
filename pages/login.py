@@ -136,6 +136,7 @@ st.markdown("""
         background: linear-gradient(135deg, #141d26 0%, #243447 100%);
         overflow-y: auto !important;
         height: 100vh !important;
+        transition: all 2s ease;
     }
     
     /* Block container */
@@ -149,7 +150,7 @@ st.markdown("""
         border-radius: 18px;
         padding: 30px;
         color: #E2E2D2;
-        transition: all 0.3s ease;
+        transition: all 2s ease;
         display: flex;
         flex-direction: column;
         align-items: center;

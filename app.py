@@ -383,7 +383,7 @@ def main():
             </div>
             <div class="stat-inline">
                 <div>
-                    <div class="stat-inline-value">&lt;2s</div>
+                    <div class="stat-inline-value">2s</div>
                     <div class="stat-inline-label">Response Time</div>
                 </div>
             </div>
