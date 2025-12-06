@@ -647,7 +647,7 @@ def render_key_metrics():
             </div>
             <div class="stat-inline">
                 <div>
-                    <div class="stat-inline-value">&lt;2s</div>
+                    <div class="stat-inline-value">2s</div>
                     <div class="stat-inline-label">Response Time</div>
                 </div>
             </div>
@@ -964,19 +964,19 @@ def render_recent_threats_table():
 
 def render_quick_navigation():
     """Render quick navigation links to other pages"""
-    st.markdown(f"""
+    st.markdown("""
     <style>
-        .quick-access-section {{
+        .quick-access-section {
             margin: 20px 0;
             margin-top: 20px;
-        }}
-        .quick-access-grid {{
+        }
+        .quick-access-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-top: 20px;
-        }}
-        .quick-access-card {{
+        }
+        .quick-access-card {
             background: linear-gradient(135deg, #141d26 0%, #243447 100%);
             border-radius: 12px;
             padding: 30px;
@@ -986,74 +986,58 @@ def render_quick_navigation():
             flex-direction: column;
             align-items: center;
             text-align: center;
-        }}
-        .quick-access-card:hover {{
+            text-decoration: none;
+        }
+        .quick-access-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
-        }}
-        .quick-access-card h4 {{
+            text-decoration: none;
+            color: #E2E2D2;
+        }
+        .quick-access-card h4 {
             font-size: 18px;
             font-weight: 700;
             margin: 0 0 12px 0;
             color: #65c1f9;
-        }}
-        .quick-access-card p {{
+        }
+        .quick-access-card p {
             font-size: 14px;
             margin: 0 0 20px 0;
             opacity: 0.9;
             line-height: 1.5;
-        }}
-        .quick-access-button {{
-            background: #243447;
-            color: white;
-            padding: 10px 24px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-weight: 700;
-            font-size: 14px;
-            transition: all 0.3s ease;
-            width: 100%;
-        }}
-        .quick-access-button:hover {{
-            background: #c51f5d;
-            transform: translateY(-2px);
-        }}
+        }
+        .quick-access-icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
     </style>
     <div class="quick-access-section">
         <h3 style='text-align: center;'>Quick Access</h3>
         <div class="quick-access-grid">
-            <div class="quick-access-card">
+            <a href="Live_Threat_Monitor" class="quick-access-card" style="text-decoration: none;">
                 <h4>Live Threat Monitor</h4>
                 <p>Real-time threat detection and monitoring</p>
-                <button class="quick-access-button" onclick="window.location.href='?page=Live_Threat_Monitor'">View Threats</button>
-            </div>
-            <div class="quick-access-card">
+            </a>
+            <a href="AI_Log_Analysis" class="quick-access-card" style="text-decoration: none;">
                 <h4>AI Log Analysis</h4>
                 <p>Intelligent log analysis with machine learning</p>
-                <button class="quick-access-button" onclick="window.location.href='?page=AI_Log_Analysis'">Analyze Logs</button>
-            </div>
-            <div class="quick-access-card">
+            </a>
+            <a href="Threat_Scoring" class="quick-access-card" style="text-decoration: none;">
                 <h4>Threat Scoring</h4>
                 <p>Advanced threat risk assessment and scoring</p>
-                <button class="quick-access-button" onclick="window.location.href='?page=Threat_Scoring'">View Scores</button>
-            </div>
-            <div class="quick-access-card">
+            </a>
+            <a href="Performance_Metrics" class="quick-access-card" style="text-decoration: none;">
                 <h4>Performance Metrics</h4>
                 <p>System performance analytics and trends</p>
-                <button class="quick-access-button" onclick="window.location.href='?page=Performance_Metrics'">View Metrics</button>
-            </div>
-            <div class="quick-access-card">
+            </a>
+            <a href="Server_Performance" class="quick-access-card" style="text-decoration: none;">
                 <h4>Server Performance</h4>
                 <p>Server health monitoring and resources</p>
-                <p></p>
-                <button class="quick-access-button" onclick="window.location.href='?page=Server_Performance'">View Server</button>
-            </div>
-            <div class="quick-access-card">
+            </a>
+            <a href="System_Configuration" class="quick-access-card" style="text-decoration: none;">
                 <h4>System Configuration</h4>
                 <p>Configure system settings and preferences</p>
-                <button class="quick-access-button" onclick="window.location.href='?page=System_Configuration'">Configure</button>
-            </div>
+            </a>
         </div>
     </div>
     """, unsafe_allow_html=True)
