@@ -20,6 +20,11 @@ import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 import time
+import base64
+import re
+import requests
+import pydeck as pdk
+import ipaddress
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -293,6 +298,85 @@ def get_sourcetype_stats():
         return []
     return []
 
+
+# ============================================================================
+# GEO HELPERS FOR THREAT MAP
+# ============================================================================
+
+def extract_ip_from_text(text):
+    """Extract first IPv4 address from a text blob."""
+    if not text:
+        return None
+    match = re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", text)
+    return match.group(0) if match else None
+
+
+def is_valid_ip(value):
+    """Validate IPv4 numeric segments."""
+    if not value:
+        return False
+    match = re.fullmatch(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}", value)
+    if not match:
+        return False
+    parts = value.split(".")
+    return all(0 <= int(p) <= 255 for p in parts)
+
+
+def geolocate_ip(ip, cache):
+    """Geolocate IP using ipapi.co; cache results to reduce calls."""
+    if not ip:
+        return None
+    if ip in cache:
+        return cache[ip]
+
+    # Handle private/local/reserved IPs with an Oman-centered fallback
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_reserved or ip_obj.is_multicast:
+            cache[ip] = {"ip": ip, "lat": 21.5, "lon": 57.0, "country": "Private/Local"}
+            return cache[ip]
+    except Exception:
+        pass
+    try:
+        resp = requests.get(f"https://ipapi.co/{ip}/json/", timeout=3)
+        if resp.status_code == 200:
+            data = resp.json()
+            lat = data.get("latitude")
+            lon = data.get("longitude")
+            country = data.get("country_name") or "Unknown"
+            if lat is not None and lon is not None:
+                cache[ip] = {"ip": ip, "lat": lat, "lon": lon, "country": country}
+                return cache[ip]
+    except Exception:
+        pass
+    cache[ip] = None
+    return None
+
+
+def build_attack_points(logs, limit=50):
+    """Build map points from logs (limited for performance)."""
+    points = []
+    cache = {}
+    seen = set()
+    for log in logs[:limit]:
+        # Prefer host field if it's a valid IP; otherwise try raw log
+        host_val = log.get("host")
+        ip = host_val if is_valid_ip(host_val) else extract_ip_from_text(log.get("raw_log") or "")
+        if not ip or ip in seen:
+            continue
+        geo = geolocate_ip(ip, cache)
+        if geo:
+            points.append({
+                "ip": ip,
+                "lat": geo["lat"],
+                "lon": geo["lon"],
+                "country": geo["country"],
+                "source": log.get("source", "unknown"),
+                "severity": log.get("severity", "unknown")
+            })
+            seen.add(ip)
+    return points
+
 def fetch_and_store_logs(initial_fetch=False):
     """
     Fetch logs from Splunk and store in database
@@ -440,7 +524,6 @@ st.markdown("""
 }
 
 .control-panel-card {
-    background: linear-gradient(135deg, #141d26, #243447);
     border-radius: 12px;
     padding: 20px;
     color: #E2E2D2;
@@ -470,7 +553,6 @@ st.markdown("""
 
 /* Custom button styling */
 .stButton > button {
-    background: linear-gradient(135deg, #141d26, #243447) !important;
     color: #E2E2D2 !important;
     border: 1px solid #243447 !important;
     border-radius: 8px !important;
@@ -574,10 +656,8 @@ new_logs = st.session_state.new_logs_count if st.session_state.new_logs_count > 
 st.markdown(f"""
 <style>
     .stats-card {{
-        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
         border-radius: 12px;
         padding: 30px;
-        color: #E2E2D2;
         margin-top: 20px;
         transition: all 0.3s ease;
     }}
@@ -600,14 +680,11 @@ st.markdown(f"""
     }}
     .stat-inline-label {{
         font-size: 12px;
-        color: #E2E2D2;
         opacity: 0.85;
         line-height: 1.3;
     }}
-    .stats-card:hover {{
-        transform: translateY(-4px);
-        box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
-    }}
+
+
 </style>
 <div class="stats-card">
     <div class="stats-content">
@@ -719,19 +796,7 @@ with col5:
 # Pagination
 st.markdown("""
 <style>
-.stSlider > div[data-baseweb="slider"] {
-    background: #243447 !important;
-    border-radius: 8px !important;
-    border: 1px solid #243447 !important;
-    padding: 8px 16px !important;
-}
-.stSlider label {
-    font-weight: 600 !important;
-    font-size: 15px !important;
-}
-.stSlider .css-1y4p8pa .css-1c7y2kd {
-    background: #243447 !important;
-}
+
 </style>
 """, unsafe_allow_html=True)
 logs_per_page = st.slider("Logs per page", min_value=10, max_value=500, value=50, step=10)
@@ -779,14 +844,12 @@ if logs:
     st.markdown("""
     <style>
     .count-bar {
-        background: linear-gradient(135deg, #141d26, #243447);
         color: white;
         border-radius: 10px;
         padding: 14px 24px;
         font-size: 16px;
         font-weight: 600;
         margin-bottom: 10px;
-        box-shadow: 0 2px 8px rgba(36,52,71,0.08);
         display: flex;
         align-items: center;
         gap: 12px;
@@ -857,6 +920,39 @@ if logs:
     
 else:
     st.warning("No logs found. Click 'Fetch Initial Logs' to retrieve data from Splunk.")
+
+# ============================================================================
+# THREAT MAP
+# ============================================================================
+
+st.markdown("---")
+st.markdown('<h3 style="text-align:center;">Threat Map</h3>', unsafe_allow_html=True)
+
+map_points = build_attack_points(logs) if logs else []
+
+if map_points:
+    initial_view_state = pdk.ViewState(latitude=21.5, longitude=57.0, zoom=4.8, pitch=30)
+    layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=map_points,
+        get_position="[lon, lat]",
+        get_color="[255, 99, 71, 200]",
+        get_radius=50000,
+        pickable=True
+    )
+    tooltip = {
+        "html": "<b>IP:</b> {ip}<br/><b>Country:</b> {country}<br/><b>Source:</b> {source}<br/><b>Severity:</b> {severity}",
+        "style": {"color": "white"}
+    }
+    deck = pdk.Deck(
+        map_style=None,
+        initial_view_state=initial_view_state,
+        layers=[layer],
+        tooltip=tooltip
+    )
+    st.pydeck_chart(deck, use_container_width=True)
+else:
+    st.info("No geolocated IPs available yet. Fetch logs to populate the threat map.")
 
 # ============================================================================
 # FOOTER
