@@ -649,9 +649,35 @@ st.markdown(f"""
 st.markdown("---")
 st.markdown("<h4 style='text-align: center;'>Logs by Sourcetype</h4>", unsafe_allow_html=True)
 sourcetype_stats = get_sourcetype_stats()
+
+# Blue-themed styling for the sourcetype stats table
 if sourcetype_stats:
     stats_df = pd.DataFrame(sourcetype_stats, columns=['Sourcetype', 'Count'])
     stats_df['Percentage'] = (stats_df['Count'] / stats_df['Count'].sum() * 100).round(2)
+    # Apply blue style using pandas Styler
+    def blue_style():
+        return [
+            {'selector': 'th', 'props': [('background-color', '#243447'), ('color', 'white'), ('font-weight', 'bold')]},
+            {'selector': 'td', 'props': [('background-color', '#243447'), ('color', '#243447')]},
+            {'selector': 'tr:nth-child(even) td', 'props': [('background-color', '#d0e6f7')]},
+        ]
+    styled_df = stats_df.style.set_table_styles(blue_style())
+    st.markdown("""
+        <style>
+        .stDataFrame thead tr th {
+            background-color: #243447 !important;
+            color: white !important;
+            font-weight: bold !important;
+        }
+        .stDataFrame tbody tr td {
+            background-color: #eaf3fb !important;
+            color: #243447 !important;
+        }
+        .stDataFrame tbody tr:nth-child(even) td {
+            background-color: #d0e6f7 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
     st.dataframe(stats_df, use_container_width=True, hide_index=True)
 
 st.markdown("---")
@@ -660,7 +686,7 @@ st.markdown("---")
 # FILTERS
 # ============================================================================
 
-st.markdown("Filters")
+st.markdown('<h3 style="text-align:center;">Filters</h3>', unsafe_allow_html=True)
 
 # Get unique hosts and sources
 unique_hosts = get_unique_hosts()
@@ -691,15 +717,31 @@ with col5:
     )
 
 # Pagination
+st.markdown("""
+<style>
+.stSlider > div[data-baseweb="slider"] {
+    background: #243447 !important;
+    border-radius: 8px !important;
+    border: 1px solid #243447 !important;
+    padding: 8px 16px !important;
+}
+.stSlider label {
+    font-weight: 600 !important;
+    font-size: 15px !important;
+}
+.stSlider .css-1y4p8pa .css-1c7y2kd {
+    background: #243447 !important;
+}
+</style>
+""", unsafe_allow_html=True)
 logs_per_page = st.slider("Logs per page", min_value=10, max_value=500, value=50, step=10)
 
-st.markdown("---")
 
 # ============================================================================
 # LOGS TABLE
 # ============================================================================
 
-st.markdown("###Logs")
+st.markdown('<h3 style="text-align:center;">Logs</h3>', unsafe_allow_html=True)
 
 # Apply filters
 severity = None if severity_filter == "All" else severity_filter
@@ -734,16 +776,37 @@ if logs:
     df = pd.DataFrame(logs)
     
     # Display count
+    st.markdown("""
+    <style>
+    .count-bar {
+        background: linear-gradient(135deg, #141d26, #243447);
+        color: white;
+        border-radius: 10px;
+        padding: 14px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 8px rgba(36,52,71,0.08);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .count-bar .icon {
+        font-size: 22px;
+        margin-right: 8px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     if host:
-        st.info(f"Showing {len(logs)} logs (filtered by host)")
+        st.markdown(f'<div class="count-bar"></span>Showing <b>{len(logs)}</b> logs <span style="opacity:0.8;">(filtered by host)</span></div>', unsafe_allow_html=True)
     else:
         filtered_count = get_splunk_logs_count(
             severity_filter=severity,
             source_filter=source,
             search_text=search
         )
-        st.info(f"Showing {len(logs)} of {filtered_count:,} logs")
-    
+        st.markdown(f'<div class="count-bar"></span>Showing <b>{len(logs)}</b> of <b>{filtered_count:,}</b> logs</div>', unsafe_allow_html=True)
+
     # Display table with custom formatting
     for idx, log in enumerate(logs):
         with st.expander(
@@ -783,7 +846,7 @@ if logs:
                 
                 # AI Analysis button
                 if st.button(
-                    f"🤖 Analyze Source: {log['source']}",
+                    f"Analyze Source: {log['source']}",
                     key=f"analyze_{log['id']}",
                     use_container_width=True,
                     type="primary"
