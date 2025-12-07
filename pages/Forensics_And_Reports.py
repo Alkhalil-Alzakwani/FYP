@@ -142,7 +142,7 @@ def main():
     st.markdown("Post-incident analysis, report generation, and PCAP management")
     st.markdown("---")
 
-    tab1, tab2, tab3 = st.tabs(["📄 Incident Reports", "📦 PCAP Manager", "📈 Performance Summary"])
+    tab1, tab2, tab3 = st.tabs(["Incident Reports", "PCAP Manager", "Performance Summary"])
 
     # ---------------------------
     # Tab 1: Incident Reports
@@ -164,7 +164,7 @@ def main():
             with col1:
                 max_logs = st.number_input("Max logs to include", min_value=10, max_value=5000, value=500)
             with col2:
-                if st.button("🔍 Load Logs for Incident"):
+                if st.button("Load Logs for Incident"):
                     if incident and incident.get('source'):
                         logs = get_logs_for_source(incident['source'], limit=max_logs)
                         st.success(f"Loaded {len(logs)} logs for source: {incident['source']}")
@@ -182,7 +182,7 @@ def main():
                 incident = st.session_state['forensics_current_incident']
                 logs = st.session_state.get('forensics_current_logs', [])
                 csv_bytes = generate_incident_csv(incident, logs)
-                st.download_button("⬇️ Download Incident Report (CSV)", data=csv_bytes, file_name=f"incident_{incident.get('id')}.csv", mime='text/csv')
+                st.download_button("⬇Download Incident Report (CSV)", data=csv_bytes, file_name=f"incident_{incident.get('id')}.csv", mime='text/csv')
 
                 st.markdown("**Notes:** PDF generation is not enabled by default. To enable PDF reports, install `reportlab` or `fpdf` and extend this page.")
 
@@ -199,7 +199,7 @@ def main():
             with open(save_path, 'wb') as f:
                 f.write(uploaded.getbuffer())
             st.success(f"Saved PCAP: {uploaded.name} ({os.path.getsize(save_path):,} bytes)")
-            st.download_button("⬇️ Download PCAP", data=open(save_path,'rb'), file_name=uploaded.name)
+            st.download_button("Download PCAP", data=open(save_path,'rb'), file_name=uploaded.name)
 
         st.markdown("---")
         st.markdown("Existing PCAP files:")
@@ -238,7 +238,7 @@ def main():
         }])
         csv_buf = io.StringIO()
         export_df.to_csv(csv_buf, index=False)
-        st.download_button("⬇️ Download Performance Summary (CSV)", data=csv_buf.getvalue().encode('utf-8'), file_name=f"performance_summary_{days}d.csv", mime='text/csv')
+        st.download_button("Download Performance Summary (CSV)", data=csv_buf.getvalue().encode('utf-8'), file_name=f"performance_summary_{days}d.csv", mime='text/csv')
 
     # Footer
     st.markdown('---')

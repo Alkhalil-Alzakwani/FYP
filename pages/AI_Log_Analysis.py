@@ -40,6 +40,44 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from database.queries import get_db_connection
+# ============================================================================
+# CUSTOM CSS FOR SCROLLING
+# ============================================================================
+
+st.markdown("""
+<style>
+    /* Enable vertical scroll for full app */
+    .main {
+        overflow-y: auto !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+    }
+
+    /* Allow normal scrolling inside Streamlit content container */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 100% !important;
+        overflow-y: visible !important;
+    }
+
+    /* Sidebar fix */
+    section[data-testid="stSidebar"] {
+        height: 100vh !important;
+        overflow-y: auto !important;
+    }
+
+    /* App content wrapper */
+    .appview-container {
+        overflow-y: auto !important;
+    }
+
+    /* Prevent content cutting inside vertical blocks */
+    div[data-testid="stVerticalBlock"] {
+        overflow: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # ============================================================================
 # PAGE CONFIGURATION
@@ -327,7 +365,7 @@ def main():
         )
     
     # Create tabs for different analysis modes
-    tab1, tab2, tab3 = st.tabs(["📊 Source Analysis", "📝 Manual Input", "📈 Analysis History"])
+    tab1, tab2, tab3 = st.tabs(["Source Analysis", "Manual Input", "Analysis History"])
     
     # ========================================================================
     # TAB 1: SOURCE-BASED ANALYSIS
@@ -354,14 +392,14 @@ def main():
                 max_logs = st.slider("Max logs to analyze", 10, 100, 50)
             
             # Get logs for selected source
-            if st.button("🔍 Fetch and Analyze", use_container_width=True, type="primary"):
+            if st.button("Fetch and Analyze", use_container_width=True, type="primary"):
                 logs = get_logs_by_source(selected_source, max_logs)
                 
                 if logs:
-                    st.success(f"✅ Found {len(logs)} logs from source: **{selected_source}**")
+
                     
                     # Show logs preview
-                    with st.expander("📋 Preview Logs", expanded=False):
+                    with st.expander("Preview Logs", expanded=False):
                         logs_preview = pd.DataFrame([
                             {
                                 'timestamp': log['timestamp'],
@@ -377,7 +415,7 @@ def main():
                     result = analyze_logs_batch(logs, ollama_host, model)
                     
                     if "error" not in result:
-                        st.markdown("### 📊 Analysis Results")
+                        st.markdown("### Analysis Results")
                         
                         col1, col2, col3 = st.columns(3)
                         
@@ -400,19 +438,19 @@ def main():
                         st.bar_chart(severity_df.set_index('Severity'))
                         
                         # Full analysis
-                        st.markdown("### 🤖 Mistral AI Analysis")
+                        st.markdown("### Mistral AI Analysis")
                         st.markdown(result['analysis'])
                         
                         # Extract and save threat score
                         threat_score = extract_threat_score(result['analysis'])
                         if threat_score is not None:
-                            st.success(f"✅ Phishing Likelihood: **{threat_score*100:.1f}%**")
+                            st.success(f"Phishing Likelihood: **{threat_score*100:.1f}%**")
                             
                             # Save to database
-                            if st.button("💾 Save Analysis Result", use_container_width=True):
+                            if st.button("Save Analysis Result", use_container_width=True):
                                 severity = "high" if threat_score > 0.7 else "medium" if threat_score > 0.4 else "low"
                                 if save_threat_score(selected_source, int(threat_score*100), severity, result['analysis']):
-                                    st.success("✅ Analysis saved to threat_scores table")
+                                    st.success("Analysis saved to threat_scores table")
                 
                 else:
                     st.warning(f"No logs found for source: {selected_source}")
@@ -459,10 +497,10 @@ Please provide:
 
 Be concise but thorough."""
 
-                with st.spinner("🤖 Analyzing with Mistral..."):
+                with st.spinner("Analyzing with Mistral..."):
                     analysis = call_mistral(ollama_host, model, prompt)
                 
-                st.markdown("### 🤖 Analysis Result")
+                st.markdown("### Analysis Result")
                 st.markdown(analysis)
             else:
                 st.warning("Please enter log content to analyze")

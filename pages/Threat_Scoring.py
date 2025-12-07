@@ -33,6 +33,44 @@ from database.queries import get_db_connection
 
 
 st.set_page_config(page_title="Threat Scoring", layout="wide")
+# ============================================================================
+# CUSTOM CSS FOR SCROLLING
+# ============================================================================
+
+st.markdown("""
+<style>
+    /* Enable vertical scroll for full app */
+    .main {
+        overflow-y: auto !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+    }
+
+    /* Allow normal scrolling inside Streamlit content container */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 100% !important;
+        overflow-y: visible !important;
+    }
+
+    /* Sidebar fix */
+    section[data-testid="stSidebar"] {
+        height: 100vh !important;
+        overflow-y: auto !important;
+    }
+
+    /* App content wrapper */
+    .appview-container {
+        overflow-y: auto !important;
+    }
+
+    /* Prevent content cutting inside vertical blocks */
+    div[data-testid="stVerticalBlock"] {
+        overflow: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 
 def severity_to_weight(sev: str) -> int:
