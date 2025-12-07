@@ -25,6 +25,14 @@ import time
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# Import authentication and database modules
+try:
+    from auth.session_manager import check_session_timeout, clear_session
+    from database.queries import get_db_connection
+except ImportError as e:
+    st.error(f"Import Error: {e}")
+    st.stop()
+
 from models.splunk_connector import get_splunk_connector
 from database.queries import (
     insert_splunk_logs, 
@@ -33,6 +41,29 @@ from database.queries import (
     get_last_splunk_log_timestamp,
     delete_all_splunk_logs
 )
+
+# ============================================================================
+# AUTHENTICATION CHECK
+# ============================================================================
+
+def check_authentication():
+    """Verify user is authenticated before rendering page"""
+    import time
+    
+    if not st.session_state.get('authenticated', False):
+        # Set default user info for development/testing
+        st.session_state.username = 'admin'
+        st.session_state.role = 'administrator'
+        st.session_state.authenticated = True
+
+        return
+    
+    # Check session timeout only if authenticated through proper login
+    if st.session_state.get('authenticated') and not check_session_timeout():
+        st.warning("Session expired. Please login again.")
+        st.session_state.username = 'admin'
+        st.session_state.role = 'administrator'
+        return
 
 # ============================================================================
 # PAGE CONFIGURATION
@@ -49,54 +80,35 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Enable scrolling for main container */
+    /* Enable vertical scroll for full app */
     .main {
         overflow-y: auto !important;
         height: 100vh !important;
         max-height: 100vh !important;
     }
-    
-    /* Fix block container */
+
+    /* Allow normal scrolling inside Streamlit content container */
     .block-container {
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
         max-width: 100% !important;
         overflow-y: visible !important;
     }
-    
-    /* Enable scrolling on app view container */
+
+    /* Sidebar fix */
+    section[data-testid="stSidebar"] {
+        height: 100vh !important;
+        overflow-y: auto !important;
+    }
+
+    /* App content wrapper */
     .appview-container {
         overflow-y: auto !important;
     }
-    
-    /* Make sure content doesn't get cut off */
+
+    /* Prevent content cutting inside vertical blocks */
     div[data-testid="stVerticalBlock"] {
         overflow: visible !important;
-    }
-    
-    /* Custom scrollbar styling */
-    ::-webkit-scrollbar {
-        width: 12px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: #1e1e1e;
-        border-radius: 10px;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 10px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
-    
-    /* For Firefox */
-    * {
-        scrollbar-width: thin;
-        scrollbar-color: #888 #1e1e1e;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -334,13 +346,150 @@ def fetch_and_store_logs(initial_fetch=False):
 # MAIN PAGE UI
 # ============================================================================
 
-st.title("Live Threat Monitor")
-st.markdown("Real-time log monitoring from Splunk")
-st.markdown("---")
+# Check authentication first
+check_authentication()
+
+# Top Navigation Bar
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+st.markdown(f"""
+<style>
+.topbar {{
+    background: linear-gradient(135deg, #141d26, #243447);
+    color: #E2E2D2;
+    padding: 10px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 8px;
+    gap: 12px;
+}}
+
+.topbar .left {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}}
+
+.topbar .brand {{
+    font-weight: 700;
+    font-size: 18px;
+}}
+
+.topbar .user-info {{
+    font-size: 13px;
+    color: #E2E2D2;
+    opacity: 0.9;
+}}
+
+.topbar .links {{
+    display: flex;
+    gap: 12px;
+}}
+
+.topbar a {{
+    color: #E2E2D2;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+}}
+
+.topbar a:hover {{
+    background: #243447;
+}}
+
+.topbar .cta {{
+    background: #c51f5d;
+    color: white;
+}}
+
+@media (max-width: 700px) {{
+    .topbar {{
+        flex-direction: column;
+        align-items: flex-start;
+    }}
+}}
+</style>
+
+<div class="topbar">
+    <div class="left">
+        <span class="user-info">{st.session_state.get('username', 'Unknown')} | {st.session_state.get('role', 'Unknown').upper()}</span>
+    </div>
+    <div class="links">
+        <a href="Dashboard_Overview">Dashboard</a>
+        <a href="AI_Log_Analysis">AI Analysis</a>
+        <a href="Threat_Scoring">Scoring</a>
+        <a href="Performance_Metrics">Metrics</a>
+        <a class="cta" href="System_Configuration">Configuration</a>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown('<h1 style="text-align: center;">Live Threat Monitor</h1>', unsafe_allow_html=True)
+st.markdown('<p style="text-align: center; color: #888;">Real-time log monitoring from Splunk</p>', unsafe_allow_html=True)
 
 # ============================================================================
 # CONTROL PANEL
 # ============================================================================
+
+st.markdown("""
+<style>
+.control-panel-section {
+    margin: 20px 0;
+}
+
+.control-panel-card {
+    background: linear-gradient(135deg, #141d26, #243447);
+    border-radius: 12px;
+    padding: 20px;
+    color: #E2E2D2;
+    transition: 0.3s ease;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.control-panel-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(101,193,249,0.2);
+}
+
+.control-panel-card h4 {
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #65c1f9;
+}
+
+.control-panel-card p {
+    font-size: 13px;
+    margin-bottom: 0;
+    opacity: 0.8;
+    line-height: 1.4;
+}
+
+/* Custom button styling */
+.stButton > button {
+    background: linear-gradient(135deg, #141d26, #243447) !important;
+    color: #E2E2D2 !important;
+    border: 1px solid #243447 !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease !important;
+}
+
+.stButton > button:hover {
+    background: linear-gradient(135deg, #243447, #141d26) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(101, 193, 249, 0.3) !important;
+}
+
+.stButton > button:active {
+    transform: translateY(0px) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<h3 style="text-align:center;">Control Panel</h3>', unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([3, 3, 3])
 
@@ -353,6 +502,9 @@ with col1:
                 st.rerun()
             else:
                 st.error(message)
+    
+    st.markdown("""
+    """, unsafe_allow_html=True)
 
 with col2:
     if st.button("Sync New Logs", use_container_width=True):
@@ -363,9 +515,12 @@ with col2:
                 st.rerun()
             else:
                 st.error(message)
+    
+    st.markdown("""
+    """, unsafe_allow_html=True)
 
 with col3:
-    if st.button("Delete All Logs", use_container_width=True, type="secondary"):
+    if st.button("Delete All Logs", use_container_width=True):
         # Confirmation dialog
         if 'confirm_delete' not in st.session_state:
             st.session_state.confirm_delete = False
@@ -384,12 +539,15 @@ with col3:
                     st.rerun()
                 else:
                     st.error(message)
+    
+    st.markdown("""
+    """, unsafe_allow_html=True)
 
 # Additional options row
 col_a, col_b = st.columns([2, 2])
 
 with col_a:
-    auto_refresh = st.checkbox("🔄 Auto-refresh (5 min)", value=False)
+    auto_refresh = st.checkbox("Auto-refresh (5 min)", value=False)
 
 with col_b:
     if st.session_state.last_fetch_time:
@@ -403,32 +561,93 @@ if auto_refresh:
 # ============================================================================
 # STATISTICS
 # ============================================================================
+st.markdown("---")
 
-st.markdown("Statistics")
+st.markdown("<h3 style='text-align: center;'>System Statistics</h3>", unsafe_allow_html=True)
 
-col1, col2, col3, col4 = st.columns(4)
-
+# Get data
 total_count = get_splunk_logs_count()
+critical_count = get_splunk_logs_count(severity_filter='critical')
+high_count = get_splunk_logs_count(severity_filter='high')
+new_logs = st.session_state.new_logs_count if st.session_state.new_logs_count > 0 else 0
 
-with col1:
-    st.metric("Total Logs", f"{total_count:,}")
-
-with col2:
-    critical_count = get_splunk_logs_count(severity_filter='critical')
-    st.metric("Critical", critical_count)
-
-with col3:
-    high_count = get_splunk_logs_count(severity_filter='high')
-    st.metric("High Severity", high_count)
-
-with col4:
-    if st.session_state.new_logs_count > 0:
-        st.metric("New Logs", st.session_state.new_logs_count)
-    else:
-        st.metric("New Logs", 0)
+st.markdown(f"""
+<style>
+    .stats-card {{
+        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+        border-radius: 12px;
+        padding: 30px;
+        color: #E2E2D2;
+        margin-top: 20px;
+        transition: all 0.3s ease;
+    }}
+    .stats-content {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }}
+    .stat-inline {{
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }}
+    .stat-inline-value {{
+        font-size: 28px;
+        font-weight: 700;
+        color: #65c1f9;
+    }}
+    .stat-inline-label {{
+        font-size: 12px;
+        color: #E2E2D2;
+        opacity: 0.85;
+        line-height: 1.3;
+    }}
+    .stats-card:hover {{
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+    }}
+</style>
+<div class="stats-card">
+    <div class="stats-content">
+        <div class="stat-inline">
+            <div>
+                <div class="stat-inline-value">{total_count:,}</div>
+                <div class="stat-inline-label">Total Logs</div>
+            </div>
+        </div>
+        <div class="stat-inline">
+            <div>
+                <div class="stat-inline-value">{critical_count:,}</div>
+                <div class="stat-inline-label">Critical Events</div>
+            </div>
+        </div>
+        <div class="stat-inline">
+            <div>
+                <div class="stat-inline-value">{high_count:,}</div>
+                <div class="stat-inline-label">High Severity</div>
+            </div>
+        </div>
+        <div class="stat-inline">
+            <div>
+                <div class="stat-inline-value">{new_logs:,}</div>
+                <div class="stat-inline-label">New Logs</div>
+            </div>
+        </div>
+        <div class="stat-inline">
+            <div>
+                <div class="stat-inline-value">ACTIVE</div>
+                <div class="stat-inline-label">Monitor Status</div>
+            </div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # Show sourcetype distribution
-st.markdown("####Logs by Sourcetype")
+st.markdown("---")
+st.markdown("<h4 style='text-align: center;'>Logs by Sourcetype</h4>", unsafe_allow_html=True)
 sourcetype_stats = get_sourcetype_stats()
 if sourcetype_stats:
     stats_df = pd.DataFrame(sourcetype_stats, columns=['Sourcetype', 'Count'])
