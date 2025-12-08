@@ -1,73 +1,149 @@
 ﻿"""
-================================================================================
+
 MULTILAYERED CYBER DEFENSE PLATFORM - SERVER PERFORMANCE MONITOR
-================================================================================
+╚════════════════════════════════════════════════════════════════════════════╝
 
 File: pages/Server_Performance.py
-Purpose: Real-time server performance monitoring and resource utilization
+Purpose: Real-time server performance monitoring and resource utilization tracking
 
 DESCRIPTION:
-    This module monitors and displays real-time performance metrics of the server
-    hosting the Cyber Defense Platform. It provides comprehensive insights into
-    system resource utilization including CPU, Memory, Disk, Network, and GPU.
+    Comprehensive server performance monitoring dashboard displaying real-time
+    metrics for CPU, memory, disk, network, and GPU resources. Auto-refreshes
+    every 2 seconds using Streamlit fragments for smooth, flicker-free updates.
+    Includes historical trend tracking and configurable alert thresholds.
 
-METRICS MONITORED:
-    1. CPU Metrics:
-        - Overall CPU usage percentage
-        - Per-core CPU utilization
-        - CPU frequency
-        - CPU temperature (if available)
-        
-    2. Memory Metrics:
-        - Total RAM
-        - Used RAM
-        - Available RAM
-        - Memory usage percentage
-        - Swap memory usage
-        
-    3. Disk Metrics:
-        - Disk usage per partition
-        - Read/Write speeds
-        - Total/Used/Free space
-        - I/O statistics
-        
-    4. Network Metrics:
-        - Bytes sent/received
-        - Network interface status
-        - Active connections
-        - Network speed
-        
-    5. GPU Metrics (if available):
-        - GPU utilization
-        - GPU memory usage
-        - GPU temperature
-        - GPU power consumption
+SYSTEM METRICS MONITORED:
+    CPU Metrics:
+        ├─ Overall usage percentage (0-100%)
+        ├─ Per-core utilization
+        ├─ Current/min/max frequency (MHz)
+        ├─ Physical and logical core count
+        └─ Temperature (if available)
+    
+    Memory Metrics:
+        ├─ Total/Used/Available RAM
+        ├─ Memory usage percentage
+        ├─ Swap memory total/used/percentage
+        └─ Memory allocation visualization
+    
+    Disk Metrics:
+        ├─ Partition list with mount points
+        ├─ Total/Used/Free space per partition
+        ├─ Disk usage percentage
+        ├─ Filesystem type
+        └─ Partition health status
+    
+    Network Metrics:
+        ├─ Real-time upload/download speed (Kbps)
+        ├─ Total bytes sent/received
+        ├─ Packets sent/received
+        ├─ Network interface list
+        └─ Historical traffic graph (60-point window)
+    
+    GPU Metrics (if available):
+        ├─ GPU name and model
+        ├─ Utilization percentage
+        ├─ Memory used/total (MB)
+        ├─ Memory usage percentage
+        ├─ Temperature (°C)
+        └─ Detection methods: GPUtil → nvidia-smi → None
+
+PAGE LAYOUT STRUCTURE:
+    1. Navigation Bar (top):
+       - Brand identifier
+       - Links: Dashboard, Monitor, Metrics, Configuration (CTA)
+    
+    2. Header Section:
+       - Title: "Server Performance Dashboard"
+       - Subtitle: "Real-time system monitoring"
+    
+    3. System Info Card:
+       - OS + Version
+       - Machine type
+       - Processor
+       - Boot time
+       - Uptime
+    
+    4. Status Card (Quick Metrics):
+       - CPU, Memory, Disk, GPU usage
+       - Cores and RAM size
+    
+    5. Three-Column Detail Cards:
+       - Column 1: CPU details (cores, frequency)
+       - Column 2: GPU details (if available) or N/A message
+       - Column 3: Memory details (total/used/swap)
+    
+    6. Network Traffic Section:
+       - Plotly line chart (upload/download)
+       - Network statistics below chart
+    
+    7. Sidebar (right):
+       - Monitoring options
+       - Alert threshold sliders
+       - Network history controls
+       - Export and navigation buttons
+
+AUTO-REFRESH MECHANISM:
+    Uses: @st.fragment(run_every="2s") decorator
+    Effect: Updates dashboard every 2 seconds without full page reload
+    Benefit: No flashing, smooth animations, persistent sidebar
+    Fragment: update_dashboard() function contains all dynamic content
 
 VISUALIZATIONS:
-    - Real-time line charts for CPU and Memory usage
-    - Gauge charts for resource utilization
-    - Bar charts for per-core CPU usage
-    - Disk usage pie charts
-    - Network traffic time series
-    - System information cards
+    1. Gauge Charts: CPU usage, Memory usage (not currently rendered)
+    2. Line Charts: Network traffic (smooth spline, filled area)
+    3. Status Cards: HTML/CSS cards with gradient backgrounds, hover effects
+    4. Detail Cards: Information display with inline flex layout
+    5. Network Graph: Real-time speed tracking (upload red, download blue)
 
-FEATURES:
-    - Auto-refresh every 2 seconds
-    - Historical data tracking
-    - Alert thresholds for high usage
-    - Export performance reports
-    - Detailed system information
+COLOR SCHEME:
+    • Background: Gradient #141d26 → #243447 (dark navy to blue)
+    • Text: #E2E2D2 (light text)
+    • Accent: #65c1f9 (highlight/primary)
+    • Warning: #ffa726 (orange)
+    • Critical: #ff4444 or #dc3545 (red)
+    • Network Upload: #dc3545 (red)
+    • Network Download: #007bff (blue)
 
 DEPENDENCIES:
-    - psutil: System and process monitoring
-    - streamlit: UI framework
-    - plotly: Interactive charts
-    - pandas: Data manipulation
+    External Libraries:
+        - streamlit: Web framework with fragments for auto-refresh
+        - psutil: System metrics (CPU, memory, disk, network, GPU query)
+        - plotly.graph_objects: Gauge chart creation
+        - plotly.express: Line chart for network traffic
+        - pandas: DataFrame for data organization
+        - platform: System information (OS, processor)
+        - time: Timestamp tracking
+    
+    Optional Libraries:
+        - GPUtil: GPU detection (tried first)
+        - nvidia-smi: NVIDIA GPU fallback detection
 
-Author: Multilayered Cyber Defense Team
-Last Modified: October 30, 2025
-Version: 1.0.0
-================================================================================
+DATABASE: None (purely system monitoring, no DB queries)
+
+ALERT THRESHOLDS (Configurable via Sidebar):
+    CPU Alert: Default 80% (adjustable 0-100)
+    Memory Alert: Default 80% (adjustable 0-100)
+    Disk Alert: Default 80% (adjustable 0-100)
+
+ERROR HANDLING:
+    GPU Detection Chain:
+        1. Try GPUtil.getGPUs() → Extract metrics
+        2. Try nvidia-smi subprocess → Parse output
+        3. Return "No GPU Detected" with error flag
+    
+    Disk Queries: Wrapped in try-except (PermissionError safe)
+    Network Speed: Handles first-run (no previous data)
+    Missing Data: Display "N/A" or 0 gracefully
+
+PERFORMANCE OPTIMIZATION:
+    • Single psutil call per refresh (all metrics at once)
+    • Network history limited to 60 points (1-2 minute window)
+    • Plotly dark theme (reduces rendering)
+    • CSS transitions set to 0s to prevent re-renders
+    • Fragment mechanism prevents full page re-execution
+
+╚════════════════════════════════════════════════════════════════════════════╝
 """
 
 import streamlit as st
@@ -90,9 +166,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ============================================================================
-# CUSTOM CSS FOR SCROLLING
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  CUSTOM CSS FOR SCROLLING AND THEME APPLICATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Enable smooth scrolling, apply dark theme, optimize rendering performance
 
 st.markdown("""
 <style>
@@ -155,12 +232,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  HELPER FUNCTIONS - SYSTEM METRICS RETRIEVAL AND DATA CONVERSION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Query system metrics and convert to human-readable format
 
 def get_size(bytes):
-    """Convert bytes to human-readable format"""
+    """
+    Convert bytes to human-readable format.
+    
+    Purpose: Display file sizes in appropriate units (B, KB, MB, GB, TB, PB).
+    
+    Conversion:
+        - Divides by 1024 for each unit level
+        - Returns when bytes < 1024.0
+        - Cascades through units until appropriate size found
+    
+    Args:
+        bytes (float): Size in bytes to convert
+    
+    Returns:
+        str: Formatted size string (e.g., "2.50 GB", "512.00 MB")
+    
+    Used By: render_memory_info(), render_network_info(), disk display
+    """
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if bytes < 1024.0:
             return f"{bytes:.2f} {unit}"
@@ -169,7 +264,34 @@ def get_size(bytes):
 
 
 def get_cpu_info():
-    """Get CPU information and metrics"""
+    """
+    Get CPU information and metrics.
+    
+    Purpose: Retrieve comprehensive CPU data including usage, cores, and frequency.
+    
+    Metrics Collected:
+        - percent: Overall CPU usage percentage (0-100%)
+        - count_physical: Number of physical CPU cores
+        - count_logical: Number of logical cores (includes hyperthreading)
+        - frequency_current: Current CPU frequency (MHz)
+        - frequency_min: Minimum CPU frequency (MHz)
+        - frequency_max: Maximum CPU frequency (MHz)
+        - per_core: Usage percentage for each individual core
+    
+    Returns:
+        dict: CPU information dictionary with keys:
+            {
+                'percent': float (0-100),
+                'count_physical': int,
+                'count_logical': int,
+                'frequency_current': float (MHz),
+                'frequency_min': float (MHz),
+                'frequency_max': float (MHz),
+                'per_core': list[float] (one per core)
+            }
+    
+    Used By: update_dashboard() for display
+    """
     cpu_percent = psutil.cpu_percent(interval=1)
     cpu_count = psutil.cpu_count(logical=False)
     cpu_count_logical = psutil.cpu_count(logical=True)
@@ -188,7 +310,34 @@ def get_cpu_info():
 
 
 def get_memory_info():
-    """Get memory information and metrics"""
+    """
+    Get memory information and metrics.
+    
+    Purpose: Retrieve RAM and swap memory statistics.
+    
+    Memory Data Retrieved:
+        - total: Total system RAM (bytes)
+        - available: Available RAM (bytes)
+        - used: Used RAM (bytes)
+        - percent: Memory usage percentage (0-100%)
+        - swap_total: Total swap space (bytes)
+        - swap_used: Used swap space (bytes)
+        - swap_percent: Swap usage percentage (0-100%)
+    
+    Returns:
+        dict: Memory information with keys:
+            {
+                'total': int (bytes),
+                'available': int (bytes),
+                'used': int (bytes),
+                'percent': float (0-100),
+                'swap_total': int (bytes),
+                'swap_used': int (bytes),
+                'swap_percent': float (0-100)
+            }
+    
+    Used By: update_dashboard() for memory card display
+    """
     mem = psutil.virtual_memory()
     swap = psutil.swap_memory()
     
@@ -204,7 +353,41 @@ def get_memory_info():
 
 
 def get_disk_info():
-    """Get disk information and metrics"""
+    """
+    Get disk information and metrics.
+    
+    Purpose: Query all disk partitions for space usage and filesystem info.
+    
+    Disk Data per Partition:
+        - device: Device path (/dev/sda1, etc.)
+        - mountpoint: Mount location (/home, /var, etc.)
+        - fstype: Filesystem type (ext4, NTFS, etc.)
+        - total: Total space (bytes)
+        - used: Used space (bytes)
+        - free: Free space (bytes)
+        - percent: Usage percentage (0-100%)
+    
+    Returns:
+        list[dict]: List of disk partition dictionaries:
+            [
+                {
+                    'device': str,
+                    'mountpoint': str,
+                    'fstype': str,
+                    'total': int,
+                    'used': int,
+                    'free': int,
+                    'percent': float
+                },
+                ...
+            ]
+    
+    Error Handling:
+        - PermissionError on partition: Skip partition, continue with others
+        - Works on Linux, Windows, macOS
+    
+    Used By: update_dashboard() for disk status display
+    """
     partitions = psutil.disk_partitions()
     disk_info = []
     
@@ -227,7 +410,32 @@ def get_disk_info():
 
 
 def get_network_info():
-    """Get network information and metrics"""
+    """
+    Get network information and metrics.
+    
+    Purpose: Query network interface and traffic statistics.
+    
+    Network Data Collected:
+        - bytes_sent: Total bytes transmitted (cumulative)
+        - bytes_recv: Total bytes received (cumulative)
+        - packets_sent: Total packets transmitted
+        - packets_recv: Total packets received
+        - interfaces: List of network interface names
+    
+    Returns:
+        dict: Network information with keys:
+            {
+                'bytes_sent': int,
+                'bytes_recv': int,
+                'packets_sent': int,
+                'packets_recv': int,
+                'interfaces': list[str]
+            }
+    
+    Note: Cumulative statistics since last system boot
+    
+    Used By: update_dashboard() for network speed calculation and display
+    """
     net_io = psutil.net_io_counters()
     net_if = psutil.net_if_addrs()
     
@@ -241,7 +449,53 @@ def get_network_info():
 
 
 def get_gpu_info():
-    """Get GPU information and metrics (if available)"""
+    """
+    Get GPU information and metrics (if available).
+    
+    Purpose: Detect and retrieve GPU metrics using multiple fallback methods.
+    
+    GPU Detection Chain:
+        1. Try GPUtil.getGPUs() - High-level GPU utility library
+           * Returns: load, memory, temperature from GPUtil
+        2. Fallback: nvidia-smi subprocess - NVIDIA GPU command-line tool
+           * Parses: name, memory.used, memory.total, utilization, temperature
+        3. Final: Return "No GPU Detected" with error flag
+    
+    Returns:
+        dict: GPU information
+            If GPU detected:
+            {
+                'available': True,
+                'name': str (GPU model name),
+                'load': float (0-100%),
+                'memory_used': float (MB),
+                'memory_total': float (MB),
+                'memory_percent': float (0-100%),
+                'temperature': float (°C) or 0 if N/A
+            }
+            
+            If no GPU:
+            {
+                'available': False,
+                'name': 'No GPU Detected',
+                'load': 0,
+                'memory_used': 0,
+                'memory_total': 0,
+                'memory_percent': 0,
+                'temperature': 0,
+                'error': 'no_gpu' or exception message
+            }
+    
+    Error Handling:
+        - ImportError for GPUtil: Continue to fallback
+        - nvidia-smi not found: Return no GPU
+        - Subprocess timeout (5s): Return no GPU
+        - Other exceptions: Caught and error logged
+    
+    Used By: update_dashboard() for GPU card rendering
+    
+    Note: Handles NVIDIA GPUs. AMD/Intel GPU support requires additional setup.
+    """
     try:
         # Try using GPUtil first
         try:
@@ -327,7 +581,34 @@ def get_gpu_info():
 
 
 def get_system_info():
-    """Get general system information"""
+    """
+    Get general system information.
+    
+    Purpose: Retrieve OS, hardware, and uptime information.
+    
+    System Data Collected:
+        - system: Operating system name (Linux, Windows, Darwin)
+        - release: OS release/version (kernel version)
+        - version: Full OS version string
+        - machine: Hardware architecture (x86_64, arm64, etc.)
+        - processor: Processor name
+        - boot_time: System boot timestamp (datetime object)
+        - uptime: Time since boot (timedelta object)
+    
+    Returns:
+        dict: System information with keys:
+            {
+                'system': str (OS name),
+                'release': str (version number),
+                'version': str (full version),
+                'machine': str (architecture),
+                'processor': str (CPU name),
+                'boot_time': datetime,
+                'uptime': timedelta
+            }
+    
+    Used By: update_dashboard() for system info card display
+    """
     boot_time = datetime.fromtimestamp(psutil.boot_time())
     
     return {
@@ -342,7 +623,42 @@ def get_system_info():
 
 
 def create_gauge_chart(value, title, max_value=100, height=250):
-    """Create a compact gauge chart for resource utilization"""
+    """
+    Create a compact gauge chart for resource utilization.
+    
+    Purpose: Display metric as circular gauge with color-coded thresholds.
+    
+    Chart Characteristics:
+        - Type: Gauge + number display (Plotly)
+        - Center number: Large font (32px), colored based on value
+        - Gauge bar: Color-coded (green→yellow→red)
+        - Threshold line: Red line at 90%
+        - Colored zones: Green (0-50%), Yellow (50-80%), Red (80-100%)
+    
+    Color Logic (automatic):
+        - < 50%: Green (#28a745)
+        - 50-80%: Yellow (#ffc107)
+        - > 80%: Red (#dc3545)
+    
+    Args:
+        value (float): Current metric value (0-100 typically)
+        title (str): Gauge title displayed above
+        max_value (int): Maximum scale value, default 100
+        height (int): Chart height in pixels, default 250
+    
+    Returns:
+        plotly.graph_objects.Figure: Gauge chart figure
+    
+    Layout Settings:
+        - Background: Dark (#1f1f28)
+        - Text: White
+        - Border: #3a4150
+        - Margin: Minimal (10px sides, 50px top, 10px bottom)
+    
+    Used By: (Currently not used, can be integrated for CPU/Memory gauges)
+    
+    Note: Alternative to simple percentage display, provides more visual impact
+    """
     # Determine color based on value - simple color scheme
     if value < 50:
         color = "#28a745"  # Green
@@ -391,7 +707,53 @@ def create_gauge_chart(value, title, max_value=100, height=250):
 
 
 def create_network_realtime_chart(history_data):
-    """Create real-time network usage line chart with smooth curves"""
+    """
+    Create real-time network usage line chart with smooth curves.
+    
+    Purpose: Visualize network traffic (upload/download) over time.
+    
+    Chart Characteristics:
+        - Type: Dual-line chart with filled area (Plotly)
+        - X-axis: Timestamp
+        - Y-axis: Speed in Kbps (kilobits per second)
+        - Line type: Spline curves (smooth interpolation)
+        - Smoothing: 1.3 (increases curve smoothness)
+    
+    Data Series:
+        1. Upload (bytes_sent):
+           - Color: Red (#dc3545)
+           - Fill: Semi-transparent red (0.2 alpha)
+           - Label: "Upload (Kbps)"
+        2. Download (bytes_recv):
+           - Color: Blue (#007bff)
+           - Fill: Semi-transparent blue (0.2 alpha)
+           - Label: "Download (Kbps)"
+    
+    Args:
+        history_data (list[dict]): Network history records, each with:
+            {
+                'timestamp': datetime,
+                'sent_mbps': float (Kbps),
+                'recv_mbps': float (Kbps)
+            }
+    
+    Returns:
+        plotly.graph_objects.Figure: Line chart figure
+    
+    Empty Data: Returns empty figure if history_data is empty
+    
+    Layout Configuration:
+        - Background: Dark (#1f1f28)
+        - Text: White
+        - Height: 330px
+        - Hover mode: Unified (shows both lines)
+        - Legend: Horizontal, bottom positioned
+        - Gridlines: Light gray (10% opacity)
+    
+    Used By: update_dashboard() for network traffic visualization
+    
+    Performance Note: Optimized for 60-point window (1-2 minutes at 2s intervals)
+    """
     fig = go.Figure()
     
     if len(history_data) > 0:
@@ -435,13 +797,74 @@ def create_network_realtime_chart(history_data):
     return fig
 
 
-# ============================================================================
-# MAIN CONTENT
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  MAIN DASHBOARD RENDERING - AUTO-REFRESHING FRAGMENT
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Update dashboard every 2 seconds without full page reload
 
 @st.fragment(run_every="2s")
 def update_dashboard():
-    """Fragment that updates dashboard content every 2 seconds without full page reload"""
+    """
+    Fragment that updates dashboard content every 2 seconds without full page reload.
+    
+    Purpose: Render dynamic dashboard content with auto-refresh using Streamlit fragments.
+    Fragment decorator @st.fragment(run_every="2s") re-executes this function every
+    2 seconds independently without reloading sidebar or other page elements.
+    
+    Execution Flow:
+        1. Retrieve all system metrics (CPU, memory, disk, GPU, network)
+        2. Calculate network speed from delta of bytes_sent/bytes_recv
+        3. Store network history (max 60 points for ~2 minutes at 2s intervals)
+        4. Determine color indicators based on thresholds
+        5. Render system info card (static)
+        6. Render status card (dynamic values, color-coded)
+        7. Render three-column detail cards (CPU, GPU, Memory)
+        8. Render network traffic chart with stats
+    
+    Content Rendered:
+        1. System Info Card:
+           - OS + Release, Machine, Processor, Boot time, Uptime
+        
+        2. Status Card (Quick Metrics):
+           - CPU % (color-coded), Memory % (color-coded)
+           - Disk % (color-coded), GPU % (color-coded or N/A)
+           - CPU cores, Total RAM
+        
+        3. Detail Cards (3-column layout):
+           - Column 1: CPU details (cores, frequency)
+           - Column 2: GPU details (if available) or N/A message
+           - Column 3: Memory details (total/used/swap)
+        
+        4. Network Section:
+           - Network traffic Plotly line chart
+           - Network stats: Upload, Download, Total sent/received
+    
+    Session State Management:
+        - st.session_state.network_history: List of speed measurements
+        - st.session_state.last_network_bytes: Previous reading for delta calculation
+    
+    Color Coding Logic:
+        CPU Color:
+            - <= 60%: #65c1f9 (blue)
+            - 60-80%: #ffa726 (orange)
+            - > 80%: #ff4444 (red)
+        
+        Memory Color: Same as CPU
+        
+        Disk Color (checks all partitions):
+            - None > 60%: #65c1f9 (blue)
+            - Some > 60%: #ffa726 (orange)
+            - Any > 80%: #ff4444 (red)
+        
+        GPU Color: Same thresholds, or #B0B0A0 (gray) if N/A
+    
+    Returns: None (renders to Streamlit page)
+    
+    Performance Note:
+        - Fragment prevents redundant dashboard renders
+        - Network speed calculation handles first-run (no previous data)
+        - All CSS inline to prevent dynamic stylesheet reloading
+    """
     
     # Use a container to wrap all updates for smoother rendering
     with st.container():
@@ -970,7 +1393,35 @@ def update_dashboard():
     
     
 def main():
-    """Main function for server performance monitoring"""
+    """
+    Main function for server performance monitoring.
+    
+    Purpose: Initialize page, render navigation, setup session state, and call
+    the auto-refreshing fragment to display dashboard.
+    
+    Execution Flow:
+        1. Render navigation bar (topbar with links)
+        2. Render page title and subtitle
+        3. Initialize session state:
+           - network_history: Empty list for 60-point tracking
+           - last_network_bytes: Tracking dict for speed calculation
+        4. Call update_dashboard() fragment
+        5. Render sidebar with options
+    
+    Navigation Links (in topbar):
+        - Dashboard_Overview
+        - Live_Threat_Monitor (labeled "Monitor")
+        - Performance_Metrics (labeled "Metrics")
+        - System_Configuration (CTA button)
+    
+    Session State Initialization:
+        - network_history: List[dict] with timestamp, sent_mbps, recv_mbps
+        - last_network_bytes: {sent, recv, time} for delta calculation
+    
+    Returns: None (orchestrates page rendering)
+    
+    Used By: if __name__ == "__main__" entry point
+    """
     
     # Top boarding strip + navigation bar (visual)
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
@@ -1026,9 +1477,10 @@ def main():
     update_dashboard()
 
 
-# ============================================================================
-# SIDEBAR
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  SIDEBAR - MONITORING OPTIONS AND CONTROLS
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Configure thresholds, clear history, export reports, navigate pages
 
 with st.sidebar:
     st.markdown("## Server Monitor")
@@ -1058,17 +1510,10 @@ with st.sidebar:
         st.switch_page("pages/Dashboard_Overview.py")
 
 
-# ============================================================================
-# APPLICATION ENTRY POINT
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  APPLICATION ENTRY POINT - SCRIPT EXECUTION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Execute main() when script is run directly
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-

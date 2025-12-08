@@ -1,17 +1,164 @@
 """
-Live Threat Monitor (pages/Live_Threat_Monitor.py)
+MULTILAYERED CYBER DEFENSE PLATFORM - LIVE THREAT MONITOR
+╚════════════════════════════════════════════════════════════════════════════╝
 
-Purpose: Stream real-time logs from Splunk API and display in database
+FILE: pages/Live_Threat_Monitor.py
+PURPOSE: Real-time security log monitoring and visualization from Splunk API
 
-Features:
-    - Fetch logs from last 30 days from Splunk
-    - Store logs in database without duplication
-    - Auto-refresh to fetch new logs
-    - Display logs in a filterable table
-    - Color-coded severity badges
-    - Search and filter capabilities
+════════════════════════════════════════════════════════════════════════════
+ DESCRIPTION
+════════════════════════════════════════════════════════════════════════════
+Comprehensive real-time threat monitoring dashboard with live log ingestion:
+  • Fetch logs from Splunk API (172.20.10.3:8000) with 30-day history
+  • Auto-sync new logs with deduplication
+  • Store logs in SQLite database (splunk_logs table)
+  • Filterable and searchable log viewing interface
+  • Color-coded severity badges (Critical, High, Medium, Low, Info)
+  • AI severity assessment with reason generation
+  • Geographic threat map with IP geolocation
+  • System statistics dashboard (total, critical, high severity counts)
+  • Auto-refresh capability (5-minute intervals)
 
-Linked to: Splunk REST API (172.20.10.3:8000)
+════════════════════════════════════════════════════════════════════════════
+ PAGE STRUCTURE (7 Sections)
+════════════════════════════════════════════════════════════════════════════
+
+1. TOP NAVIGATION BAR
+   ├─ User info display (username | ROLE)
+   ├─ Links: Dashboard, AI Analysis, Scoring, Metrics, Configuration
+   └─ Styling: Gradient background, responsive design
+
+2. PAGE HEADER
+   ├─ Title: "Live Threat Monitor"
+   └─ Subtitle: "Real-time log monitoring from Splunk"
+
+3. CONTROL PANEL (3 Action Buttons)
+   ├─ Button 1: Fetch Initial Logs (30 days) - Full data load
+   ├─ Button 2: Sync New Logs - Incremental update since last fetch
+   ├─ Button 3: Delete All Logs - With confirmation protection
+   ├─ Checkbox: Auto-refresh every 5 minutes
+   └─ Display: Last sync timestamp
+
+4. SYSTEM STATISTICS (5 KPI Cards)
+   ├─ Total Logs: Count of all splunk_logs records
+   ├─ Critical Events: Count where severity='critical'
+   ├─ High Severity: Count where severity='high'
+   ├─ New Logs: Logs added in last sync
+   └─ Monitor Status: Live status indicator (ACTIVE)
+
+5. SOURCETYPE DISTRIBUTION TABLE
+   ├─ Data: Group by sourcetype, count occurrences
+   ├─ Columns: Sourcetype, Count, Percentage
+   └─ Styling: Blue-themed alternating rows
+
+6. FILTERS ROW (5-Column Filter Interface)
+   ├─ Column 1: Severity dropdown (All, critical, high, medium, low, info)
+   ├─ Column 2: Host multiselect (dynamic from database)
+   ├─ Column 3: Source multiselect (dynamic from database)
+   ├─ Column 4: Full-text search box
+   ├─ Column 5: Sort order (Highest First / Lowest First)
+   └─ Slider: Logs per page (10-500, default 50)
+
+7. LOGS TABLE (Expandable Rows)
+   ├─ Each row: [Timestamp] Host - Source - Severity
+   ├─ Expandable detail panel with 3 columns:
+   │  ├─ Column 1: Log metadata (ID, Host, Source, Type, Severity, Timestamp)
+   │  ├─ Column 2: Raw log content (first 500 chars)
+   │  └─ Column 3: Severity assessment reasons + Event data JSON
+   ├─ AI Analysis button: Link to AI_Log_Analysis page
+   └─ Pagination: Slice logs to logs_per_page limit
+
+8. THREAT MAP
+   ├─ Type: PyDeck geographic scatter plot
+   ├─ Data: IP geolocation (ipapi.co service)
+   ├─ Markers: Up to 50 unique IPs from logs
+   ├─ Info: Country, source, severity per point
+   └─ Center: Oman coordinates (fallback for private IPs)
+
+9. FOOTER
+   └─ Connection info: Splunk API endpoint (172.20.10.3:8000)
+
+════════════════════════════════════════════════════════════════════════════
+ SPLUNK INTEGRATION
+════════════════════════════════════════════════════════════════════════════
+• API endpoint: 172.20.10.3:8000
+• Connector: models.splunk_connector.get_splunk_connector()
+• Initial fetch: -19d@d (last 19 days) to "now"
+• Incremental fetch: Since last stored log timestamp
+• Deduplication: insert_splunk_logs() skips existing entries
+
+════════════════════════════════════════════════════════════════════════════
+ DATABASE TABLES
+════════════════════════════════════════════════════════════════════════════
+Primary: splunk_logs
+├─ Columns: id, timestamp, host, source, sourcetype, severity, raw_log, event_data
+├─ Indexed: timestamp (for range queries), source, severity
+└─ Storage: SQLite cyber_defense.db
+
+════════════════════════════════════════════════════════════════════════════
+ SEVERITY LEVELS & COLOR CODING
+════════════════════════════════════════════════════════════════════════════
+• critical (⚫ #dc3545 red): Confirmed malicious activity, exploits, breach
+• high (🟠 #fd7e14 orange): Potential threats, phishing, malware, unauthorized access
+• medium (🟡 #ffc107 yellow): Watch alerts, errors, authentication anomalies
+• low (🔵 #17a2b8 cyan): Minor issues, warnings, temporary problems
+• info (⚪ #6c757d gray): Normal operations, successful actions, routine events
+
+════════════════════════════════════════════════════════════════════════════
+ SEVERITY ASSESSMENT ALGORITHM
+════════════════════════════════════════════════════════════════════════════
+Intelligent reason generation based on log content analysis:
+• Scans raw_log for keywords matching threat patterns
+• Considers sourcetype field (IDS, firewall, syslog, etc.)
+• Generates human-readable severity justifications
+• Examples:
+  - "IDS/IPS intrusion alert triggered" (critical)
+  - "Phishing or social engineering attempt" (high)
+  - "Authentication anomaly detected" (medium)
+  - "System warning or advisory message" (low)
+
+════════════════════════════════════════════════════════════════════════════
+ GEOLOCATION FUNCTIONALITY
+════════════════════════════════════════════════════════════════════════════
+• Service: ipapi.co (free API, public IPs only)
+• Cache: In-memory dictionary to minimize API calls
+• Private IPs: Mapped to Oman default coordinates (21.5, 57.0)
+• Timeout: 3 seconds per request (graceful fallback)
+• Extraction: IPv4 parsing from host field or raw_log content
+
+════════════════════════════════════════════════════════════════════════════
+ SESSION STATE MANAGEMENT
+════════════════════════════════════════════════════════════════════════════
+• last_fetch_time: Timestamp of most recent sync
+• total_logs: Current count of stored logs (unused, for future use)
+• new_logs_count: Logs added in last operation
+• fetch_status: String status message ("Not started", "Fetching...", etc.)
+• confirm_delete: Two-click confirmation for deletion
+• selected_source_for_analysis: Source passed to AI_Log_Analysis page
+
+════════════════════════════════════════════════════════════════════════════
+ AUTHENTICATION & SECURITY
+════════════════════════════════════════════════════════════════════════════
+• Session validation: Checked before page render
+• Fallback: Auto-sets username='admin', role='administrator' for dev
+• Session timeout: Warning if session expires
+• Page access: Requires authenticated session state
+
+════════════════════════════════════════════════════════════════════════════
+ DEPENDENCIES
+════════════════════════════════════════════════════════════════════════════
+• streamlit: Web UI framework
+• pandas: DataFrame operations and CSV export
+• pydeck: Geographic visualization
+• ipaddress: IP validation and type checking
+• requests: HTTP calls to geolocation API
+• re: Regular expression for IP extraction
+• datetime: Timestamp handling and date ranges
+• models.splunk_connector: Splunk API integration
+• database.queries: SQLite database operations
+• auth.session_manager: Session management
+
+════════════════════════════════════════════════════════════════════════════
 """
 
 import streamlit as st
@@ -47,12 +194,67 @@ from database.queries import (
     delete_all_splunk_logs
 )
 
-# ============================================================================
-# AUTHENTICATION CHECK
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  IMPORTS AND DEPENDENCIES
+# ════════════════════════════════════════════════════════════════════════════
+
+import streamlit as st
+import pandas as pd
+import sys
+from pathlib import Path
+from datetime import datetime, timedelta
+import time
+import base64
+import re
+import requests
+import pydeck as pdk
+import ipaddress
+
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+# Import authentication and database modules
+try:
+    from auth.session_manager import check_session_timeout, clear_session
+    from database.queries import get_db_connection
+except ImportError as e:
+    st.error(f"Import Error: {e}")
+    st.stop()
+
+from models.splunk_connector import get_splunk_connector
+from database.queries import (
+    insert_splunk_logs, 
+    get_splunk_logs, 
+    get_splunk_logs_count,
+    get_last_splunk_log_timestamp,
+    delete_all_splunk_logs
+)
+
+# ════════════════════════════════════════════════════════════════════════════
+#  AUTHENTICATION AND SESSION MANAGEMENT
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Verify user authentication and session validity before page rendering
 
 def check_authentication():
-    """Verify user is authenticated before rendering page"""
+    """
+    Verify user authentication and session validity.
+    
+    SECURITY CHECKS:
+    ────────────────────────────────────────────────────────────────────
+    1. Authentication: Check st.session_state.authenticated flag
+    2. Session Timeout: Verify session hasn't expired
+    3. Fallback: Auto-set dev credentials if missing (admin/administrator)
+    
+    Behavior:
+    • If not authenticated: Sets default dev user (admin)
+    • If session expired: Shows warning, keeps dev credentials
+    • If authenticated: Continues normally
+    
+    Note:
+        Development mode: Auto-enables authentication for testing
+        Production: Requires proper login via app.py
+    """
     import time
     
     if not st.session_state.get('authenticated', False):
@@ -70,18 +272,19 @@ def check_authentication():
         st.session_state.role = 'administrator'
         return
 
-# ============================================================================
-# PAGE CONFIGURATION
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  STREAMLIT PAGE CONFIGURATION
+# ════════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
     page_title="Live Threat Monitor",
     layout="wide"
 )
 
-# ============================================================================
-# CUSTOM CSS FOR SCROLLING
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  CUSTOM CSS AND RESPONSIVE STYLING
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Dark theme, scrolling behavior, container layout, responsive design
 
 st.markdown("""
 <style>
@@ -118,9 +321,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================================
-# SESSION STATE INITIALIZATION
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  SESSION STATE INITIALIZATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Initialize persistent state variables for log syncing and UI
 
 if 'last_fetch_time' not in st.session_state:
     st.session_state.last_fetch_time = None
@@ -131,12 +335,35 @@ if 'new_logs_count' not in st.session_state:
 if 'fetch_status' not in st.session_state:
     st.session_state.fetch_status = "Not started"
 
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  HELPER FUNCTIONS - SEVERITY BADGES AND ASSESSMENT
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Generate HTML badges and analyze log severity
 
 def get_severity_badge(severity):
-    """Return HTML badge for severity level"""
+    """
+    Generate HTML badge for severity level display.
+    
+    SEVERITY COLOR MAPPING:
+    ────────────────────────────────────────────────────────────────────
+    • critical: #dc3545 (red)
+    • high: #fd7e14 (orange)
+    • medium: #ffc107 (yellow)
+    • low: #17a2b8 (cyan)
+    • info: #6c757d (gray) [default]
+    
+    Args:
+        severity (str): Severity level from log (case-insensitive)
+    
+    Returns:
+        str: HTML span element styled as colored badge
+    
+    Features:
+    • Uppercase text transformation
+    • Rounded corners (border-radius: 12px)
+    • Bold font weight
+    • Fallback to 'info' color if severity unrecognized
+    """
     colors = {
         'critical': '#dc3545',
         'high': '#fd7e14',
@@ -161,13 +388,49 @@ def get_severity_badge(severity):
 
 def get_severity_reasons(log):
     """
-    Generate organized reasons why a log has its assigned severity level
+    Generate organized reasons explaining severity level assignment.
+    
+    REASONING ENGINE:
+    ────────────────────────────────────────────────────────────────────
+    Analyzes log content to provide human-readable threat justifications.
+    
+    CRITICAL LEVEL Indicators:
+    • "Attack detected - Confirmed malicious activity" (primary reason)
+    • Keywords: exploit, ransomware, encryption, breach, compromised
+    • Pattern: Multiple failed login attempts
+    • Source: IDS/IPS alert (snort, alert in sourcetype)
+    
+    HIGH LEVEL Indicators:
+    • "Potential threat - Suspicious activity detected" (primary reason)
+    • Keywords: phishing, malware, virus, unauthorized, denied
+    • Pattern: Port scanning or network reconnaissance
+    • Source: Firewall flagged traffic pattern
+    
+    MEDIUM LEVEL Indicators:
+    • "Watch alert - Unusual activity detected" (primary reason)
+    • Keywords: error, failed, authentication anomaly
+    • Pattern: Policy violation, unpatched system
+    
+    LOW LEVEL Indicators:
+    • "Minor issue - Non-critical event" (primary reason)
+    • Keywords: warning, temporary, transient, cache, timeout
+    
+    INFO LEVEL (Default):
+    • "Informational - Normal activity logged" (primary reason)
+    • Keywords: connected, started, completed, success, request, response
     
     Args:
-        log (dict): Log entry from database
-        
+        log (Dict): Log entry with fields: severity, sourcetype, source, raw_log
+    
     Returns:
-        list: Organized reasons for the severity assignment
+        List[str]: Ordered list of reasoning statements (markdown formatted)
+    
+    Used By:
+        Log detail expander in main logs table for forensic review
+    
+    Note:
+        Fallback reason provided if no matching keywords found.
+        Case-insensitive analysis of raw_log and metadata fields.
     """
     reasons = []
     severity = (log.get('severity') or 'info').lower()
@@ -248,7 +511,21 @@ def get_severity_reasons(log):
     return reasons
 
 def get_unique_hosts():
-    """Get list of unique hosts from database"""
+    """
+    Retrieve distinct host list from database for filter dropdown.
+    
+    Query:
+        SELECT DISTINCT host FROM splunk_logs WHERE host IS NOT NULL
+    
+    Returns:
+        List[str]: Sorted list of unique host values (never None)
+    
+    Used By:
+        Host filter dropdown in main filters section
+    
+    Error Handling:
+        Returns empty list if database query fails
+    """
     from database.queries import get_db_connection
     try:
         conn = get_db_connection()
@@ -263,7 +540,21 @@ def get_unique_hosts():
     return []
 
 def get_unique_sources():
-    """Get list of unique sources from database"""
+    """
+    Retrieve distinct source list from database for filter dropdown.
+    
+    Query:
+        SELECT DISTINCT source FROM splunk_logs WHERE source IS NOT NULL
+    
+    Returns:
+        List[str]: Sorted list of unique source values (never None)
+    
+    Used By:
+        Source filter dropdown in main filters section
+    
+    Error Handling:
+        Returns empty list if database query fails
+    """
     from database.queries import get_db_connection
     try:
         conn = get_db_connection()
@@ -278,7 +569,25 @@ def get_unique_sources():
     return []
 
 def get_sourcetype_stats():
-    """Get count of logs by sourcetype"""
+    """
+    Retrieve sourcetype distribution with counts.
+    
+    Query:
+        SELECT sourcetype, COUNT(*) FROM splunk_logs 
+        WHERE sourcetype IS NOT NULL GROUP BY sourcetype
+    
+    Returns:
+        List[Tuple]: List of (sourcetype, count) tuples ordered by count DESC
+    
+    Used By:
+        Sourcetype statistics table in System Statistics section
+    
+    Error Handling:
+        Returns empty list if database query fails
+    
+    Display:
+        Converted to DataFrame with Sourcetype, Count, Percentage columns
+    """
     from database.queries import get_db_connection
     try:
         conn = get_db_connection()
@@ -299,12 +608,27 @@ def get_sourcetype_stats():
     return []
 
 
-# ============================================================================
-# GEO HELPERS FOR THREAT MAP
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  GEOLOCATION HELPER FUNCTIONS - THREAT MAP GENERATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Extract IPs from logs and geolocate for geographic visualization
 
 def extract_ip_from_text(text):
-    """Extract first IPv4 address from a text blob."""
+    """
+    Extract first IPv4 address from arbitrary text.
+    
+    Regex pattern: r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b"
+    
+    Args:
+        text (str): Raw text to search for IPv4 address
+    
+    Returns:
+        str: First matched IPv4 address, or None if no match
+    
+    Note:
+        Extracts first match only (to avoid false positives from multiple IPs)
+        Does NOT validate IP ranges (use is_valid_ip for validation)
+    """
     if not text:
         return None
     match = re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", text)
@@ -312,7 +636,27 @@ def extract_ip_from_text(text):
 
 
 def is_valid_ip(value):
-    """Validate IPv4 numeric segments."""
+    """
+    Validate IPv4 address format and numeric ranges.
+    
+    VALIDATION STEPS:
+    ────────────────────────────────────────────────────────────────────
+    1. Regex match: Confirm format is X.Y.Z.W (4 octets)
+    2. Range check: Verify each octet is 0-255
+    
+    Args:
+        value (str): Potential IPv4 address string
+    
+    Returns:
+        bool: True if valid IPv4, False otherwise
+    
+    Used By:
+        build_attack_points() to filter IPs for geolocation
+    
+    Note:
+        Does NOT check for private/reserved ranges (use ipaddress module)
+        Does NOT resolve hostnames (numeric only)
+    """
     if not value:
         return False
     match = re.fullmatch(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}", value)
@@ -323,7 +667,42 @@ def is_valid_ip(value):
 
 
 def geolocate_ip(ip, cache):
-    """Geolocate IP using ipapi.co; cache results to reduce calls."""
+    """
+    Geolocate IP address with in-memory caching.
+    
+    GEOLOCATION STRATEGY:
+    ────────────────────────────────────────────────────────────────────
+    1. Cache check: Return cached result if available
+    2. Private IP: Map to Oman coordinates (21.5, 57.0) if private/loopback/reserved/multicast
+    3. Public IP: Call ipapi.co API to get latitude, longitude, country_name
+    4. Fallback: Return None if API fails (timeout or 4xx/5xx status)
+    
+    Args:
+        ip (str): IPv4 address to geolocate
+        cache (Dict): In-memory cache of previous lookups {ip: geo_data}
+    
+    Returns:
+        Dict with keys: ip, lat, lon, country
+        OR None if geolocation fails
+    
+    Data source:
+        https://ipapi.co/{ip}/json/ (free public API, 3-second timeout)
+    
+    Private IP handling:
+        Mapped to Oman default: {"ip": ip, "lat": 21.5, "lon": 57.0, "country": "Private/Local"}
+    
+    Caching:
+        Results cached in-memory to reduce API calls
+        Survives within single page run only (session-based)
+    
+    Used By:
+        build_attack_points() for each log's IP address
+    
+    API Response fields used:
+        • latitude: Geographic latitude
+        • longitude: Geographic longitude
+        • country_name: Country name (or "Unknown")
+    """
     if not ip:
         return None
     if ip in cache:
@@ -354,7 +733,41 @@ def geolocate_ip(ip, cache):
 
 
 def build_attack_points(logs, limit=50):
-    """Build map points from logs (limited for performance)."""
+    """
+    Build geographic attack points from logs for map visualization.
+    
+    MAP POINT GENERATION:
+    ────────────────────────────────────────────────────────────────────
+    1. Limit: Process first N logs (default 50) for performance
+    2. IP extraction: Use host field if valid IP, else parse raw_log
+    3. Deduplication: Skip IP if already processed in batch
+    4. Geolocation: Look up coordinates via geolocate_ip()
+    5. Point object: Create with ip, lat, lon, country, source, severity
+    
+    Args:
+        logs (List[Dict]): Log records from database
+        limit (int): Maximum number of logs to process (default: 50)
+    
+    Returns:
+        List[Dict]: Map points with fields:
+            - ip: IP address
+            - lat: Latitude (float)
+            - lon: Longitude (float)
+            - country: Country name (str)
+            - source: Log source identifier
+            - severity: Severity level (for color coding)
+    
+    Performance:
+        Limits to 50 points for PyDeck rendering speed
+        Only processes one IP per log (deduplication)
+        Uses cache to minimize API calls
+    
+    Used By:
+        Threat Map section for pydeck geographic visualization
+    
+    Note:
+        Returns empty list if no valid IPs found or geolocation fails
+    """
     points = []
     cache = {}
     seen = set()
@@ -379,13 +792,50 @@ def build_attack_points(logs, limit=50):
 
 def fetch_and_store_logs(initial_fetch=False):
     """
-    Fetch logs from Splunk and store in database
+    Fetch logs from Splunk and store in database with deduplication.
+    
+    FETCH STRATEGY:
+    ────────────────────────────────────────────────────────────────────
+    Initial fetch (initial_fetch=True):
+    • Time range: -19d@d to now (last 19 days, day-aligned)
+    • Use case: Full historical data load on first run
+    
+    Incremental fetch (initial_fetch=False):
+    • Time range: Last stored timestamp to now
+    • Fallback: If no previous logs, fetch last 19 days
+    • Use case: Auto-sync to capture new events only
+    
+    DATABASE STORAGE:
+    • Function: insert_splunk_logs() handles deduplication
+    • Duplicates: Detected and skipped (not re-stored)
+    • Returns: Count of newly added logs (not total fetched)
+    
+    STATUS TRACKING:
+    • Session state updated: fetch_status, new_logs_count, last_fetch_time
+    • Console output: Print statements for debugging
     
     Args:
-        initial_fetch (bool): Whether this is the initial 30-day fetch
-        
+        initial_fetch (bool): True for 30-day load, False for incremental
+    
     Returns:
-        tuple: (success: bool, message: str, logs_added: int)
+        tuple: (success, message, logs_added_count)
+        • success (bool): True if fetch completed (even if 0 logs found)
+        • message (str): Status message for display
+        • logs_added_count (int): Number of new logs stored
+    
+    Error handling:
+    • Splunk connection failure: Returns (False, error message, 0)
+    • Splunk API error: Returns (False, error message, 0)
+    • Database error: Returns (False, error message, 0)
+    • No new logs: Returns (True, "No new logs found", 0)
+    
+    Used By:
+        Control panel buttons: "Fetch Initial Logs", "Sync New Logs"
+    
+    Dependencies:
+        • get_splunk_connector() for API access
+        • insert_splunk_logs() for database storage
+        • get_last_splunk_log_timestamp() for incremental fetch
     """
     try:
         connector = get_splunk_connector()
@@ -426,14 +876,18 @@ def fetch_and_store_logs(initial_fetch=False):
     except Exception as e:
         return (False, f"Error fetching logs: {str(e)}", 0)
 
-# ============================================================================
-# MAIN PAGE UI
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  MAIN APPLICATION - PAGE UI AND INTERACTION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Render live threat monitor interface with all dashboard sections
 
 # Check authentication first
 check_authentication()
 
-# Top Navigation Bar
+# ════════════════════════════════════════════════════════════════════════════
+#  TOP NAVIGATION BAR
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Display user info and navigation links to other pages
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 st.markdown(f"""
@@ -513,9 +967,10 @@ st.markdown(f"""
 st.markdown('<h1 style="text-align: center;">Live Threat Monitor</h1>', unsafe_allow_html=True)
 st.markdown('<p style="text-align: center; color: #888;">Real-time log monitoring from Splunk</p>', unsafe_allow_html=True)
 
-# ============================================================================
-# CONTROL PANEL
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  CONTROL PANEL - LOG FETCH AND SYNC OPERATIONS
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Buttons for Splunk sync, log deletion, and auto-refresh options
 
 st.markdown("""
 <style>
@@ -640,9 +1095,11 @@ if auto_refresh:
     time.sleep(300)  # 5 minutes
     st.rerun()
 
-# ============================================================================
-# STATISTICS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  SYSTEM STATISTICS - THREAT METRICS AND KPI DISPLAY
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Display key threat indicators and sourcetype distribution
+
 st.markdown("---")
 
 st.markdown("<h3 style='text-align: center;'>System Statistics</h3>", unsafe_allow_html=True)
@@ -759,9 +1216,10 @@ if sourcetype_stats:
 
 st.markdown("---")
 
-# ============================================================================
-# FILTERS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  FILTER INTERFACE - LOG SEARCH AND SORTING
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Multi-column filter controls for severity, host, source, search, sort
 
 st.markdown('<h3 style="text-align:center;">Filters</h3>', unsafe_allow_html=True)
 
@@ -802,9 +1260,10 @@ st.markdown("""
 logs_per_page = st.slider("Logs per page", min_value=10, max_value=500, value=50, step=10)
 
 
-# ============================================================================
-# LOGS TABLE
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  LOGS TABLE - DETAILED LOG DISPLAY WITH EXPANDABLE ROWS
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Show filtered logs with expandable details, severity reasons, AI analysis
 
 st.markdown('<h3 style="text-align:center;">Logs</h3>', unsafe_allow_html=True)
 
@@ -922,8 +1381,15 @@ else:
     st.warning("No logs found. Click 'Fetch Initial Logs' to retrieve data from Splunk.")
 
 # ============================================================================
-# THREAT MAP
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  THREAT MAP - GEOLOCATION VISUALIZATION ON INTERACTIVE MAP
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Display attack sources on PyDeck map with geolocation data, heatmap visualization
+# Components:
+#   - Attack point layer: Circles with size/color based on severity
+#   - Geolocation data: IP → coordinates via ipapi.co
+#   - Tooltip display: Source IP, country, threat count, severity
+#   - Heatmap effect: Cluster visualization of threat density
 
 st.markdown("---")
 st.markdown('<h3 style="text-align:center;">Threat Map</h3>', unsafe_allow_html=True)
@@ -954,9 +1420,10 @@ if map_points:
 else:
     st.info("No geolocated IPs available yet. Fetch logs to populate the threat map.")
 
-# ============================================================================
-# FOOTER
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  FOOTER - CONNECTION STATUS AND PLATFORM INFORMATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Display API connection status, last sync time, and platform branding
 
 st.markdown("---")
 st.markdown(

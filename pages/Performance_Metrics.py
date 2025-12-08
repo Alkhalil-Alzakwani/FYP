@@ -1,22 +1,131 @@
 """
-Performance Metrics (pages/Performance_Metrics.py)
+MULTILAYERED CYBER DEFENSE PLATFORM - PERFORMANCE METRICS & ANALYTICS
+╚════════════════════════════════════════════════════════════════════════════╝
 
-Purpose: Track detection and prevention KPIs
+File: pages/Performance_Metrics.py
+Purpose: Real-time KPI tracking, performance analytics, and defense effectiveness
 
-KPIs Calculated:
-    - Detection Rate = Detected / Total attempts
-    - Prevention Rate = Blocked / Total attempts
-    - False Positive Rate = FP / (TP + FP)
-    - MTTD (Mean Time to Detect)
-    - MTTR (Mean Time to Respond)
-    - Auto-Containment = Auto-blocked / Total incidents
+DESCRIPTION:
+    Comprehensive dashboard for monitoring operational effectiveness metrics
+    across the cyber defense platform. Displays Key Performance Indicators (KPIs),
+    trend analysis, and system performance analytics with interactive Plotly charts.
 
-Graphs:
-    - Line chart: Detection Rate over time
-    - Bar chart: Auto-containment rate
-    - Scatter plot: Severity vs. response time
+KEY PERFORMANCE INDICATORS (KPIs) DISPLAYED:
+    ├─ Detection Rate: Percentage of threats detected out of total attempts
+    ├─ Prevention Rate: Percentage of detected threats successfully blocked
+    ├─ False Positive Rate: Percentage of false alerts (medium severity logs)
+    ├─ MTTD: Mean Time to Detect (minutes from first occurrence to indexing)
+    ├─ MTTR: Mean Time to Respond (minutes from detection to response)
+    └─ Auto-Containment Rate: Percentage of incidents auto-contained (70% default)
 
-Data Source: performance_metrics, splunk_logs, system logs
+CHARTS & VISUALIZATIONS:
+    1. Detection Rate Trend (Line Chart)
+       - Time range: Last 30 days
+       - Data source: splunk_logs grouped by date
+       - Metrics: Daily detection rate percentage
+       - Shows: Detection effectiveness over time period
+    
+    2. Auto-Containment Effectiveness (Bar Chart)
+       - Comparison: Auto-Contained vs Manual Intervention
+       - Colors: #65c1f9 (auto), #fd7e14 (manual)
+       - Shows: Percentage distribution of containment methods
+    
+    3. Severity vs Response Time (Scatter Plot)
+       - X-axis: Severity level (critical, high, medium, low, info)
+       - Y-axis: Response time in minutes
+       - Colors: Mapped by severity (red→critical, orange→high, etc.)
+       - Shows: Correlation between incident severity and response speed
+       - Data source: splunk_logs with timestamp/indexed_at calculations
+
+DATABASE INTERACTIONS:
+    Tables Used:
+        - splunk_logs: Primary security event data
+          * Fields: severity, timestamp, indexed_at, source
+          * Queries: Detection rate, prevention rate, FP rate, response times
+        - performance_metrics: Historical KPI storage
+          * Fields: metric_name, value, date
+          * Usage: Long-term trend analysis and reporting
+    
+    Key Queries:
+        • Detection rate: COUNT(severity IN 'critical','high') / COUNT(*)
+        • Prevention rate: COUNT(severity='critical') / COUNT(severity IN 'critical','high')
+        • MTTD: AVG((julianday(indexed_at) - julianday(timestamp)) * 24 * 60) in minutes
+        • Response time: (julianday(indexed_at) - julianday(timestamp)) * 24 * 60
+        • Auto-containment: Total_incidents * 0.7 / Total_incidents (demo value)
+
+PAGE LAYOUT COMPONENTS:
+    1. Header Section
+       - Navigation bar with links (Dashboard, Live Monitor, AI Analysis, etc.)
+       - Page title: "Performance Metrics"
+       - Subtitle: "Real-time KPI tracking and performance analytics"
+    
+    2. Key Metrics Cards (6 columns)
+       - Cards display: Value (large, #65c1f9) + Label
+       - Styling: Dark gradient background, hover elevation effect
+       - Responsive: Adapts to screen size (min-width: 200px, max-width: 1fr)
+    
+    3. Two-Column Chart Section
+       - Column 1: Auto-Containment bar chart
+       - Column 2: Severity vs Response time scatter plot
+    
+    4. Full-Width Chart Section
+       - Detection Rate Trend line chart spanning 30 days
+    
+    5. Footer
+       - Centered attribution text
+
+STYLING & THEME:
+    Color Scheme:
+        • Background: Gradient #141d26 → #243447 (dark navy to dark blue)
+        • Text: #E2E2D2 (light text)
+        • Accent: #65c1f9 (highlight/primary KPI color)
+        • Secondary: #fd7e14 (warning/manual intervention)
+        • Critical: #dc3545 (danger alerts)
+        • Info: #6c757d (informational)
+    
+    CSS Elements:
+        • Cards: Border-radius 12px, gradient background, hover transform
+        • Charts: Plotly dark template with dark background
+        • Navigation: Responsive with mobile fallback (max-width: 700px)
+        • Metrics grid: CSS Grid with auto-fit, min 200px columns
+
+DEPENDENCIES:
+    External Libraries:
+        - streamlit: Web framework
+        - pandas: DataFrames and data manipulation
+        - plotly.express: High-level charting API
+        - plotly.graph_objects: Low-level chart customization
+        - datetime: Timestamp handling
+    
+    Internal Modules:
+        - auth.session_manager: check_session_timeout(), clear_session()
+        - database.queries: get_db_connection()
+
+AUTHENTICATION & SESSION:
+    • Session state variables: username, role, authenticated
+    • Timeout handling: check_session_timeout() validates expiry
+    • Development mode: Default user (admin/administrator) for testing
+    • Page config: Wide layout, centered content
+
+ERROR HANDLING:
+    - Database connection failures: Try-except returns empty DataFrame/0.0
+    - Missing data: Info messages displayed ("No X data available")
+    - SQL errors: Gracefully handled with default return values
+    - Empty datasets: Charts show info message instead of crashing
+
+PERFORMANCE CONSIDERATIONS:
+    • Database queries optimized with proper WHERE/GROUP BY clauses
+    • Plotly charts configured for performance (dark mode, no animations)
+    • Data limited: LIMIT 100 for scatter plot (prevents oversized datasets)
+    • CSS optimized: Minimal recalculation, smooth transitions (0.3s)
+
+NAVIGATION FLOW:
+    Pages linked in header:
+        Dashboard_Overview → Live_Threat_Monitor → AI_Log_Analysis
+        → Threat_Scoring → System_Configuration
+    
+    User roles supported: admin, analyst, viewer
+╚════════════════════════════════════════════════════════════════════════════╝
 """
 
 import streamlit as st
@@ -38,9 +147,11 @@ try:
 except ImportError as e:
     st.error(f"Import Error: {e}")
     st.stop()
-# ============================================================================
-# CUSTOM CSS FOR SCROLLING
-# ============================================================================
+
+# ════════════════════════════════════════════════════════════════════════════
+#  CUSTOM CSS FOR SCROLLING AND THEME APPLICATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Enable smooth scrolling, apply dark theme, optimize layout for performance metrics
 
 st.markdown("""
 <style>
@@ -78,12 +189,35 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ============================================================================
-# AUTHENTICATION CHECK
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  AUTHENTICATION & SESSION MANAGEMENT - USER VERIFICATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Verify user session and enforce access control
 
 def check_authentication():
-    """Verify user is authenticated before rendering page"""
+    """
+    Verify user is authenticated before rendering page.
+    
+    Purpose: Ensure user has valid session before displaying performance metrics.
+    If not authenticated, set default dev credentials or prompt re-login.
+    
+    Session Validation:
+        1. Check if st.session_state.authenticated == True
+        2. If False: Set development defaults (admin/administrator)
+        3. If True: Call check_session_timeout() to validate expiry
+        4. If expired: Show warning and reset to defaults
+    
+    Session State Variables Set:
+        - username (str): Authenticated username or 'admin' for dev
+        - role (str): User role ('administrator', 'analyst', 'viewer')
+        - authenticated (bool): Authentication status
+    
+    Returns: None (modifies st.session_state in-place)
+    
+    Used By: main() on page load
+    
+    Note: Development mode allows testing without full login flow
+    """
     import time
     
     if not st.session_state.get('authenticated', False):
@@ -101,9 +235,10 @@ def check_authentication():
         return
 
 
-# ============================================================================
-# PAGE CONFIGURATION
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  PAGE CONFIGURATION - STREAMLIT PAGE SETUP
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Configure page metadata and layout
 
 st.set_page_config(
     page_title="Performance Metrics - Cyber Defense Platform",
@@ -111,12 +246,33 @@ st.set_page_config(
 )
 
 
-# ============================================================================
-# DATA FETCHING FUNCTIONS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  DATA FETCHING FUNCTIONS - DATABASE QUERIES FOR KPI METRICS
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Query database for KPI calculations and trend analysis
 
 def get_detection_rate():
-    """Calculate detection rate from logs"""
+    """
+    Calculate detection rate from logs.
+    
+    Purpose: Measure percentage of threats detected by the system.
+    Formula: (Detected Threats / Total Log Events) * 100
+    
+    Detection Logic:
+        - Total: COUNT(*) from splunk_logs (all events)
+        - Detected: COUNT(*) where severity IN ('critical', 'high')
+        - Calculation: (detected / total) * 100
+    
+    Returns:
+        float: Detection rate percentage (0-100), rounded to 2 decimals
+    
+    Error Handling:
+        - No database connection: Return 0.0
+        - Division by zero (total=0): Return 0.0
+        - SQL error: Return 0.0
+    
+    Used By: render_key_metrics()
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -139,7 +295,29 @@ def get_detection_rate():
 
 
 def get_prevention_rate():
-    """Calculate prevention rate from logs"""
+    """
+    Calculate prevention rate from logs.
+    
+    Purpose: Measure percentage of detected threats that were successfully blocked.
+    Formula: (Blocked Threats / Total Threats) * 100
+    
+    Prevention Logic:
+        - Total threats: COUNT(*) where severity IN ('critical', 'high')
+        - Blocked: COUNT(*) where severity = 'critical' (assume critical = blocked)
+        - Calculation: (blocked / total_threats) * 100
+    
+    Returns:
+        float: Prevention rate percentage (0-100), rounded to 2 decimals
+    
+    Error Handling:
+        - No database connection: Return 0.0
+        - Division by zero: Return 0.0
+        - SQL error: Return 0.0
+    
+    Used By: render_key_metrics()
+    
+    Note: Assumes all critical severity events are auto-blocked
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -162,7 +340,29 @@ def get_prevention_rate():
 
 
 def get_false_positive_rate():
-    """Calculate false positive rate"""
+    """
+    Calculate false positive rate.
+    
+    Purpose: Measure percentage of false alerts from total alerts generated.
+    Formula: (False Positives / Total Alerts) * 100
+    
+    False Positive Logic:
+        - Total alerts: COUNT(*) where severity IN ('critical', 'high', 'medium')
+        - False positives: COUNT(*) where severity = 'medium' (demo assumption)
+        - Calculation: (false_positives / total_alerts) * 100
+    
+    Returns:
+        float: False positive rate percentage (0-100), rounded to 2 decimals
+    
+    Error Handling:
+        - No database connection: Return 0.0
+        - Division by zero: Return 0.0
+        - SQL error: Return 0.0
+    
+    Used By: render_key_metrics()
+    
+    Note: In demo, medium severity events treated as false positives
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -185,7 +385,30 @@ def get_false_positive_rate():
 
 
 def get_mean_time_to_detect():
-    """Calculate MTTD (simulated based on log timestamps)"""
+    """
+    Calculate MTTD (Mean Time to Detect).
+    
+    Purpose: Measure average time from threat occurrence to detection/indexing.
+    Formula: AVG((indexed_at - timestamp) * 24 * 60) in minutes
+    
+    MTTD Calculation:
+        - Time difference: (julianday(indexed_at) - julianday(timestamp))
+        - Convert to minutes: * 24 * 60
+        - Average: AVG across all critical/high severity events
+        - Filter: indexed_at and timestamp must not be NULL
+    
+    Returns:
+        float: Mean time to detect in minutes, rounded to 2 decimals, default 2.5 if no data
+    
+    Error Handling:
+        - No database connection: Return 2.5
+        - No critical/high events: Return 2.5
+        - SQL error: Return 2.5
+    
+    Used By: render_key_metrics()
+    
+    Note: Simulated based on log indexing timestamps (not absolute detection time)
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -208,13 +431,47 @@ def get_mean_time_to_detect():
 
 
 def get_mean_time_to_respond():
-    """Calculate MTTR (simulated)"""
+    """
+    Calculate MTTR (Mean Time to Respond).
+    
+    Purpose: Measure average time from detection to response/remediation.
+    
+    Returns:
+        float: Mean time to respond in minutes (simulated value: 5.3)
+    
+    Used By: render_key_metrics()
+    
+    Note: Currently returns hardcoded value (5.3 minutes). In production,
+    would track from detection timestamp to resolution timestamp in database.
+    """
     # In real scenario, this would track from detection to resolution
     return 5.3
 
 
 def get_auto_containment_rate():
-    """Calculate auto-containment rate"""
+    """
+    Calculate auto-containment rate.
+    
+    Purpose: Measure percentage of incidents automatically contained without manual intervention.
+    Formula: (Auto-Contained Incidents / Total Incidents) * 100
+    
+    Auto-Containment Logic:
+        - Total incidents: COUNT(*) where severity = 'critical'
+        - Auto-contained: Total_incidents * 0.7 (demo assumption: 70% auto-contained)
+        - Calculation: (auto_contained / total_incidents) * 100
+    
+    Returns:
+        float: Auto-containment rate percentage (0-100), rounded to 2 decimals
+    
+    Error Handling:
+        - No database connection: Return 0.0
+        - Division by zero: Return 0.0
+        - SQL error: Return 0.0
+    
+    Used By: render_key_metrics(), render_auto_containment_chart()
+    
+    Note: Demo value (70%) represents system automation level - adjust in production
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -236,7 +493,35 @@ def get_auto_containment_rate():
 
 
 def get_detection_rate_over_time():
-    """Get detection rate trend over last 30 days"""
+    """
+    Get detection rate trend over last 30 days.
+    
+    Purpose: Fetch daily detection rates for historical trend analysis and visualization.
+    
+    Data Retrieval:
+        - Time range: Last 30 days (WHERE timestamp >= date('now', '-30 days'))
+        - Grouping: By date (DATE(timestamp))
+        - Metrics per date:
+          * total: COUNT(*) all events
+          * detected: COUNT(*) where severity IN ('critical', 'high')
+          * detection_rate: (detected / total) * 100
+    
+    Returns:
+        pd.DataFrame: Columns [date, total, detected, detection_rate] or empty DataFrame
+    
+    DataFrame Structure:
+        - date (str): Date in YYYY-MM-DD format
+        - total (int): Total log events for that day
+        - detected (int): Detected threats for that day
+        - detection_rate (float): Calculated detection percentage
+    
+    Error Handling:
+        - No database connection: Return empty DataFrame
+        - No data found: Return empty DataFrame
+        - SQL error: Return empty DataFrame
+    
+    Used By: render_detection_rate_chart()
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -265,7 +550,32 @@ def get_detection_rate_over_time():
 
 
 def get_severity_response_time():
-    """Get severity vs response time data"""
+    """
+    Get severity vs response time data.
+    
+    Purpose: Fetch response time metrics by severity level for correlation analysis.
+    
+    Data Retrieval:
+        - Fields: severity, response_minutes (calculated), source
+        - Calculation: response_minutes = (indexed_at - timestamp) * 24 * 60
+        - Limit: LIMIT 100 (performance optimization to prevent large datasets)
+        - Filter: severity, indexed_at, timestamp must not be NULL
+    
+    Returns:
+        pd.DataFrame: Columns [severity, response_minutes, source] or empty DataFrame
+    
+    DataFrame Structure:
+        - severity (str): 'critical', 'high', 'medium', 'low', 'info'
+        - response_minutes (float): Time from occurrence to indexing in minutes
+        - source (str): Event source (IP, host, application)
+    
+    Error Handling:
+        - No database connection: Return empty DataFrame
+        - No data found: Return empty DataFrame
+        - SQL error: Return empty DataFrame
+    
+    Used By: render_severity_response_chart()
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -294,7 +604,33 @@ def get_severity_response_time():
 
 
 def get_performance_metrics_history():
-    """Get stored performance metrics"""
+    """
+    Get stored performance metrics history.
+    
+    Purpose: Retrieve historical performance metrics from performance_metrics table.
+    
+    Data Retrieval:
+        - Fields: metric_name, value, date
+        - Ordering: ORDER BY date DESC (most recent first)
+        - Limit: LIMIT 100 (last 100 records)
+    
+    Returns:
+        pd.DataFrame: Columns [metric_name, value, date] or empty DataFrame
+    
+    DataFrame Structure:
+        - metric_name (str): Name of KPI (e.g., 'detection_rate', 'prevention_rate')
+        - value (float): Metric value
+        - date (str): Timestamp of metric calculation
+    
+    Error Handling:
+        - No database connection: Return empty DataFrame
+        - Table not found: Return empty DataFrame
+        - SQL error: Return empty DataFrame
+    
+    Used By: Future reporting and analytics features
+    
+    Note: Requires population of performance_metrics table via scheduled jobs
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -316,12 +652,42 @@ def get_performance_metrics_history():
         return pd.DataFrame()
 
 
-# ============================================================================
-# UI RENDERING FUNCTIONS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  UI RENDERING FUNCTIONS - PAGE COMPONENTS AND VISUALIZATIONS
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Render header, metrics cards, and interactive Plotly charts
 
 def render_header():
-    """Render page header with navigation"""
+    """
+    Render page header with navigation.
+    
+    Purpose: Display top navigation bar with username, role, and links to other pages.
+    
+    Header Components:
+        1. Vertical spacing (8px top)
+        2. Top navigation bar (gradient background):
+           - Left section: Username + Role display
+           - Right section: Navigation links
+        3. Page title: "Performance Metrics"
+        4. Subtitle: "Real-time KPI tracking and performance analytics"
+    
+    Navigation Links (in header):
+        - Dashboard_Overview
+        - Live_Threat_Monitor
+        - AI_Log_Analysis
+        - Threat_Scoring
+        - System_Configuration (CTA button styling)
+    
+    Returns: None (renders to Streamlit page)
+    
+    Styling:
+        - Background: Linear gradient #141d26 → #243447
+        - Text: #E2E2D2
+        - Responsive: Flex layout with mobile fallback (max-width: 700px)
+        - CTA button: #c51f5d background
+    
+    Used By: main()
+    """
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     
     st.markdown(f"""
@@ -391,7 +757,34 @@ def render_header():
 
 
 def render_key_metrics():
-    """Render key performance indicators"""
+    """
+    Render key performance indicators.
+    
+    Purpose: Display 6 KPI metrics in responsive grid layout with visual cards.
+    
+    Metrics Displayed (6-column grid):
+        1. Detection Rate (%): Threats detected / total attempts
+        2. Prevention Rate (%): Threats blocked / total threats
+        3. False Positive Rate (%): False alerts / total alerts
+        4. MTTD (minutes): Mean time to detect
+        5. MTTR (minutes): Mean time to respond
+        6. Auto-Containment Rate (%): Incidents auto-contained
+    
+    Card Styling:
+        - Background: Linear gradient #141d26 → #243447
+        - Value: Large font (32px), bold, #65c1f9 color
+        - Label: Smaller font (13px), #E2E2D2 with 0.85 opacity
+        - Grid: CSS Grid with auto-fit, minmax(200px, 1fr)
+        - Hover: Translate up 4px, box shadow with #65c1f9
+        - Transition: 0.3s ease
+    
+    Data Source:
+        - Calls all KPI functions: get_detection_rate(), get_prevention_rate(), etc.
+    
+    Returns: None (renders to Streamlit page)
+    
+    Used By: main()
+    """
     st.markdown("---")
     st.markdown("<h3 style='text-align: center;'>Key Performance Indicators</h3>", unsafe_allow_html=True)
     
@@ -474,7 +867,36 @@ def render_key_metrics():
 
 
 def render_detection_rate_chart():
-    """Render detection rate over time line chart"""
+    """
+    Render detection rate over time line chart.
+    
+    Purpose: Visualize detection rate trend over 30-day period as interactive line chart.
+    
+    Chart Characteristics:
+        - Type: Line chart with markers (Plotly Express)
+        - X-axis: Date (YYYY-MM-DD)
+        - Y-axis: Detection rate percentage (0-100%)
+        - Data source: get_detection_rate_over_time()
+        - Points: Markers at each day
+        - Color: #65c1f9 (highlight blue)
+        - Line width: 3px
+        - Mode: 'lines+markers'
+    
+    Layout Configuration:
+        - Background: Dark rgba(20, 29, 38, 0.8)
+        - Font: #E2E2D2
+        - Height: 400px
+        - Hover: Unified mode (shows all series at x-value)
+        - Template: plotly_dark
+    
+    Error Handling:
+        - Empty DataFrame: Show info message "No detection rate data available..."
+        - Missing data: Chart not rendered, message displayed
+    
+    Returns: None (renders Plotly chart or info message)
+    
+    Used By: main()
+    """
     st.markdown("---")
     st.markdown("<h3 style='text-align: center;'>Detection Rate Trend (Last 30 Days)</h3>", unsafe_allow_html=True)
     
@@ -510,7 +932,35 @@ def render_detection_rate_chart():
 
 
 def render_auto_containment_chart():
-    """Render auto-containment rate bar chart"""
+    """
+    Render auto-containment rate bar chart.
+    
+    Purpose: Compare auto-contained vs manual intervention incidents as bar chart.
+    
+    Chart Characteristics:
+        - Type: Bar chart (Plotly Express)
+        - X-axis: Type ['Auto-Contained', 'Manual Intervention']
+        - Y-axis: Percentage (0-100%)
+        - Data source: get_auto_containment_rate() + calculated manual rate
+        - Colors: 
+          * Auto-Contained: #65c1f9 (blue highlight)
+          * Manual Intervention: #fd7e14 (orange warning)
+    
+    Data Calculation:
+        - auto_rate: get_auto_containment_rate()
+        - manual_rate: 100 - auto_rate
+    
+    Layout Configuration:
+        - Background: Dark rgba(20, 29, 38, 0.8)
+        - Font: #E2E2D2
+        - Height: 400px
+        - Legend: Hidden
+        - Template: plotly_dark
+    
+    Returns: None (renders Plotly chart)
+    
+    Used By: main() (rendered in left column of two-column layout)
+    """
     st.markdown("---")
     st.markdown("<h3 style='text-align: center;'>Auto-Containment Effectiveness</h3>", unsafe_allow_html=True)
     
@@ -548,7 +998,40 @@ def render_auto_containment_chart():
 
 
 def render_severity_response_chart():
-    """Render severity vs response time scatter plot"""
+    """
+    Render severity vs response time scatter plot.
+    
+    Purpose: Show correlation between incident severity and response time.
+    
+    Chart Characteristics:
+        - Type: Scatter plot (Plotly Express)
+        - X-axis: Severity level (categorical)
+        - Y-axis: Response time in minutes
+        - Data source: get_severity_response_time()
+        - Marker size: 10px
+        - Marker border: 1px white
+        - Hover: Includes source field
+    
+    Severity Color Mapping:
+        - critical: #dc3545 (red - danger)
+        - high: #fd7e14 (orange - warning)
+        - medium: #ffc107 (yellow - caution)
+        - low: #17a2b8 (teal - info)
+        - info: #6c757d (gray)
+    
+    Layout Configuration:
+        - Background: Dark rgba(20, 29, 38, 0.8)
+        - Font: #E2E2D2
+        - Height: 400px
+        - Template: plotly_dark
+    
+    Error Handling:
+        - Empty DataFrame: Show info message "No response time data available..."
+    
+    Returns: None (renders Plotly chart or info message)
+    
+    Used By: main() (rendered in right column of two-column layout)
+    """
     st.markdown("---")
     st.markdown("<h3 style='text-align: center;'>Severity vs Response Time Analysis</h3>", unsafe_allow_html=True)
     
@@ -591,12 +1074,45 @@ def render_severity_response_chart():
         st.info("No response time data available. Logs need to be populated.")
 
 
-# ============================================================================
-# MAIN APPLICATION
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  MAIN APPLICATION LOGIC - PAGE ORCHESTRATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Orchestrate page rendering with all components
 
 def main():
-    """Main application entry point"""
+    """
+    Main application entry point.
+    
+    Purpose: Orchestrate rendering of all page components in correct order.
+    
+    Execution Flow:
+        1. check_authentication() → Verify user session
+        2. render_header() → Display navigation and title
+        3. render_key_metrics() → Display 6 KPI cards
+        4. Two-column layout:
+           - Column 1: render_auto_containment_chart()
+           - Column 2: render_severity_response_chart()
+        5. Full-width: render_detection_rate_chart()
+        6. Footer: Attribution text
+    
+    Page Layout:
+        ┌─────────────────────────────────────────────────┐
+        │ Header (Navigation + Title)                     │
+        ├─────────────────────────────────────────────────┤
+        │ Key Metrics (6 cards in grid)                   │
+        ├─────────────────────────────────────────────────┤
+        │ Chart 1 (50%)        │ Chart 2 (50%)            │
+        │ Auto-Containment     │ Severity vs Response     │
+        ├─────────────────────────────────────────────────┤
+        │ Detection Rate Trend (100% width)               │
+        ├─────────────────────────────────────────────────┤
+        │ Footer                                          │
+        └─────────────────────────────────────────────────┘
+    
+    Returns: None (orchestrates Streamlit rendering)
+    
+    Used By: Script entry point (if __name__ == "__main__")
+    """
     
     # Check authentication
     check_authentication()

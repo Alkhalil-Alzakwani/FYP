@@ -1,92 +1,114 @@
-﻿# How to run:
-# C:\Users\s131028\Documents\GitHub\FYP\.venv\Scripts\streamlit.exe run app.py
-# Or from terminal: streamlit run app.py
+﻿"""
+MULTILAYERED CYBER DEFENSE PLATFORM - LANDING PAGE
+╚════════════════════════════════════════════════════════════════════════════╝
 
+FILE: app.py
+PURPOSE: Main entry point and welcome page for the Cyber Defense Platform
 
+════════════════════════════════════════════════════════════════════════════
+ DESCRIPTION
+════════════════════════════════════════════════════════════════════════════
+This module serves as the public-facing landing page that:
+  • Introduces users to the platform's capabilities
+  • Displays real-time security metrics and statistics
+  • Provides navigation to authentication and main features
+  • Showcases technology stack and capabilities
 
-"""
-================================================================================
-MULTILAYERED CYBER DEFENSE PLATFORM - HOME PAGE
-================================================================================
+════════════════════════════════════════════════════════════════════════════
+ PAGE STRUCTURE
+════════════════════════════════════════════════════════════════════════════
 
-File: app.py
-Purpose: Main introductory landing page for the Cyber Defense Platform
+1. NAVIGATION BAR
+   └─ Top navigation with login, capabilities, technology, and support links
+   └─ Responsive design that adapts to mobile screens
 
-DESCRIPTION:
-    This module serves as the entry point and welcome page for the Multilayered
-    Cyber Defense Platform. It provides an overview of the platform's capabilities,
-    features, and technology stack, guiding users to the login page and other
-    sections of the application.
+2. HERO SECTION
+   └─ Background image with platform title and description
+   └─ Call-to-action button to get started
 
-PAGE COMPONENTS:
-    1. Hero Section:
-        - Platform title and tagline
-        - Professional introduction
-        
-    2. About Section:
-        - Platform overview
-        - Key features list with icons
-        - Quick statistics dashboard
-        
-    3. Capabilities Grid:
-        - Security features
-        - Intelligence capabilities
-        - Operations features
-        
-    4. Technology Stack:
-        - Frontend technologies (Streamlit, Plotly, Altair)
-        - Backend infrastructure (Python, SQLite, Pandas)
-        - AI/ML components (Mistral AI, NumPy, Scikit-learn)
-        - Security tools (bcrypt, JWT, YAML Config)
-        
-    5. Getting Started:
-        - Login navigation button
-        - Dashboard preview button
-        - Live monitor button
-        
-    6. Footer:
-        - Contact information
-        - Documentation links
-        - Security contact
-        - Copyright and version info
+3. STATISTICS CARD
+   └─ Displays real-time data from database:
+      ├─ Total analyses performed
+      ├─ High priority threats
+      ├─ Active data sources
+      ├─ Detection rate (%)
+      ├─ Average response time
+      └─ System uptime (%)
 
-NAVIGATION:
-    - Users can navigate to login page via "Go to Login" button
-    - Sidebar provides navigation options and quick links
-    - Unauthenticated users are directed to login before accessing features
+4. PLATFORM CAPABILITIES (Grid Layout)
+   └─ Security, Intelligence, and Operations features
+   └─ Each category displays 5 key capabilities
 
-SIDEBAR FEATURES:
-    - Home button (refresh current page)
-    - Login button (navigate to authentication)
-    - Quick links section
-    - System information display
+5. TECHNOLOGY STACK (4-Column Layout)
+   └─ Frontend: Streamlit, Plotly, Altair
+   └─ Backend: Python 3.12, SQLite, Pandas
+   └─ AI/ML: Mistral AI, NumPy, Scikit-learn
+   └─ Security: bcrypt, JWT, YAML Config
 
-LAYOUT:
-    - Page layout: Wide (full-width display)
-    - Sidebar state: Expanded by default
-    - Responsive design with column-based layout
+6. GETTING STARTED (Action Cards)
+   └─ Login: Access platform with credentials
+   └─ Dashboard: View real-time security metrics
+   └─ Live Monitor: Track threats and incidents
 
-DEPENDENCIES:
-    - streamlit: Web application framework
-    - No authentication required for this page (public landing page)
+7. FOOTER / CONTACT
+   └─ Contact information (email, phone)
+   └─ Institution link
+   └─ Copyright and version information
 
-LINKED PAGES:
-    - pages/login.py: User authentication
-    - pages/Dashboard_Overview.py: Main dashboard (requires authentication)
-    - pages/Live_Threat_Monitor.py: Real-time monitoring (requires authentication)
+════════════════════════════════════════════════════════════════════════════
+ KEY FEATURES
+════════════════════════════════════════════════════════════════════════════
+✓ Public page (no authentication required)
+✓ Query-parameter-based navigation (?nav=login/dashboard/monitor)
+✓ Real-time database integration for statistics
+✓ Responsive design for mobile and desktop
+✓ Smooth hover effects and visual feedback
+✓ Authentication checks for protected pages
 
-Author: Multilayered Cyber Defense Team
+════════════════════════════════════════════════════════════════════════════
+ DATABASE QUERIES
+════════════════════════════════════════════════════════════════════════════
+• threat_scores: COUNT(*) for total analyses
+• threat_scores: COUNT(*) WHERE severity='High' for critical threats
+• splunk_logs: COUNT(DISTINCT source) for active data sources
 
-================================================================================
+════════════════════════════════════════════════════════════════════════════
+ COLOR SCHEME & STYLING
+════════════════════════════════════════════════════════════════════════════
+• Dark background: #141d26 (charcoal)
+• Accent dark: #243447 (slate)
+• Light text: #E2E2D2 (off-white)
+• Highlight: #65c1f9 (sky blue)
+• CTA color: #c51f5d (vibrant pink)
+
+════════════════════════════════════════════════════════════════════════════
+ DEPENDENCIES
+════════════════════════════════════════════════════════════════════════════
+• streamlit: Web framework and UI components
+• database.queries: Database connection utilities
+• pathlib: File path handling for image assets
+• base64: Image encoding for inline display
+
+════════════════════════════════════════════════════════════════════════════
+ HOW TO RUN
+════════════════════════════════════════════════════════════════════════════
+Terminal:
+  $ streamlit run app.py
+
+With specific environment:
+  $ .venv/Scripts/streamlit.exe run app.py
+
+════════════════════════════════════════════════════════════════════════════
 """
 
 
 
 import streamlit as st
 
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
 # PAGE CONFIGURATION
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+# Configure Streamlit page settings: title, layout, and sidebar state
 
 st.set_page_config(
     page_title='Cyber Defense Platform',
@@ -95,7 +117,8 @@ st.set_page_config(
     initial_sidebar_state='expanded'
 )
 
-# Fix scrolling issue with custom CSS
+# CSS Fix for Scrolling and Layout
+# Ensures proper scrolling behavior on main content and sidebar
 st.markdown("""
 <style>
     /* Ensure main container is scrollable */
@@ -131,8 +154,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Top boarding strip + navigation bar (visual)
-# Small spacer so the boarding/topbar show clearly separated from the very top
+# ════════════════════════════════════════════════════════════════════════════
+# NAVIGATION BAR
+# ════════════════════════════════════════════════════════════════════════════
+# Top navigation bar with platform branding and quick links
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 st.markdown(f"""
 <style>
@@ -173,14 +198,28 @@ st.markdown(f"""
 
 
 
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
 # MAIN CONTENT
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
 
 def main():
-    """Main application entry point - Introductory landing page"""
+    """
+    Main application entry point - Renders the landing page
     
-    # Check for navigation from topbar
+    Handles:
+    - Navigation routing via query parameters
+    - Authentication checks for protected pages
+    - Display of hero section and statistics
+    - Platform capabilities showcase
+    - Technology stack information
+    - Getting started options
+    - Footer with contact information
+    """
+    
+    # ────────────────────────────────────────────────────────────────────────
+    # HANDLE NAVIGATION ROUTING
+    # ────────────────────────────────────────────────────────────────────────
+    # Route users based on query parameters (?nav=login/dashboard/monitor)
     query_params = st.query_params
     if 'nav' in query_params:
         if query_params['nav'] == 'login':
@@ -202,11 +241,10 @@ def main():
 
     st.markdown('')
     
-    # ========================================================================
-    # HERO CARD WITH BACKGROUND IMAGE
-    # ========================================================================
-    
-    # Load and display hero card with background image
+    # ────────────────────────────────────────────────────────────────────────
+    # HERO SECTION
+    # ────────────────────────────────────────────────────────────────────────
+    # Large banner with background image, title, and call-to-action button
     from pathlib import Path
     import base64
     
@@ -280,14 +318,15 @@ def main():
         st.warning(f"Image not found at: {img_path}")
     
     
-    # ========================================================================
-    # STATISTICS CARD WITH REAL DATABASE DATA
-    # ========================================================================
-    
+    # ────────────────────────────────────────────────────────────────────────
+    # STATISTICS DASHBOARD
+    # ────────────────────────────────────────────────────────────────────────
+    # Display real-time metrics: total analyses, threats, detection rate, uptime
     from database.queries import get_db_connection
     import sqlite3
     
-    # Fetch real data from database
+    # Initialize statistics object with default values
+    # Will be populated with real data from database
     stats_data = {
         'total_threats': 0,
         'critical_threats': 0,
@@ -297,23 +336,27 @@ def main():
     }
     
     try:
+        # Establish database connection
         conn = get_db_connection()
         if conn:
             cur = conn.cursor()
-            # Get total threat scores
+            
+            # Query 1: Count total threat analyses
             cur.execute("SELECT COUNT(*) FROM threat_scores")
             stats_data['total_threats'] = cur.fetchone()[0] or 0
             
-            # Get critical threats
+            # Query 2: Count high-priority threats
             cur.execute("SELECT COUNT(*) FROM threat_scores WHERE severity = 'High'")
             stats_data['critical_threats'] = cur.fetchone()[0] or 0
             
-            # Get active modules count
+            # Query 3: Count active data sources
             cur.execute("SELECT COUNT(DISTINCT source) FROM splunk_logs")
             stats_data['active_analyses'] = cur.fetchone()[0] or 0
             
+            # Close database connection
             conn.close()
     except Exception as e:
+        # Fallback: Display warning but use default stats
         st.warning(f"Could not fetch real-time stats: {e}")
     
     st.markdown(f"""
@@ -398,12 +441,11 @@ def main():
     """, unsafe_allow_html=True)
 
     st.markdown('---')
-
-        
-    # ========================================================================
-    # PLATFORM CAPABILITIES
-    # ========================================================================
     
+    # ────────────────────────────────────────────────────────────────────────
+    # PLATFORM CAPABILITIES GRID
+    # ────────────────────────────────────────────────────────────────────────
+    # Three-column grid showcasing Security, Intelligence, and Operations
     st.markdown(f"""
     <style>
         .capabilities-section {{
@@ -489,10 +531,10 @@ def main():
     
     st.markdown('---')
     
-    # ========================================================================
+    # ────────────────────────────────────────────────────────────────────────
     # TECHNOLOGY STACK
-    # ========================================================================
-    
+    # ────────────────────────────────────────────────────────────────────────
+    # Four-column layout: Frontend, Backend, AI/ML, Security tools
     st.markdown("""
     <h2 id="technology-stack" style="color: #E2E2D2; text-align: center; margin-bottom: 20px;">Technology Stack</h2>
     """, unsafe_allow_html=True)
@@ -525,10 +567,10 @@ def main():
     
     st.markdown('---')
     
-    # ========================================================================
-    # GETTING STARTED
-    # ========================================================================
-    
+    # ────────────────────────────────────────────────────────────────────────
+    # GETTING STARTED / ACTION CARDS
+    # ────────────────────────────────────────────────────────────────────────
+    # Three action cards: Login, Dashboard, and Live Monitor with buttons
     st.markdown(f"""
     <style>
         .getting-started-section {{
@@ -610,10 +652,10 @@ def main():
     
     st.markdown('---')
     
-    # ========================================================================
-    # FOOTER
-    # ========================================================================
-    
+    # ────────────────────────────────────────────────────────────────────────
+    # FOOTER / CONTACT INFORMATION
+    # ────────────────────────────────────────────────────────────────────────
+    # Contact details, institution link, and copyright information
     st.markdown(f"""
     <style>
         .footer-section {{
@@ -703,12 +745,19 @@ def main():
     """, unsafe_allow_html=True)
 
 
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
 # SIDEBAR NAVIGATION
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
 
 def render_sidebar():
-    """Render sidebar navigation and information"""
+    """
+    Render sidebar with navigation options
+    
+    Features:
+    - Home button: Refresh current page
+    - Login button: Navigate to authentication page
+    - Quick links: Documentation, API reference, support, security
+    """
     with st.sidebar:
         st.markdown('## Navigation')
         st.markdown('---')
@@ -727,9 +776,10 @@ def render_sidebar():
         st.markdown('- [Security Advisories](#)')
 
 
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
 # APPLICATION ENTRY POINT
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+# Render sidebar and main content when script is executed
 
 if __name__ == '__main__':
     render_sidebar()

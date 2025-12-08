@@ -1,30 +1,112 @@
 """
-================================================================================
-AI LOG ANALYSIS PAGE (pages/AI_Log_Analysis.py)
-================================================================================
+MULTILAYERED CYBER DEFENSE PLATFORM - AI LOG ANALYSIS
+╚════════════════════════════════════════════════════════════════════════════╝
 
-Purpose: Use Mistral LLM for context-aware log analysis
+FILE: pages/AI_Log_Analysis.py
+PURPOSE: GPU-accelerated AI-powered security log analysis using Mistral LLM
 
-Features:
-    - Analyze logs by source using local Mistral LLM via Ollama
-    - Input field for log text or batch upload
-    - "Analyze with Mistral" button returns:
-        * Phishing likelihood (0–1)
-        * Summary of suspicious behavior
-        * Suggested response action
-    - Results stored in threat_scores
-    - Query logs from cyber_defense.db by source
+════════════════════════════════════════════════════════════════════════════
+ DESCRIPTION
+════════════════════════════════════════════════════════════════════════════
+This module provides AI-powered log analysis using local Mistral LLM:
+  • Analyzes security logs via Ollama API (http://localhost:11434)
+  • GPU-accelerated inference for fast processing
+  • Multiple analysis modes: batch, manual input, history
+  • Saves results to threat_scores database table
+  • Real-time threat assessment and recommendations
 
-Mathematical Formula:
-    Threat_Score = (LLM_Confidence × 0.6) + (Severity_Weight × 0.3) + (Reputation_Penalty × 0.1)
+════════════════════════════════════════════════════════════════════════════
+ ANALYSIS MODES
+════════════════════════════════════════════════════════════════════════════
 
-Integration:
-    - Uses Ollama API (http://localhost:11434)
-    - Mistral model locally installed
-    - Reads from splunk_logs table for source analysis
+1. SOURCE ANALYSIS (Tab 1)
+   ├─ Select data source from dropdown
+   ├─ Choose number of logs (10-100)
+   ├─ Analyze batch with Mistral LLM
+   └─ Results show threat level, IOCs, recommendations
 
-Author: Multilayered Cyber Defense Team
-================================================================================
+2. MANUAL INPUT (Tab 2)
+   ├─ Paste single or multiple logs
+   ├─ Analyze with Mistral LLM
+   ├─ Get threat assessment and phishing likelihood
+   └─ Optional save to database
+
+3. ANALYSIS HISTORY (Tab 3)
+   ├─ View previous analyses from threat_scores table
+   ├─ Filter by date range and severity
+   ├─ Analyze trends and patterns
+   └─ Export analysis results
+
+════════════════════════════════════════════════════════════════════════════
+ MISTRAL LLM INTEGRATION
+════════════════════════════════════════════════════════════════════════════
+• Local inference via Ollama (no cloud dependencies)
+• GPU acceleration: CUDA (NVIDIA), ROCm (AMD), Metal (Apple)
+• Timeout: 120 seconds (allows GPU processing)
+• Temperature: 0.7 (balanced creativity/consistency)
+• Inference threads: 8 (CPU preprocessing)
+• GPU control: num_gpu parameter (1 for GPU, 0 for CPU)
+
+════════════════════════════════════════════════════════════════════════════
+ THREAT ASSESSMENT OUTPUT
+════════════════════════════════════════════════════════════════════════════
+Mistral analyzes logs for:
+  1. Phishing Likelihood: 0-100% probability
+  2. Threat Summary: Suspicious patterns and anomalies
+  3. Attack Indicators: Specific IOCs identified
+  4. Response Actions: Immediate and long-term mitigations
+  5. Confidence Level: Low/Medium/High assessment confidence
+
+════════════════════════════════════════════════════════════════════════════
+ DATABASE INTEGRATION
+════════════════════════════════════════════════════════════════════════════
+• Read from: splunk_logs table (timestamp, source, severity, raw_log, etc.)
+• Write to: threat_scores table (source, score, severity, ai_context)
+• Unique sources: Automatically discovered from database
+• Analysis results stored with timestamp and AI context
+
+════════════════════════════════════════════════════════════════════════════
+ SIDEBAR FEATURES
+════════════════════════════════════════════════════════════════════════════
+• Ollama Host: Configurable API endpoint
+• Model Name: Selectable Mistral model
+• GPU Acceleration: Toggle for GPU/CPU mode
+• System Status: Real-time Ollama and model availability
+• GPU Status: Visual indicator of acceleration mode
+• Setup Instructions: Installation guide for Ollama
+
+════════════════════════════════════════════════════════════════════════════
+ TOP NAVIGATION
+════════════════════════════════════════════════════════════════════════════
+• Links to: Dashboard, Monitor, Scoring, Metrics, Server, Configuration
+• Logout functionality with session clearing
+• Responsive design for mobile and desktop
+
+════════════════════════════════════════════════════════════════════════════
+ DEPENDENCIES
+════════════════════════════════════════════════════════════════════════════
+• streamlit: Web UI framework
+• requests: HTTP client for Ollama API
+• database.queries: Database connection utilities
+• auth.session_manager: Session and authentication management
+• json, datetime, pathlib: Standard utilities
+
+════════════════════════════════════════════════════════════════════════════
+ OLLAMA SETUP
+════════════════════════════════════════════════════════════════════════════
+1. Install Ollama:
+   $ curl https://ollama.ai/install.sh | sh
+
+2. Pull Mistral model:
+   $ ollama pull mistral
+
+3. Start Ollama server:
+   $ ollama serve
+
+4. (Optional) Enable GPU in environment:
+   $ export OLLAMA_NUM_GPU=1
+
+════════════════════════════════════════════════════════════════════════════
 """
 
 import streamlit as st
@@ -40,9 +122,10 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from database.queries import get_db_connection
-# ============================================================================
-# CUSTOM CSS FOR SCROLLING
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  CUSTOM CSS AND STYLING
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Define responsive design, dark theme, animations, scrolling behavior
 
 st.markdown("""
 <style>
@@ -79,9 +162,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================================
-# PAGE CONFIGURATION
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  PAGE CONFIGURATION - STREAMLIT SETUP
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Configure Streamlit page layout, title, sidebar behavior
 
 st.set_page_config(
     page_title="AI Log Analysis",
@@ -89,12 +173,40 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ============================================================================
-# OLLAMA INTEGRATION
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  OLLAMA INTEGRATION - LLM API COMMUNICATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Connect to Ollama server, handle inference requests, parse responses
 
 def parse_ollama_response(resp: requests.Response) -> str:
-    """Try to parse common Ollama response shapes into a single string."""
+    """
+    Parse HTTP response from Ollama API into unified string format.
+    
+    SUPPORTED RESPONSE SCHEMAS:
+    ─────────────────────────────────────────────────────────────────
+    1. OUTPUT ARRAY: {"output": [{"content": "text"}, ...]}
+    2. CHOICES: {"choices": [{"message": {"content": "text"}}, ...]}
+    3. SIMPLE TEXT: {"text": "...", "content": "...", "message": "..."}
+    4. FALLBACK: Convert to JSON if no recognized schema found
+    
+    Args:
+        resp (requests.Response): HTTP response from Ollama API endpoint
+    
+    Returns:
+        str: Unified text response from model (multi-line format)
+    
+    Error Handling:
+        • JSON parsing failure: Returns raw response text
+        • Missing expected fields: Attempts fallback schemas
+        • Non-JSON response: Returns response.text directly
+    
+    Usage:
+        Used internally by call_mistral() to handle various Ollama response formats.
+    
+    Note:
+        Ollama endpoints may vary between versions.
+        This function provides compatibility across different API versions.
+    """
     try:
         data = resp.json()
     except Exception:
@@ -141,21 +253,60 @@ def parse_ollama_response(resp: requests.Response) -> str:
 
 
 def call_mistral(host: str, model: str, prompt: str, use_gpu: bool = True) -> str:
-    """Call local Ollama Mistral API with GPU acceleration.
-
+    """
+    Execute inference call to local Mistral LLM via Ollama API.
+    
+    INFERENCE PIPELINE:
+    ─────────────────────────────────────────────────────────────────
+    1. ROUTING: Try /api/chat endpoint first, fallback to /api/generate
+    2. PAYLOAD: Build request with model, prompt, GPU config, inference params
+    3. EXECUTION: Send HTTP POST to Ollama server (120s timeout)
+    4. RESPONSE: Parse response using parse_ollama_response()
+    5. FALLBACK: Return error message if both endpoints fail
+    
     Args:
-        host: base URL like http://localhost:11434
-        model: model name (mistral)
-        prompt: analysis prompt
-        use_gpu: whether to use GPU acceleration (default: True)
-
+        host (str): Ollama API base URL (e.g., 'http://localhost:11434')
+        model (str): Model name installed via Ollama (e.g., 'mistral')
+        prompt (str): Security log analysis prompt for LLM
+        use_gpu (bool): Enable GPU acceleration (default: True)
+                        • True: num_gpu=1 (utilizes available GPU)
+                        • False: num_gpu=0 (CPU-only inference)
+    
     Returns:
-        Text response from the model
+        str: Model response text or error message
+    
+    GPU ACCELERATION CONFIGURATION:
+    ─────────────────────────────────────────────────────────────────
+    • num_gpu: 1 for GPU, 0 for CPU
+    • num_thread: 8 CPU threads for preprocessing and fallback
+    • temperature: 0.7 (balanced creativity/consistency for threat analysis)
+    • top_p: 0.9 (nucleus sampling, 90% probability mass)
+    • timeout: 120 seconds (allows GPU inference time)
+    
+    SUPPORTED GPU TYPES:
+    • NVIDIA CUDA: Requires CUDA toolkit + nvidia-smi
+    • AMD ROCm: Requires ROCm driver + rocm-smi
+    • Apple Metal: Native on Apple Silicon (M1/M2/M3)
+    • Automatic Detection: Ollama detects and uses available hardware
+    
+    ENDPOINT ROUTING:
+    • /api/chat: Preferred endpoint (structured message format)
+    • /api/generate: Fallback endpoint (simple text generation)
+    • Errors logged separately for debugging
+    
+    Error Handling:
+    • Connection timeout: Returns error message after 120s wait
+    • Invalid model: Returns Ollama error response
+    • Network error: Caught and logged in error list
+    • Returns formatted error string if all endpoints fail
+    
+    Used By:
+        analyze_logs_batch(): Batch security log analysis
+        Manual analysis tabs: Single or custom log analysis
     
     Note:
-        Ollama automatically uses GPU if available (CUDA/ROCm/Metal).
-        GPU usage is determined by Ollama server configuration.
-        Set OLLAMA_NUM_GPU=1 (or higher) in environment to enable GPU.
+        Ollama server must be running before calling this function.
+        Check Ollama status in sidebar before attempting inference.
     """
     host = host.rstrip("/")
     errors = []
@@ -212,12 +363,37 @@ def call_mistral(host: str, model: str, prompt: str, use_gpu: bool = True) -> st
     return "Failed to get response from Ollama. Errors:\n" + "\n".join(errors)
 
 
-# ============================================================================
-# DATABASE FUNCTIONS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  DATABASE FUNCTIONS - LOG AND THREAT SCORE MANAGEMENT
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Query splunk_logs, manage threat_scores, retrieve unique sources
 
 def get_logs_by_source(source: str, limit: int = 100) -> List[Dict]:
-    """Get all logs for a specific source from database"""
+    """
+    Retrieve logs from database for a specific source.
+    
+    Args:
+        source (str): Source identifier (e.g., 'firewall', 'proxy', 'siem')
+        limit (int): Maximum number of logs to retrieve (default: 100, max: 100)
+    
+    Returns:
+        List[Dict]: List of log records with fields:
+            - id: Log record ID
+            - timestamp: Log creation timestamp (ISO format)
+            - host: Source host/system
+            - source: Log source identifier
+            - sourcetype: Log type (e.g., 'syslog', 'json', 'csv')
+            - severity: Event severity (low, medium, high, critical)
+            - raw_log: Original log entry text
+            - event_data: Parsed JSON event data
+    
+    Raises:
+        Returns empty list on database error.
+    
+    Note:
+        Results ordered by timestamp (newest first).
+        Used by Source Analysis tab to fetch logs for AI analysis.
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -242,7 +418,22 @@ def get_logs_by_source(source: str, limit: int = 100) -> List[Dict]:
 
 
 def get_unique_sources() -> List[str]:
-    """Get list of unique sources from database"""
+    """
+    Retrieve all unique log sources from database.
+    
+    Returns:
+        List[str]: Sorted list of source identifiers (e.g., 'firewall', 'proxy', 'siem')
+    
+    Raises:
+        Returns empty list on database error.
+    
+    Used By:
+        Source Analysis tab dropdown for log source selection.
+    
+    Note:
+        Sources ordered alphabetically for consistent UI presentation.
+        NULL sources are filtered out.
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -262,7 +453,29 @@ def get_unique_sources() -> List[str]:
 
 
 def save_threat_score(source: str, score: int, severity: str, ai_context: str) -> bool:
-    """Save analysis result to threat_scores table"""
+    """
+    Save AI analysis results to threat_scores database table.
+    
+    Args:
+        source (str): Log source identifier (e.g., 'firewall', 'proxy')
+        score (int): Threat score 0-100 (0=benign, 100=critical)
+        severity (str): Severity level ('low', 'medium', 'high', 'critical')
+        ai_context (str): Full LLM analysis text with threat assessment details
+    
+    Returns:
+        bool: True if saved successfully, False on error
+    
+    Database:
+        Inserts into threat_scores table with automatic timestamp.
+        Fields: source, score, severity, ai_context, timestamp (ISO format)
+    
+    Error Handling:
+        Returns False and displays error message to user on failure.
+        Database connection errors are caught and logged.
+    
+    Used By:
+        Source Analysis and Manual Input tabs after Mistral analysis completes.
+    """
     try:
         conn = get_db_connection()
         if conn:
@@ -281,9 +494,10 @@ def save_threat_score(source: str, score: int, severity: str, ai_context: str) -
     return False
 
 
-# ============================================================================
-# ANALYSIS FUNCTIONS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  ANALYSIS HELPER FUNCTIONS - RESPONSE PARSING AND THREAT EXTRACTION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Parse LLM responses, extract threat scores, format analysis results
 
 def extract_threat_score(analysis_text: str) -> Optional[float]:
     """Extract phishing likelihood score from LLM response"""
@@ -309,7 +523,50 @@ def extract_threat_score(analysis_text: str) -> Optional[float]:
 
 
 def analyze_logs_batch(logs: List[Dict], ollama_host: str, model: str, use_gpu: bool = True) -> Dict:
-    """Analyze a batch of logs using Mistral LLM with GPU acceleration"""
+    """
+    Analyze batch of logs using Mistral LLM with GPU acceleration.
+    
+    ANALYSIS PROCESS (5 Steps):
+    ─────────────────────────────────────────────────────────────────────
+    1. AGGREGATION: Collect logs, count severity levels, create summaries
+    2. PROMPT GENERATION: Build detailed threat assessment prompt for LLM
+    3. LLM INFERENCE: Send to Mistral via Ollama (GPU-accelerated if enabled)
+    4. RESPONSE PARSING: Extract threat score, severity, IOCs, recommendations
+    5. RESULT FORMATTING: Prepare structured output with assessments
+    
+    Args:
+        logs (List[Dict]): Log records with timestamp, source, severity, raw_log, etc.
+        ollama_host (str): Ollama API endpoint (e.g., 'http://localhost:11434')
+        model (str): Mistral model name (e.g., 'mistral')
+        use_gpu (bool): Enable GPU acceleration (default: True)
+    
+    Returns:
+        Dict containing:
+            - threat_score (int): 0-100 threat level
+            - severity (str): 'low', 'medium', 'high', or 'critical'
+            - phishing_likelihood (float): 0-1.0 probability
+            - summary (str): Threat assessment summary
+            - iocs (str): Indicators of compromise found
+            - recommendations (str): Recommended actions
+            - analysis (str): Full LLM analysis text
+            - error (str): Error message if analysis failed
+    
+    GPU Acceleration:
+        • NVIDIA CUDA: Requires CUDA toolkit and nvidia-smi
+        • AMD ROCm: Requires ROCm driver installation
+        • Apple Metal: Native GPU support on Apple Silicon
+        • CPU Fallback: Automatic fallback if GPU unavailable
+        • Timeout: 120 seconds allows GPU processing time
+    
+    Error Handling:
+        Returns dict with 'error' key if LLM connection fails.
+        Gracefully handles empty log lists.
+        API timeouts logged and returned as error.
+    
+    Used By:
+        Source Analysis tab ("Analyze Source" button).
+        Batch processing workflow for security monitoring.
+    """
     
     if not logs:
         return {"error": "No logs to analyze"}
@@ -346,7 +603,7 @@ Be specific and actionable in your recommendations."""
 
     # Call Mistral with GPU acceleration
     gpu_status = "with GPU acceleration" if use_gpu else "on CPU"
-    with st.spinner(f"🤖 Mistral LLM analyzing logs {gpu_status}..."):
+    with st.spinner(f"Mistral LLM analyzing logs {gpu_status}..."):
         analysis = call_mistral(ollama_host, model, prompt, use_gpu)
     
     return {
@@ -417,14 +674,74 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-# ============================================================================
-# MAIN PAGE
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  MAIN PAGE - UI LAYOUT AND INTERACTION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Streamlit app layout, tabs, forms, and user interactions
 
 def main():
-    st.title("AI Log Analysis - Mistral LLM")
-    st.markdown("Analyze security logs using local Mistral model via Ollama")
-    st.markdown("---")
+    """
+    Primary application entry point for AI Log Analysis page.
+    
+    INTERFACE COMPONENTS:
+    ───────────────────────────────────────────────────────────────────
+    
+    SIDEBAR:
+    ├─ Configuration Section
+    │  ├─ Ollama Host (text input, default: localhost:11434)
+    │  ├─ Model Name (text input, default: mistral)
+    │  └─ GPU Acceleration (checkbox toggle)
+    ├─ System Status
+    │  ├─ Ollama Server status (online/offline indicator)
+    │  ├─ Model availability check
+    │  └─ GPU status display
+    └─ Setup Instructions (collapsible)
+    
+    MAIN CONTENT:
+    ├─ Tab 1: SOURCE ANALYSIS
+    │  ├─ Source dropdown selector
+    │  ├─ Log count slider (10-100)
+    │  ├─ "Analyze Source" button
+    │  └─ Results display (threat score, severity, summary, IOCs, recommendations)
+    │
+    ├─ Tab 2: MANUAL LOG INPUT
+    │  ├─ Log text area
+    │  ├─ Analyze button
+    │  ├─ Results display
+    │  └─ Optional save to database checkbox
+    │
+    └─ Tab 3: ANALYSIS HISTORY
+       ├─ Date range filter
+       ├─ Severity filter
+       ├─ Analysis results table
+       └─ Export functionality
+    
+    WORKFLOW:
+    ─────────────────────────────────────────────────────────────────────
+    1. User selects tab (Source/Manual/History)
+    2. Configures Ollama parameters in sidebar
+    3. Initiates analysis via appropriate tab
+    4. LLM processes logs (GPU-accelerated if enabled)
+    5. Results parsed and displayed with threat assessment
+    6. Optional: Save results to threat_scores table
+    
+    ERROR HANDLING:
+    • Ollama connection failures: Display error message with recovery steps
+    • LLM inference timeout: Shows timeout warning and fallback suggestions
+    • Database errors: Displays error with database connection info
+    • Empty logs: Shows informative message about data requirements
+    
+    AUTHENTICATION:
+    • Session management via auth.session_manager
+    • Logout button in top navigation
+    • Requires valid user session to access page
+    
+    STYLING:
+    • Dark theme (#141d26 background, #E2E2D2 text)
+    • Gradient backgrounds (#243447 accents)
+    • Responsive layout for mobile/desktop
+    • GPU acceleration visual indicator
+    """
     
     # Sidebar configuration
     with st.sidebar:
@@ -455,28 +772,28 @@ def main():
         try:
             response = requests.get(f"{ollama_host}/api/tags", timeout=5)
             if response.status_code == 200:
-                st.success("✅ Ollama Server: Online")
+                st.success("Ollama Server: Online")
                 
                 models_data = response.json()
                 available_models = [m.get('name', '') for m in models_data.get('models', [])]
                 
                 if model in available_models or any(model in m for m in available_models):
-                    st.success(f"✅ Mistral Model: Available")
+                    st.success(f"Mistral Model: Available")
                 else:
-                    st.warning(f"⚠️ Model '{model}' not found")
+                    st.warning(f"Model '{model}' not found")
                     st.info("Available models: " + ", ".join(available_models[:3]))
             else:
-                st.error("❌ Ollama Server: Offline")
+                st.error("Ollama Server: Offline")
         except Exception as e:
-            st.error("❌ Cannot connect to Ollama")
+            st.error("Cannot connect to Ollama")
             st.caption(f"Error: {str(e)[:100]}")
         
         # GPU Status
         st.markdown("### GPU Status")
         if use_gpu:
-            st.info("🎮 GPU acceleration enabled\n\nOllama will automatically use available GPU (NVIDIA CUDA, AMD ROCm, or Apple Metal)")
+            st.info("GPU acceleration enabled\n\nOllama will automatically use available GPU (NVIDIA CUDA, AMD ROCm, or Apple Metal)")
         else:
-            st.warning("💻 CPU-only mode\n\nProcessing will be slower")
+            st.warning("CPU-only mode\n\nProcessing will be slower")
         
         st.markdown("---")
         st.markdown("## About")
@@ -628,7 +945,7 @@ Analyze and provide:
 Be specific and actionable."""
 
                 gpu_status = "with GPU acceleration" if use_gpu else "on CPU"
-                with st.spinner(f"🤖 Mistral LLM analyzing {gpu_status}..."):
+                with st.spinner(f"Mistral LLM analyzing {gpu_status}..."):
                     analysis = call_mistral(ollama_host, model, prompt, use_gpu)
                 
                 st.markdown("### Analysis Result")

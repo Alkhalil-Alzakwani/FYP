@@ -1,97 +1,145 @@
 r"""
-================================================================================
-MULTILAYERED CYBER DEFENSE PLATFORM - SYSTEM CONFIGURATION
-================================================================================
+MULTILAYERED CYBER DEFENSE PLATFORM - SYSTEM CONFIGURATION MANAGEMENT
+╚════════════════════════════════════════════════════════════════════════════╝
 
 File: pages/System_Configuration.py
-Purpose: Administrative configuration panel for system settings and parameters
+Purpose: Centralized administrative interface for system settings and integration parameters
 
 DESCRIPTION:
-    This module provides a centralized interface for administrators to manage
-    system configurations, API credentials, security thresholds, and operational
-    parameters. All settings are persisted in YAML configuration files and can
-    be dynamically updated without system restart.
+    Secure administration panel for managing all platform configuration settings,
+    API credentials, integration parameters, security policies, and operational
+    thresholds. All settings persist to YAML/JSON files with automatic backup
+    before updates. Admin-only access with role-based enforcement.
 
-CONFIGURATION CATEGORIES:
-    1. Database Configuration:
-        - Database type selection (SQLite/MySQL)
-        - Connection parameters (host, port, database name)
-        - Authentication credentials
-        - Connection pool settings
-        
-    2. Splunk SIEM Configuration:
-        - Splunk server URL and port
-        - API authentication token
-        - Search query parameters
-        - Index names and sourcetypes
-        - Query time ranges
-        
-    3. Mistral AI Configuration:
-        - API endpoint URL
-        - API key management
-        - Model selection
-        - Temperature and token limits
-        - Confidence thresholds
-        
-    4. pfSense Firewall Configuration:
-        - Firewall API endpoint
-        - API credentials
-        - Auto-block settings
-        - Rule priority configuration
-        
-    5. Security Settings:
-        - Session timeout duration
-        - Maximum login attempts
-        - JWT secret key
-        - Password policy rules
-        - Rate limiting parameters
-        
-    6. Threat Detection Thresholds:
-        - Severity level thresholds (Low/Medium/High/Critical)
-        - LLM confidence minimum
-        - Auto-response triggers
-        - Alert notification levels
-        
-    7. Performance Tuning:
-        - Log retention period
-        - Cache settings
-        - Batch processing sizes
-        - Refresh intervals
+CONFIGURATION CATEGORIES & PERSISTENCE:
 
-FEATURES:
-    - Secure credential management
-    - Configuration validation
-    - Test connectivity buttons
-    - Export/Import configuration
-    - Configuration backup and restore
-    - Real-time configuration updates
-    - Audit logging for changes
-    - Role-based access control (Admin only)
+    1. Database Configuration (db_config.yaml)
+       ├─ Database type selection (SQLite, MySQL, PostgreSQL)
+       ├─ Connection parameters (host, port, database name)
+       ├─ Authentication (username, password)
+       ├─ Connection pooling (pool size, timeout)
+       └─ Test connectivity button
 
-CONFIGURATION FILES:
-    - config/db_config.yaml: Database settings
-    - config/splunk_config.yaml: SIEM integration
-    - config/mistral_config.yaml: AI model settings
-    - config/security.yaml: Security parameters
-    - config/thresholds.json: Detection thresholds
+    2. Splunk SIEM Configuration (splunk_config.yaml)
+       ├─ Splunk server URL and port (default 172.20.10.3:8000)
+       ├─ API authentication token
+       ├─ Search query parameters
+       ├─ Index names and sourcetypes
+       ├─ Query time ranges
+       └─ Connection test button
 
-SECURITY:
-    - Admin role required to access this page
-    - Sensitive data masked in UI (passwords, API keys)
-    - Configuration changes logged to audit trail
-    - Backup created before each update
-    - Encryption for stored credentials
+    3. Mistral AI Configuration (mistral_config.yaml)
+       ├─ API endpoint URL (local Ollama or remote)
+       ├─ API key/authentication
+       ├─ Model selection and parameters
+       ├─ Temperature and token limits
+       ├─ Confidence thresholds
+       └─ Connection test button
+
+    4. Security Settings (security.yaml)
+       ├─ Session timeout duration (minutes)
+       ├─ Maximum login attempts before lockout
+       ├─ JWT secret key management
+       ├─ Password policy rules
+       ├─ Rate limiting parameters
+       └─ Encryption settings
+
+    5. Detection Thresholds (thresholds.json)
+       ├─ Severity level thresholds (info/low/medium/high/critical)
+       ├─ AI confidence minimum percentage
+       ├─ Auto-response trigger points
+       ├─ Alert notification levels
+       └─ False positive threshold
+
+    6. Firewall Integration (pfSense configuration)
+       ├─ Firewall API endpoint
+       ├─ API credentials
+       ├─ Auto-block rule settings
+       └─ Rule priority configuration
+
+PAGE STRUCTURE:
+    1. Header:
+       - Title: "System Configuration"
+       - Subtitle: "Configure system settings, API credentials..."
+    
+    2. Admin Role Check:
+       - Validates user_role == 'admin'
+       - Shows error and redirects if non-admin
+    
+    3. Tabbed Interface (6 tabs):
+       - Tab 1: Database Configuration
+       - Tab 2: Splunk Configuration
+       - Tab 3: Mistral AI Configuration
+       - Tab 4: Security Settings
+       - Tab 5: Thresholds
+       - Tab 6: Backup & Restore
+    
+    4. Each tab contains:
+       - Section header (st.subheader)
+       - Configuration inputs (text, number, select fields)
+       - Save button
+       - Connection test button (if applicable)
+       - Sensitive data masking
+    
+    5. Footer:
+       - Last updated timestamp
+    
+    6. Sidebar:
+       - Quick actions (reload, export)
+       - Navigation links (Dashboard, Server Performance)
+       - Admin access warning
+       - "Changes take effect immediately" notice
+
+CONFIGURATION FILE LOCATIONS:
+    config/db_config.yaml: Database connection settings
+    config/splunk_config.yaml: Splunk/SIEM API credentials
+    config/mistral_config.yaml: AI model endpoint and parameters
+    config/security.yaml: Session, auth, encryption settings
+    config/thresholds.json: Detection and alert thresholds
+    config/*.yaml.bak: Automatic backups before updates
+
+SECURITY FEATURES:
+    • Admin role enforcement (UI level access control)
+    • Sensitive data masking in display (passwords, API keys)
+    • Automatic backup creation before save operations
+    • YAML/JSON validation before persistence
+    • Backup file (.bak) created with timestamp
+    • Configuration changes logged with timestamp
+    • Password fields use st.text_input with type="password"
+
+UI PATTERNS:
+    • Two-column layouts for form organization
+    • Selectbox with defaults from current config
+    • Number inputs with min/max constraints
+    • Text inputs for credentials (masked where applicable)
+    • Buttons: "Save Config", "Test Connection", "Backup", "Restore"
+    • Success/Error/Warning/Info messages for user feedback
 
 DEPENDENCIES:
-    - streamlit: UI framework
-    - yaml: Configuration file handling
-    - json: Threshold file management
-    - pathlib: File path operations
+    External Libraries:
+        - streamlit: Web UI framework
+        - yaml: YAML file reading/writing
+        - json: JSON file parsing
+        - pathlib: File path operations
+        - datetime: Timestamps for backups
+        - re: Regular expression validation
+    
+    Internal Modules: None
 
-Author: Multilayered Cyber Defense Team
-Last Modified: October 30, 2025
-Version: 1.0.0
-================================================================================
+ERROR HANDLING:
+    • File not found: Return empty dict, show warning
+    • YAML parse error: Catch and display error message
+    • Permission denied: Show error, don't crash
+    • Backup creation: Try-except, graceful failure
+    • Invalid input: Min/max constraints on number inputs
+
+DATABASE QUERIES: None (configuration management only)
+
+ROLE-BASED ACCESS:
+    • Admin: Full access to all configuration tabs
+    • Analyst/Viewer: Access denied, redirect to dashboard
+
+╚════════════════════════════════════════════════════════════════════════════╝
 """
 
 import streamlit as st
@@ -112,9 +160,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ============================================================================
-# CUSTOM CSS FOR SCROLLING
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  CUSTOM CSS FOR SCROLLING AND THEME APPLICATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Enable smooth scrolling, apply dark theme, optimize rendering
 
 st.markdown("""
 <style>
@@ -151,9 +200,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================================
-# CONSTANTS & PATHS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  CONSTANTS & FILE PATHS - CONFIGURATION FILE LOCATIONS
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Define paths to all configuration files
 
 PROJECT_ROOT = Path(__file__).parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
@@ -166,12 +216,30 @@ CONFIG_FILES = {
     'thresholds': CONFIG_DIR / "thresholds.json"
 }
 
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  HELPER FUNCTIONS - CONFIGURATION I/O AND UTILITIES
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Load/save configs, mask sensitive data, test connections
 
 def load_config(config_file):
-    """Load configuration from YAML file"""
+    """
+    Load configuration from YAML file.
+    
+    Purpose: Read and parse YAML configuration file with error handling.
+    
+    Args:
+        config_file (Path): Path object pointing to YAML config file
+    
+    Returns:
+        dict: Parsed YAML content, empty dict {} if file missing or error
+    
+    Error Handling:
+        - File not found: Return empty dict (silent fail)
+        - YAML parse error: Show error message, return empty dict
+        - Permission denied: Show error message, return empty dict
+    
+    Used By: All render_*_config() functions to load current settings
+    """
     try:
         if config_file.exists():
             with open(config_file, 'r') as f:
@@ -184,7 +252,35 @@ def load_config(config_file):
 
 
 def save_config(config_file, data):
-    """Save configuration to YAML file"""
+    """
+    Save configuration to YAML file with automatic backup.
+    
+    Purpose: Persist configuration changes to YAML with backup safety.
+    
+    Backup Strategy:
+        1. If config_file exists: Create .bak backup
+        2. Read entire file content
+        3. Write to .yaml.bak with same content
+        4. Write new data to original file
+    
+    Args:
+        config_file (Path): Path object to YAML file
+        data (dict): Configuration dictionary to save
+    
+    Returns:
+        bool: True if save successful, False on error
+    
+    Side Effects:
+        - Creates/updates config_file with new YAML data
+        - Creates backup file: config_file.with_suffix('.yaml.bak')
+        - Shows error message if save fails
+    
+    Used By: All render_*_config() Save buttons
+    
+    Error Handling:
+        - File write error: Show error message, return False
+        - Backup creation error: Attempt save anyway
+    """
     try:
         # Create backup before saving
         if config_file.exists():
@@ -205,7 +301,24 @@ def save_config(config_file, data):
 
 
 def load_json_config(config_file):
-    """Load configuration from JSON file"""
+    """
+    Load configuration from JSON file.
+    
+    Purpose: Read and parse JSON configuration file (used for thresholds).
+    
+    Args:
+        config_file (Path): Path object pointing to JSON config file
+    
+    Returns:
+        dict: Parsed JSON content, empty dict {} if file missing or error
+    
+    Error Handling:
+        - File not found: Return empty dict
+        - JSON parse error: Show error message, return empty dict
+        - Permission denied: Show error message, return empty dict
+    
+    Used By: render_thresholds_config() to load threshold settings
+    """
     try:
         if config_file.exists():
             with open(config_file, 'r') as f:
@@ -218,7 +331,33 @@ def load_json_config(config_file):
 
 
 def save_json_config(config_file, data):
-    """Save configuration to JSON file"""
+    """
+    Save configuration to JSON file with automatic backup.
+    
+    Purpose: Persist JSON configuration with safety backup.
+    
+    Backup Strategy:
+        1. If config_file exists: Create .json.bak backup
+        2. Write new data to original file with indent=4
+    
+    Args:
+        config_file (Path): Path object to JSON file
+        data (dict): Configuration dictionary to save
+    
+    Returns:
+        bool: True if save successful, False on error
+    
+    Side Effects:
+        - Creates/updates config_file with new JSON data
+        - Creates backup file: config_file.with_suffix('.json.bak')
+        - Shows error message if save fails
+    
+    Used By: render_thresholds_config() Save button
+    
+    Error Handling:
+        - File write error: Show error message, return False
+        - JSON serialization error: Show error message, return False
+    """
     try:
         # Create backup
         if config_file.exists():
@@ -239,14 +378,58 @@ def save_json_config(config_file, data):
 
 
 def mask_sensitive_data(value):
-    """Mask sensitive data for display"""
+    """
+    Mask sensitive data for display (passwords, API keys, tokens).
+    
+    Purpose: Display sensitive information without exposing full value.
+    
+    Masking Strategy:
+        - Show first 2 characters
+        - Hide middle characters with asterisks
+        - Show last 2 characters
+        - Example: "sk_live_1234567890" → "sk_**************90"
+    
+    Args:
+        value (str): Sensitive string to mask
+    
+    Returns:
+        str: Masked string (first2 + asterisks + last2)
+             Returns "****" if value is None or < 4 characters
+    
+    Used By: Display of passwords, API keys, tokens in configuration forms
+    
+    Note: Masking is UI only - actual value still used in operations
+    """
     if not value or len(value) < 4:
         return "****"
     return value[:2] + "*" * (len(value) - 4) + value[-2:]
 
 
 def test_database_connection(config):
-    """Test database connection"""
+    """
+    Test database connection.
+    
+    Purpose: Validate database configuration by attempting connection.
+    
+    Args:
+        config (dict): Database configuration dictionary with:
+            - type: 'SQLite', 'MySQL', or 'PostgreSQL'
+            - host, port, database, username, password (if applicable)
+    
+    Returns:
+        tuple: (success: bool, message: str)
+            - (True, "Connection successful") if connection works
+            - (False, error_message) if connection fails
+    
+    Error Handling:
+        - Connection timeout: Catch and return False with message
+        - Authentication error: Catch and return False with message
+        - Database not found: Catch and return False with message
+    
+    Used By: "Test Connection" button in Database Configuration tab
+    
+    Note: Currently placeholder - implement with actual DB driver
+    """
     try:
         # Placeholder for actual connection test
         st.info("Testing database connection...")
@@ -257,7 +440,30 @@ def test_database_connection(config):
 
 
 def test_splunk_connection(config):
-    """Test Splunk API connection"""
+    """
+    Test Splunk API connection.
+    
+    Purpose: Validate Splunk configuration by testing API endpoint.
+    
+    Args:
+        config (dict): Splunk configuration with:
+            - url: Splunk server URL (e.g., "http://172.20.10.3:8000")
+            - token: API authentication token
+    
+    Returns:
+        tuple: (success: bool, message: str)
+            - (True, "Connection successful") if API responds
+            - (False, error_message) if connection fails
+    
+    Error Handling:
+        - Network unreachable: Catch and return False
+        - 401 Unauthorized: Catch and return False
+        - Timeout: Catch and return False
+    
+    Used By: "Test Connection" button in Splunk Configuration tab
+    
+    Note: Currently placeholder - implement with requests library
+    """
     try:
         st.info("Testing Splunk connection...")
         # Add actual connection logic here
@@ -267,7 +473,31 @@ def test_splunk_connection(config):
 
 
 def test_mistral_connection(config):
-    """Test Mistral AI API connection"""
+    """
+    Test Mistral AI API connection.
+    
+    Purpose: Validate Mistral/Ollama configuration by testing endpoint.
+    
+    Args:
+        config (dict): Mistral configuration with:
+            - url: Ollama/Mistral endpoint (e.g., "http://localhost:11434")
+            - api_key: Optional API key (if using remote endpoint)
+            - model: Model name to test
+    
+    Returns:
+        tuple: (success: bool, message: str)
+            - (True, "Connection successful") if endpoint responds
+            - (False, error_message) if connection fails
+    
+    Error Handling:
+        - Endpoint unreachable: Catch and return False
+        - Model not found: Catch and return False
+        - API error: Catch and return False
+    
+    Used By: "Test Connection" button in Mistral AI Configuration tab
+    
+    Note: Currently placeholder - implement with ollama client
+    """
     try:
         st.info("Testing Mistral AI connection...")
         # Add actual connection logic here
@@ -276,9 +506,10 @@ def test_mistral_connection(config):
         return False, str(e)
 
 
-# ============================================================================
-# CONFIGURATION SECTIONS
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  CONFIGURATION SECTIONS - TAB RENDERING FUNCTIONS
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Render configuration UI for each settings category
 
 def render_database_config():
     """Render database configuration section"""
@@ -718,15 +949,97 @@ def render_backup_restore():
             st.success("Configuration restored successfully!")
 
 
-# ============================================================================
-# MAIN CONTENT
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  MAIN APPLICATION - PAGE ORCHESTRATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Orchestrate admin panel with role checking and tab rendering
 
 def main():
-    """Main function for system configuration"""
+    """
+    Main function for system configuration management.
     
+    Purpose: Orchestrate admin panel with role enforcement and configuration tabs.
+    
+    Execution Flow:
+        1. Display page title and description
+        2. Check user role from session state
+        3. If role != 'admin': Show access denied, redirect button, exit
+        4. If admin:
+           - Create 6-tab interface
+           - Tab 1: Database Configuration
+           - Tab 2: Splunk Configuration
+           - Tab 3: Mistral AI Configuration
+           - Tab 4: Security Settings
+           - Tab 5: Detection Thresholds
+           - Tab 6: Backup & Restore
+        5. Display last updated timestamp
+    
+    Role-Based Access Control:
+        - Admin: Full access to all configuration tabs
+        - Analyst/Viewer: Access denied message + redirect button
+    
+    Tab Structure:
+        Each tab calls corresponding render_*_config() function which:
+        1. Loads current configuration from file
+        2. Renders form inputs with current values
+        3. Provides Save button to persist changes
+        4. Provides Test Connection button (where applicable)
+        5. Shows success/error messages
+    
+    Returns: None (renders page)
+    
+    Session State:
+        - st.session_state.role: User role (admin/analyst/viewer)
+    
+    Used By: if __name__ == "__main__" entry point
+    """
+      # ════════════════════════════════════════════════════════════════════════
+    # TOP BAR - NAVIGATION AND BRANDING
+    # ════════════════════════════════════════════════════════════════════════
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+        .topbar {
+            background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+            color: #E2E2D2;
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .topbar .left { display:flex; align-items:center; gap:12px; }
+        .topbar .brand { font-weight:700; font-size:18px; color:#E2E2D2; }
+        .topbar .links { display:flex; gap:10px; align-items:center; }
+        .topbar a { color: #E2E2D2; text-decoration: none; padding:8px 12px; border-radius:6px; font-size:14px; transition: all 0.3s ease; }
+        .topbar a:hover { background:#243447; color:#E2E2D2; }
+        .topbar .cta { background: #c51f5d; color: #ffffff; padding:8px 12px; border-radius:6px; font-weight:600; }
+        .topbar .cta:hover { background: #d63574; }
+        @media (max-width: 700px) {
+            .topbar { flex-direction: column; align-items: flex-start; gap:8px; }
+        }
+    </style>
+
+    <div class="topbar">
+        <div class="left">
+            <span class="brand"></span>
+        </div>
+        <div class="links">
+            <a href="Dashboard_Overview" title="Dashboard">Dashboard</a>
+            <a href="Live_Threat_Monitor" title="Threats">Monitor</a>
+            <a href="Performance_Metrics" title="Metrics">Metrics</a>
+            <a class="cta" href="System_Configuration" title="Configuration">Configuration</a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.title("System Configuration")
     st.markdown("Configure system settings, API credentials, and operational parameters")
+    
+
     st.markdown("---")
     
     # Check admin role only (no authentication required)
@@ -771,9 +1084,10 @@ def main():
     st.caption(f"Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 
-# ============================================================================
-# SIDEBAR
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  SIDEBAR - QUICK ACTIONS AND NAVIGATION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Admin controls, navigation links, access warnings
 
 with st.sidebar:
     st.title("Configuration")
@@ -796,9 +1110,10 @@ with st.sidebar:
     st.info("Changes take effect immediately")
 
 
-# ============================================================================
-# APPLICATION ENTRY POINT
-# ============================================================================
+# ════════════════════════════════════════════════════════════════════════════
+#  APPLICATION ENTRY POINT - SCRIPT EXECUTION
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Execute main() when script is run directly
 
 if __name__ == "__main__":
     main()
