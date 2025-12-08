@@ -243,43 +243,75 @@ def get_network_info():
 def get_gpu_info():
     """Get GPU information and metrics (if available)"""
     try:
-        import GPUtil
-        gpus = GPUtil.getGPUs()
-        if gpus:
-            gpu = gpus[0]  # Get first GPU
-            return {
-                'available': True,
-                'name': gpu.name,
-                'load': gpu.load * 100,
-                'memory_used': gpu.memoryUsed,
-                'memory_total': gpu.memoryTotal,
-                'memory_percent': (gpu.memoryUsed / gpu.memoryTotal) * 100 if gpu.memoryTotal > 0 else 0,
-                'temperature': gpu.temperature
-            }
-        else:
-            # GPUtil is installed but no GPU detected
-            return {
-                'available': False,
-                'name': 'No GPU Detected',
-                'load': 0,
-                'memory_used': 0,
-                'memory_total': 0,
-                'memory_percent': 0,
-                'temperature': 0,
-                'error': 'no_gpu'
-            }
-    except ImportError:
-        # GPUtil not installed
+        # Try using GPUtil first
+        try:
+            import GPUtil
+            gpus = GPUtil.getGPUs()
+            if gpus:
+                gpu = gpus[0]  # Get first GPU
+                # Ensure values are properly converted to float
+                load = float(gpu.load * 100) if hasattr(gpu, 'load') else 0
+                memory_used = float(gpu.memoryUsed) if hasattr(gpu, 'memoryUsed') else 0
+                memory_total = float(gpu.memoryTotal) if hasattr(gpu, 'memoryTotal') else 0
+                memory_percent = (memory_used / memory_total * 100) if memory_total > 0 else 0
+                temperature = float(gpu.temperature) if hasattr(gpu, 'temperature') and gpu.temperature else 0
+                
+                return {
+                    'available': True,
+                    'name': str(gpu.name) if hasattr(gpu, 'name') else 'GPU',
+                    'load': load,
+                    'memory_used': memory_used,
+                    'memory_total': memory_total,
+                    'memory_percent': memory_percent,
+                    'temperature': temperature
+                }
+        except ImportError:
+            pass
+        
+        # Fallback: Try using nvidia-smi for NVIDIA GPUs
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu', 
+                 '--format=csv,nounits,noheader'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                parts = result.stdout.strip().split(',')
+                if len(parts) >= 5:
+                    name = parts[0].strip()
+                    memory_used = float(parts[1].strip())
+                    memory_total = float(parts[2].strip())
+                    load = float(parts[3].strip())
+                    temperature = float(parts[4].strip())
+                    memory_percent = (memory_used / memory_total * 100) if memory_total > 0 else 0
+                    
+                    return {
+                        'available': True,
+                        'name': name,
+                        'load': load,
+                        'memory_used': memory_used,
+                        'memory_total': memory_total,
+                        'memory_percent': memory_percent,
+                        'temperature': temperature
+                    }
+        except Exception:
+            pass
+        
+        # If no GPU found
         return {
             'available': False,
-            'name': 'N/A',
+            'name': 'No GPU Detected',
             'load': 0,
             'memory_used': 0,
             'memory_total': 0,
             'memory_percent': 0,
             'temperature': 0,
-            'error': 'not_installed'
+            'error': 'no_gpu'
         }
+        
     except Exception as e:
         # Other errors
         return {
@@ -632,698 +664,311 @@ def update_dashboard():
         st.markdown("---")
     
     # ========================================================================
-    # ROW 2: CPU, GPU & MEMORY (LEFT) + SYSTEM RESOURCES (RIGHT)
+    # ROW 2: CPU, GPU & MEMORY CARDS
     # ========================================================================
     
-    # Create main layout with left column for gauges and right column for System Resources
-    main_left_col, main_right_col = st.columns([2, 1])
+    # Inner layout for CPU, GPU, Memory gauges
+    row2_col1, row2_col2, row2_col3 = st.columns([1, 1, 1])
     
-    with main_left_col:
-        # Inner layout for CPU, GPU, Memory gauges
-        row2_col1, row2_col2, row2_col3 = st.columns([1, 1, 1])
-        
-        # CPU CARD
-        with row2_col1:
-            st.markdown(f"""
-            <style>
-                .detail-card {{
-                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                    border-radius: 12px;
-                    padding: 20px;
-                    color: #E2E2D2;
-                    margin-top: 20px;
-                    transition: all 0.3s ease;
-                    min-height: 320px;
-                    display: flex;
-                    flex-direction: column;
-                }}
-                .detail-card h5 {{
-                    font-size: 16px;
-                    font-weight: bold;
-                    text-align: center;
-                    margin: 0 0 15px 0;
-                    color: #65c1f9;
-                }}
-                .detail-item {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 10px;
-                    font-size: 12px;
-                }}
-                .detail-item-label {{
-                    opacity: 0.85;
-                    color: #E2E2D2;
-                }}
-                .detail-item-value {{
-                    font-weight: 700;
-                    color: #65c1f9;
-                }}
-                .detail-card:hover {{
-                    transform: translateY(-4px);
-                    box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
-                }}
-            </style>
-            <div class="detail-card">
-                <h5>CPU Usage</h5>
-                <div class="detail-item">
-                    <span class="detail-item-label">Physical Cores:</span>
-                    <span class="detail-item-value">{cpu_info['count_physical']}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-item-label">Logical Cores:</span>
-                    <span class="detail-item-value">{cpu_info['count_logical']}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-item-label">Current Freq:</span>
-                    <span class="detail-item-value">{cpu_info['frequency_current']:.0f} MHz</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-item-label">Max Freq:</span>
-                    <span class="detail-item-value">{cpu_info['frequency_max']:.0f} MHz</span>
-                </div>
-                <div class="detail-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(101, 193, 249, 0.2);">
-                    <span class="detail-item-label">Overall Usage:</span>
-                    <span class="detail-item-value" style="font-size: 14px;">{cpu_info['percent']:.1f}%</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # GPU CARD
-        with row2_col2:
-            if gpu_info['available']:
-                gpu_name = gpu_info['name'][:25] + "..." if len(gpu_info['name']) > 25 else gpu_info['name']
-                temp_display = f"{gpu_info['temperature']:.1f} °C" if gpu_info['temperature'] > 0 else "N/A"
-                
-                st.markdown(f"""
-                <style>
-                    .detail-card {{
-                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                        border-radius: 12px;
-                        padding: 20px;
-                        color: #E2E2D2;
-                        margin-top: 20px;
-                        transition: all 0.3s ease;
-                        min-height: 320px;
-                        display: flex;
-                        flex-direction: column;
-                    }}
-                    .detail-card h5 {{
-                        font-size: 16px;
-                        font-weight: bold;
-                        text-align: center;
-                        margin: 0 0 15px 0;
-                        color: #65c1f9;
-                    }}
-                    .detail-item {{
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        margin-bottom: 10px;
-                        font-size: 12px;
-                    }}
-                    .detail-item-label {{
-                        opacity: 0.85;
-                        color: #E2E2D2;
-                    }}
-                    .detail-item-value {{
-                        font-weight: 700;
-                        color: #65c1f9;
-                    }}
-                    .detail-card:hover {{
-                        transform: translateY(-4px);
-                        box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
-                    }}
-                </style>
-                <div class="detail-card">
-                    <h5>GPU Usage</h5>
-                    <div class="detail-item">
-                        <span class="detail-item-label">GPU Name:</span>
-                        <span class="detail-item-value" style="font-size: 11px;">{gpu_name}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-item-label">Memory Used:</span>
-                        <span class="detail-item-value">{gpu_info['memory_used']:.0f} MB</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-item-label">Memory Total:</span>
-                        <span class="detail-item-value">{gpu_info['memory_total']:.0f} MB</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-item-label">Memory Usage:</span>
-                        <span class="detail-item-value">{gpu_info['memory_percent']:.1f}%</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-item-label">Temperature:</span>
-                        <span class="detail-item-value">{temp_display}</span>
-                    </div>
-                    <div class="detail-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(101, 193, 249, 0.2);">
-                        <span class="detail-item-label">Overall Usage:</span>
-                        <span class="detail-item-value" style="font-size: 14px;">{gpu_info['load']:.1f}%</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                error_type = gpu_info.get('error', 'unknown')
-                error_msg = "No GPU detected" if error_type == 'no_gpu' else "GPU unavailable"
-                
-                st.markdown(f"""
-                <style>
-                    .detail-card {{
-                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                        border-radius: 12px;
-                        padding: 20px;
-                        color: #E2E2D2;
-                        margin-top: 20px;
-                        transition: all 0.3s ease;
-                        text-align: center;
-                        min-height: 320px;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: center;
-                    }}
-                    .detail-card:hover {{
-                        transform: translateY(-4px);
-                        box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
-                    }}
-                </style>
-                <div class="detail-card">
-                    <h5 style="color: #65c1f9; margin: 0;">GPU Usage</h5>
-                    <div style="margin-top: 20px; opacity: 0.7; font-size: 14px;">{error_msg}</div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        # MEMORY CARD
-        with row2_col3:
-            swap_text = f"{get_size(mem_info['swap_total'])} ({mem_info['swap_percent']:.1f}%)" if mem_info['swap_total'] > 0 else "Not configured"
-            
-            st.markdown(f"""
-            <style>
-                .detail-card {{
-                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                    border-radius: 12px;
-                    padding: 20px;
-                    color: #E2E2D2;
-                    margin-top: 20px;
-                    transition: all 0.3s ease;
-                    min-height: 320px;
-                    display: flex;
-                    flex-direction: column;
-                }}
-                .detail-card h5 {{
-                    font-size: 16px;
-                    font-weight: bold;
-                    text-align: center;
-                    margin: 0 0 15px 0;
-                    color: #65c1f9;
-                }}
-                .detail-item {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 10px;
-                    font-size: 12px;
-                }}
-                .detail-item-label {{
-                    opacity: 0.85;
-                    color: #E2E2D2;
-                }}
-                .detail-item-value {{
-                    font-weight: 700;
-                    color: #65c1f9;
-                }}
-                .detail-card:hover {{
-                    transform: translateY(-4px);
-                    box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
-                }}
-            </style>
-            <div class="detail-card">
-                <h5>Memory Usage</h5>
-                <div class="detail-item">
-                    <span class="detail-item-label">Total Memory:</span>
-                    <span class="detail-item-value">{get_size(mem_info['total'])}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-item-label">Used:</span>
-                    <span class="detail-item-value">{get_size(mem_info['used'])}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-item-label">Available:</span>
-                    <span class="detail-item-value">{get_size(mem_info['available'])}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-item-label">Swap:</span>
-                    <span class="detail-item-value" style="font-size: 11px;">{swap_text}</span>
-                </div>
-                <div class="detail-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(101, 193, 249, 0.2);">
-                    <span class="detail-item-label">Overall Usage:</span>
-                    <span class="detail-item-value" style="font-size: 14px;">{mem_info['percent']:.1f}%</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Add Network Traffic card under the three gauge cards (within main_left_col)
-        st.markdown("")
-        
-        # NETWORK TRAFFIC CARD
+    # CPU CARD
+    with row2_col1:
         st.markdown(f"""
         <style>
-            .network-card {{
+            .detail-card {{
                 background: linear-gradient(135deg, #141d26 0%, #243447 100%);
                 border-radius: 12px;
                 padding: 20px;
                 color: #E2E2D2;
                 margin-top: 20px;
+                margin-left: auto;
+                margin-right: auto;
                 transition: all 0.3s ease;
+                min-height: 320px;
+                display: flex;
+                flex-direction: column;
+                text-align: center;
             }}
-            .network-card h5 {{
+            .detail-card h5 {{
                 font-size: 16px;
                 font-weight: bold;
                 text-align: center;
                 margin: 0 0 15px 0;
                 color: #65c1f9;
             }}
-            .network-stats {{
+            .detail-item {{
                 display: flex;
-                justify-content: space-around;
+                justify-content: center;
                 align-items: center;
+                gap: 12px;
+                margin-bottom: 10px;
+                font-size: 12px;
                 flex-wrap: wrap;
-                gap: 15px;
-                margin-top: 15px;
-                padding-top: 15px;
-                border-top: 1px solid rgba(101, 193, 249, 0.2);
             }}
-            .network-stat-item {{
-                text-align: center;
-            }}
-            .network-stat-label {{
+            .detail-item-label {{
                 opacity: 0.85;
                 color: #E2E2D2;
-                font-size: 11px;
-                display: block;
-                margin-bottom: 5px;
             }}
-            .network-stat-value {{
+            .detail-item-value {{
                 font-weight: 700;
-                color: #65c1f9;
-                font-size: 13px;
+                    color: #65c1f9;
             }}
-            .network-card:hover {{
+            .detail-card:hover {{
                 transform: translateY(-4px);
                 box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
             }}
         </style>
-        <div class="network-card">
-            <h5>Network Traffic</h5>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.plotly_chart(
-            create_network_realtime_chart(st.session_state.network_history),
-            use_container_width=True
-        )
-        
-        st.markdown(f"""
-        <div class="network-card" style="margin-top: -15px; border-radius: 0 0 12px 12px; padding-top: 0;">
-            <div class="network-stats">
-                <div class="network-stat-item">
-                    <span class="network-stat-label">Upload</span>
-                    <span class="network-stat-value" style="color: #dc3545;">{sent_speed:.2f} Kbps</span>
-                </div>
-                <div class="network-stat-item">
-                    <span class="network-stat-label">Download</span>
-                    <span class="network-stat-value" style="color: #007bff;">{recv_speed:.2f} Kbps</span>
-                </div>
-                <div class="network-stat-item">
-                    <span class="network-stat-label">Total Sent</span>
-                    <span class="network-stat-value">{get_size(net_info['bytes_sent'])}</span>
-                </div>
-                <div class="network-stat-item">
-                    <span class="network-stat-label">Total Received</span>
-                    <span class="network-stat-value">{get_size(net_info['bytes_recv'])}</span>
-                </div>
+        <div class="detail-card">
+            <h5>CPU Usage</h5>
+            <div class="detail-item">
+                <span class="detail-item-label">Physical Cores:</span>
+                <span class="detail-item-value">{cpu_info['count_physical']}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-item-label">Logical Cores:</span>
+                <span class="detail-item-value">{cpu_info['count_logical']}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-item-label">Current Freq:</span>
+                <span class="detail-item-value">{cpu_info['frequency_current']:.0f} MHz</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-item-label">Max Freq:</span>
+                <span class="detail-item-value">{cpu_info['frequency_max']:.0f} MHz</span>
+            </div>
+            <div class="detail-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(101, 193, 249, 0.2);">
+                <span class="detail-item-label">Overall Usage:</span>
+                <span class="detail-item-value" style="font-size: 14px;">{cpu_info['percent']:.1f}%</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
     
-    # Now add the System Resources card in the right column
-    with main_right_col:
-        # UNIFIED SYSTEM RESOURCES CARD (VERTICAL) - Single container with one background
-        with st.container():
-            st.markdown("""
+    # GPU CARD
+    with row2_col2:
+        if gpu_info['available']:
+            gpu_name = gpu_info['name'][:25] + "..." if len(gpu_info['name']) > 25 else gpu_info['name']
+            temp_display = f"{gpu_info['temperature']:.1f} °C" if gpu_info['temperature'] > 0 else "N/A"
+            
+            st.markdown(f"""
             <style>
-                .system-resources-card {
+                .detail-card {{
                     background: linear-gradient(135deg, #141d26 0%, #243447 100%);
                     border-radius: 12px;
                     padding: 20px;
                     color: #E2E2D2;
                     margin-top: 20px;
+                    margin-left: auto;
+                    margin-right: auto;
                     transition: all 0.3s ease;
-                }
-                .system-resources-card h5 {
+                    min-height: 320px;
+                    display: flex;
+                    flex-direction: column;
+                    text-align: center;
+                }}
+                .detail-card h5 {{
                     font-size: 16px;
                     font-weight: bold;
                     text-align: center;
                     margin: 0 0 15px 0;
                     color: #65c1f9;
-                }
-                .system-resources-card:hover {
+                }}
+                .detail-item {{
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 10px;
+                    font-size: 12px;
+                    flex-wrap: wrap;
+                }}
+                .detail-item-label {{
+                    opacity: 0.85;
+                    color: #E2E2D2;
+                }}
+                .detail-item-value {{
+                    font-weight: 700;
+                    color: #65c1f9;
+                }}
+                .detail-card:hover {{
                     transform: translateY(-4px);
                     box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
-                }
+                }}
             </style>
-            <div class="system-resources-card">
-                <h5>System Resources</h5>
+            <div class="detail-card">
+                <h5>GPU Usage</h5>
+                <div class="detail-item">
+                    <span class="detail-item-label">GPU Name:</span>
+                    <span class="detail-item-value" style="font-size: 11px;">{gpu_name}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Memory Used:</span>
+                    <span class="detail-item-value">{gpu_info['memory_used']:.0f} MB</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Memory Total:</span>
+                    <span class="detail-item-value">{gpu_info['memory_total']:.0f} MB</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Memory Usage:</span>
+                    <span class="detail-item-value">{gpu_info['memory_percent']:.1f}%</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-item-label">Temperature:</span>
+                    <span class="detail-item-value">{temp_display}</span>
+                </div>
+                <div class="detail-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(101, 193, 249, 0.2);">
+                    <span class="detail-item-label">Overall Usage:</span>
+                    <span class="detail-item-value" style="font-size: 14px;">{gpu_info['load']:.1f}%</span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
-            
-            # RAM section
-            st.markdown("""
-            <style>
-                .resource-section {
-                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                    padding: 0 20px;
-                    margin-top: -15px;
-                    border-left: none;
-                    border-right: none;
-                }
-            </style>
-            <div class="resource-section">
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Create vertical RAM bar chart
-            used_percent = (mem_info['used'] / mem_info['total'] * 100) if mem_info['total'] > 0 else 0
-            
-            fig_ram_vert = go.Figure()
-            
-            # Add background bar (100% capacity)
-            fig_ram_vert.add_trace(go.Bar(
-                y=['RAM'],
-                x=[100],
-                orientation='h',
-                name='Capacity',
-                marker=dict(
-                    color='rgba(0, 0, 0, 0.5)',
-                    line=dict(color='#000000', width=2),
-                    cornerradius="30%"
-                ),
-                width=0.3,
-                showlegend=False
-            ))
-            
-            # Add available bar
-            fig_ram_vert.add_trace(go.Bar(
-                y=['RAM'],
-                x=[100],
-                orientation='h',
-                name='Available',
-                marker=dict(
-                    color='#007bff',
-                    line=dict(color='#000000', width=1),
-                    cornerradius="30%"
-                ),
-                width=0.3,
-                showlegend=False
-            ))
-            
-            # Add used bar
-            fig_ram_vert.add_trace(go.Bar(
-                y=['RAM'],
-                x=[used_percent],
-                orientation='h',
-                name='Used',
-                marker=dict(
-                    color='#dc3545',
-                    line=dict(color='#000000', width=1),
-                    cornerradius="30%"
-                ),
-                width=0.3,
-                showlegend=False
-            ))
-            
-            fig_ram_vert.update_layout(
-                height=100,
-                margin=dict(l=60, r=20, t=5, b=5),
-                xaxis={'tickfont': {'size': 10, 'color': 'white'}, 'range': [0, 100], 'title': '%'},
-                yaxis={'tickfont': {'color': 'white', 'size': 12}},
-                paper_bgcolor="#1f1f28",
-                plot_bgcolor="#1f1f28",
-                font={'color': 'white'},
-                barmode='overlay',
-                showlegend=False
-            )
-            
-            st.markdown("""
-            <style>
-                .resource-section {
-                    background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                    padding: 0 20px;
-                    margin-top: -15px;
-                    border-left: none;
-                    border-right: none;
-                }
-            </style>
-            <div class="resource-section">
-            """, unsafe_allow_html=True)
-            st.plotly_chart(fig_ram_vert, use_container_width=True, key="ram_vertical")
-            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            error_type = gpu_info.get('error', 'unknown')
+            error_msg = "No GPU detected" if error_type == 'no_gpu' else "GPU unavailable"
             
             st.markdown(f"""
             <style>
-                .resource-stats {{
+                .detail-card {{
                     background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                    padding: 0 20px 15px 20px;
-                    margin-top: -15px;
-                    border-left: none;
-                    border-right: none;
+                    border-radius: 12px;
+                    padding: 20px;
+                    color: #E2E2D2;
+                    margin-top: 20px;
+                    margin-left: auto;
+                    margin-right: auto;
+                    transition: all 0.3s ease;
+                    text-align: center;
+                    min-height: 320px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                }}
+                .detail-card:hover {{
+                    transform: translateY(-4px);
+                    box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
                 }}
             </style>
-            <div class="resource-stats">
-                <div style="color: white; font-size: 11px; text-align: center;">
-                    <span style="opacity: 0.7;">Used: </span><span style="font-weight: bold; color: #dc3545;">{get_size(mem_info['used'])}</span>
-                    <span style="opacity: 0.7;"> / </span>
-                    <span style="font-weight: bold;">{get_size(mem_info['total'])}</span>
-                </div>
+            <div class="detail-card">
+                <h5 style="color: #65c1f9; margin: 0;">GPU Usage</h5>
+                <div style="margin-top: 20px; opacity: 0.7; font-size: 14px;">{error_msg}</div>
             </div>
             """, unsafe_allow_html=True)
-            
-            # Disk Usage section
-            if disk_info:
-                disk_df = pd.DataFrame(disk_info)
-                
-                # Create vertical disk bar chart
-                fig_disk_vert = go.Figure()
-                
-                # Add background bars (100% capacity)
-                fig_disk_vert.add_trace(go.Bar(
-                    y=disk_df['device'],
-                    x=[100] * len(disk_df),
-                    orientation='h',
-                    name='Capacity',
-                    marker=dict(
-                        color='rgba(0, 0, 0, 0.5)',
-                        line=dict(color='#000000', width=2),
-                        cornerradius="30%"
-                    ),
-                    width=0.3,
-                    showlegend=False
-                ))
-                
-                # Add usage bars with color based on percentage
-                colors = ['#007bff' if percent < 80 else '#dc3545' for percent in disk_df['percent']]
-                fig_disk_vert.add_trace(go.Bar(
-                    y=disk_df['device'],
-                    x=disk_df['percent'],
-                    orientation='h',
-                    name='Usage',
-                    marker=dict(
-                        color=colors,
-                        line=dict(color='#000000', width=1),
-                        cornerradius="30%"
-                    ),
-                    width=0.3,
-                    showlegend=False
-                ))
-                
-                fig_disk_vert.update_layout(
-                    height=max(100, len(disk_df) * 50),
-                    margin=dict(l=60, r=20, t=5, b=5),
-                    xaxis={'tickfont': {'size': 10, 'color': 'white'}, 'range': [0, 100], 'title': '%'},
-                    yaxis={'tickfont': {'color': 'white', 'size': 10}},
-                    paper_bgcolor="#1f1f28",
-                    plot_bgcolor="#1f1f28",
-                    font={'color': 'white'},
-                    barmode='overlay',
-                    showlegend=False
-                )
-                
-                st.markdown("""
-                <style>
-                    .resource-section {
-                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                        padding: 0 20px;
-                        margin-top: -15px;
-                        border-left: none;
-                        border-right: none;
-                    }
-                </style>
-                <div class="resource-section">
-                """, unsafe_allow_html=True)
-                st.plotly_chart(fig_disk_vert, use_container_width=True, key="disk_vertical")
-                st.markdown("</div>", unsafe_allow_html=True)
-                
-                # Disk details
-                disk_items = []
-                for disk in disk_info[:5]:
-                    device_short = disk['device'][:15] + "..." if len(disk['device']) > 15 else disk['device']
-                    disk_items.append(f'<div style="margin-bottom: 6px; font-size: 10px;"><span style="opacity: 0.7;">{device_short}</span><br/><span style="font-weight: bold;">{disk["percent"]:.1f}%</span> <span style="opacity: 0.7;">({get_size(disk["used"])} / {get_size(disk["total"])})</span></div>')
-                
-                disk_details_html = ''.join(disk_items)
-                
-                st.markdown(f"""
-                <style>
-                    .resource-stats {{
-                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                        padding: 0 20px 15px 20px;
-                        margin-top: -15px;
-                        border-left: none;
-                        border-right: none;
-                    }}
-                </style>
-                <div class="resource-stats">
-                    <div style="color: white; padding: 0 0; max-height: 180px; overflow-y: auto;">
-                        {disk_details_html}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <style>
-                    .resource-stats {
-                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                        padding: 20px;
-                        margin-top: -15px;
-                        border-left: none;
-                        border-right: none;
-                    }
-                </style>
-                <div class="resource-stats">
-                    <div style="color: white; text-align: center; opacity: 0.7; font-size: 12px;">
-                        No disk info available
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # CPU Usage by Core vertical section
-            if cpu_info['per_core']:
-                fig_cpu_vert = go.Figure()
-                
-                # Reverse the order so Core 0 is at the top
-                core_labels = [f"Core {i}" for i in range(len(cpu_info['per_core']))]
-                core_values = cpu_info['per_core']
-                
-                # Add background bars (100% capacity)
-                fig_cpu_vert.add_trace(go.Bar(
-                    y=core_labels,
-                    x=[100] * len(core_values),
-                    orientation='h',
-                    name='Max',
-                    marker=dict(
-                        color='rgba(0, 0, 0, 0.5)',
-                        line=dict(color='#000000', width=2),
-                        cornerradius="30%"
-                    ),
-                    width=0.5,
-                    showlegend=False
-                ))
-                
-                # Add usage bars with color based on usage level
-                colors = ['#dc3545' if usage > 80 else '#007bff' for usage in core_values]
-                
-                fig_cpu_vert.add_trace(go.Bar(
-                    y=core_labels,
-                    x=core_values,
-                    orientation='h',
-                    name='Usage',
-                    marker=dict(
-                        color=colors,
-                        opacity=0.9,
-                        line=dict(color='#000000', width=1),
-                        cornerradius="30%"
-                    ),
-                    width=0.5,
-                    showlegend=False
-                ))
-                
-                fig_cpu_vert.update_layout(
-                    height=max(250, len(core_values) * 30),
-                    margin=dict(l=60, r=20, t=5, b=5),
-                    xaxis={'tickfont': {'size': 10, 'color': 'white'}, 'range': [0, 100], 'title': '%'},
-                    yaxis={'tickfont': {'color': 'white', 'size': 10}},
-                    paper_bgcolor="#1f1f28",
-                    plot_bgcolor="#1f1f28",
-                    font={'color': 'white'},
-                    barmode='overlay',
-                    showlegend=False
-                )
-                
-                st.markdown("""
-                <style>
-                    .resource-section {
-                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                        padding: 0 20px;
-                        margin-top: -15px;
-                        border-left: none;
-                        border-right: none;
-                    }
-                </style>
-                <div class="resource-section">
-                """, unsafe_allow_html=True)
-                st.plotly_chart(fig_cpu_vert, use_container_width=True, key="cpu_cores_vertical")
-                st.markdown("</div>", unsafe_allow_html=True)
-                
-                # CPU Core statistics
-                avg_usage = sum(cpu_info['per_core']) / len(cpu_info['per_core']) if cpu_info['per_core'] else 0
-                max_core = max(cpu_info['per_core']) if cpu_info['per_core'] else 0
-                min_core = min(cpu_info['per_core']) if cpu_info['per_core'] else 0
-                
-                st.markdown(f"""
-                <style>
-                    .resource-stats {{
-                        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
-                        padding: 0 20px 15px 20px;
-                        margin-top: -15px;
-                        border-left: none;
-                        border-right: none;
-                        border-radius: 0 0 12px 12px;
-                    }}
-                </style>
-                <div class="resource-stats">
-                    <div style="color: white; padding: 0;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px;">
-                            <span style="opacity: 0.7;">Cores:</span>
-                            <span style="font-weight: bold;">{len(cpu_info['per_core'])}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px;">
-                            <span style="opacity: 0.7;">Avg:</span>
-                            <span style="font-weight: bold; color: #007bff;">{avg_usage:.1f}%</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px;">
-                            <span style="opacity: 0.7;">Max:</span>
-                            <span style="font-weight: bold; color: #dc3545;">{max_core:.1f}%</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                            <span style="opacity: 0.7;">Min:</span>
-                            <span style="font-weight: bold; color: #28a745;">{min_core:.1f}%</span>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
     
+    # MEMORY CARD
+    with row2_col3:
+        swap_text = f"{get_size(mem_info['swap_total'])} ({mem_info['swap_percent']:.1f}%)" if mem_info['swap_total'] > 0 else "Not configured"
+        
+        st.markdown(f"""
+        <style>
+            .detail-card {{
+                background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+                border-radius: 12px;
+                padding: 20px;
+                color: #E2E2D2;
+                margin-top: 20px;
+                margin-left: auto;
+                margin-right: auto;
+                transition: all 0.3s ease;
+                min-height: 320px;
+                display: flex;
+                flex-direction: column;
+                text-align: center;
+            }}
+            .detail-card h5 {{
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+                margin: 0 0 15px 0;
+                color: #65c1f9;
+            }}
+            .detail-item {{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 10px;
+                font-size: 12px;
+                flex-wrap: wrap;
+            }}
+            .detail-item-label {{
+                opacity: 0.85;
+                color: #E2E2D2;
+            }}
+            .detail-item-value {{
+                font-weight: 700;
+                color: #65c1f9;
+            }}
+            .detail-card:hover {{
+                transform: translateY(-4px);
+                box-shadow: 0 8px 20px rgba(101, 193, 249, 0.3);
+            }}
+        </style>
+        <div class="detail-card">
+            <h5>Memory Usage</h5>
+            <div class="detail-item">
+                <span class="detail-item-label">Total Memory:</span>
+                <span class="detail-item-value">{get_size(mem_info['total'])}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-item-label">Used:</span>
+                <span class="detail-item-value">{get_size(mem_info['used'])}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-item-label">Available:</span>
+                <span class="detail-item-value">{get_size(mem_info['available'])}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-item-label">Swap:</span>
+                <span class="detail-item-value" style="font-size: 11px;">{swap_text}</span>
+            </div>
+            <div class="detail-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(101, 193, 249, 0.2);">
+                <span class="detail-item-label">Overall Usage:</span>
+                <span class="detail-item-value" style="font-size: 14px;">{mem_info['percent']:.1f}%</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+
+    # Network Traffic card
     st.markdown("")
+    
+    # NETWORK TRAFFIC CARD
+    st.markdown(f"""
 
-
+    <div class="network-card">
+        <h5>Network Traffic</h5>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.plotly_chart(
+        create_network_realtime_chart(st.session_state.network_history),
+        use_container_width=True
+    )
+    
+    st.markdown(f"""
+    <div class="network-card" style="margin-top: -15px; border-radius: 0 0 12px 12px; padding-top: 0;">
+        <div class="network-stats">
+            <div class="network-stat-item">
+                <span class="network-stat-label">Upload</span>
+                <span class="network-stat-value" style="color: #dc3545;">{sent_speed:.2f} Kbps</span>
+            </div>
+            <div class="network-stat-item">
+                <span class="network-stat-label">Download</span>
+                <span class="network-stat-value" style="color: #007bff;">{recv_speed:.2f} Kbps</span>
+            </div>
+            <div class="network-stat-item">
+                <span class="network-stat-label">Total Sent</span>
+                <span class="network-stat-value">{get_size(net_info['bytes_sent'])}</span>
+            </div>
+            <div class="network-stat-item">
+                <span class="network-stat-label">Total Received</span>
+                <span class="network-stat-value">{get_size(net_info['bytes_recv'])}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    
 def main():
     """Main function for server performance monitoring"""
     
@@ -1369,7 +1014,7 @@ def main():
     """, unsafe_allow_html=True)
     
     st.markdown('<h1 style="text-align: center; margin-bottom: 5px;">Server Performance Dashboard</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="font-size: 16px; text-align: center; color: #B0B0A0;">Real-time system monitoring and resource utilization (Auto-refresh: 2 seconds)</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size: 16px; text-align: center; color: #B0B0A0;">Real-time system monitoring and resource utilization</p>', unsafe_allow_html=True)
     
     # Initialize session state for network history
     if 'network_history' not in st.session_state:

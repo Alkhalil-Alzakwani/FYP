@@ -140,16 +140,22 @@ def parse_ollama_response(resp: requests.Response) -> str:
         return str(data)
 
 
-def call_mistral(host: str, model: str, prompt: str) -> str:
-    """Call local Ollama Mistral API.
+def call_mistral(host: str, model: str, prompt: str, use_gpu: bool = True) -> str:
+    """Call local Ollama Mistral API with GPU acceleration.
 
     Args:
         host: base URL like http://localhost:11434
         model: model name (mistral)
         prompt: analysis prompt
+        use_gpu: whether to use GPU acceleration (default: True)
 
     Returns:
         Text response from the model
+    
+    Note:
+        Ollama automatically uses GPU if available (CUDA/ROCm/Metal).
+        GPU usage is determined by Ollama server configuration.
+        Set OLLAMA_NUM_GPU=1 (or higher) in environment to enable GPU.
     """
     host = host.rstrip("/")
     errors = []
@@ -160,9 +166,15 @@ def call_mistral(host: str, model: str, prompt: str) -> str:
             payload = {
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
-                "stream": False
+                "stream": False,
+                "options": {
+                    "num_gpu": 1 if use_gpu else 0,  # Force GPU usage
+                    "num_thread": 8,  # CPU threads for preprocessing
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                }
             }
-            r = requests.post(url, json=payload, timeout=60)
+            r = requests.post(url, json=payload, timeout=120)  # Increased timeout for GPU processing
             r.raise_for_status()
             return parse_ollama_response(r)
         except Exception as e:
@@ -172,8 +184,18 @@ def call_mistral(host: str, model: str, prompt: str) -> str:
     def try_generate():
         try:
             url = f"{host}/api/generate"
-            payload = {"model": model, "prompt": prompt, "stream": False}
-            r = requests.post(url, json=payload, timeout=60)
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "num_gpu": 1 if use_gpu else 0,  # Force GPU usage
+                    "num_thread": 8,
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                }
+            }
+            r = requests.post(url, json=payload, timeout=120)
             r.raise_for_status()
             return parse_ollama_response(r)
         except Exception as e:
@@ -286,8 +308,8 @@ def extract_threat_score(analysis_text: str) -> Optional[float]:
     return None
 
 
-def analyze_logs_batch(logs: List[Dict], ollama_host: str, model: str) -> Dict:
-    """Analyze a batch of logs using Mistral LLM"""
+def analyze_logs_batch(logs: List[Dict], ollama_host: str, model: str, use_gpu: bool = True) -> Dict:
+    """Analyze a batch of logs using Mistral LLM with GPU acceleration"""
     
     if not logs:
         return {"error": "No logs to analyze"}
@@ -304,7 +326,7 @@ def analyze_logs_batch(logs: List[Dict], ollama_host: str, model: str) -> Dict:
         log_summaries.append(f"[{log['timestamp']}] {log['source']} - {log['host']}: {log['raw_log'][:200]}")
     
     # Create comprehensive prompt for Mistral
-    prompt = f"""Analyze these security logs and provide a threat assessment:
+    prompt = f"""You are a cybersecurity expert analyzing security logs. Provide a detailed threat assessment.
 
 LOGS TO ANALYZE ({total_logs} total):
 {chr(10).join(log_summaries)}
@@ -312,17 +334,20 @@ LOGS TO ANALYZE ({total_logs} total):
 SEVERITY DISTRIBUTION:
 {json.dumps(severity_counts, indent=2)}
 
-Please provide:
-1. PHISHING LIKELIHOOD (0-100%): Estimate the probability of phishing/social engineering
-2. THREAT SUMMARY: Brief summary of suspicious patterns detected
-3. RESPONSE ACTION: Recommended automated response
-4. CONFIDENCE LEVEL: How confident are you in this analysis?
+Analyze these logs and provide:
 
-Format your response clearly with these sections."""
+1. PHISHING LIKELIHOOD: Estimate probability (0-100%) of phishing/social engineering attacks
+2. THREAT SUMMARY: Identify suspicious patterns, anomalies, and potential security risks
+3. ATTACK INDICATORS: List specific indicators of compromise (IOCs)
+4. RESPONSE ACTIONS: Recommend immediate and long-term security responses
+5. CONFIDENCE LEVEL: Rate your confidence in this analysis (Low/Medium/High)
 
-    # Call Mistral
-    with st.spinner("Mistral LLM analyzing logs..."):
-        analysis = call_mistral(ollama_host, model, prompt)
+Be specific and actionable in your recommendations."""
+
+    # Call Mistral with GPU acceleration
+    gpu_status = "with GPU acceleration" if use_gpu else "on CPU"
+    with st.spinner(f"🤖 Mistral LLM analyzing logs {gpu_status}..."):
+        analysis = call_mistral(ollama_host, model, prompt, use_gpu)
     
     return {
         "analysis": analysis,
@@ -330,6 +355,66 @@ Format your response clearly with these sections."""
         "logs_analyzed": min(20, total_logs),
         "severity_counts": severity_counts
     }
+
+# Top navigation bar
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+# Check for logout action
+query_params = st.query_params
+if 'action' in query_params and query_params['action'] == 'logout':
+    from auth.session_manager import clear_session
+    clear_session()
+    st.session_state.authenticated = False
+    st.success("Logged out successfully!")
+    import time
+    time.sleep(2)
+    st.switch_page("app.py")
+
+st.markdown(f"""
+<style>
+    .topbar {{
+        background: linear-gradient(135deg, #141d26 0%, #243447 100%);
+        color: #E2E2D2;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        margin-bottom: 20px;
+    }}
+    .topbar .left {{ display:flex; align-items:center; gap:15px; }}
+    .topbar .brand {{ font-weight:700; font-size:20px; color:#E2E2D2; }}
+    .topbar .user-info {{ font-size:13px; color:#E2E2D2; opacity:0.9; }}
+    .topbar .links {{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }}
+    .topbar a {{ color: #E2E2D2; text-decoration: none; padding:8px 14px; border-radius:6px; font-size:14px; transition: all 0.3s ease; }}
+    .topbar a:hover {{ background:#243447; color:#E2E2D2; transform: translateY(-2px); }}
+    .topbar .cta {{ background: #c51f5d; color: #ffffff; padding:8px 14px; border-radius:6px; font-weight:600; }}
+    .topbar .cta:hover {{ background: #d63574; }}
+    .topbar .logout {{ background: #FF4B4B; color: #ffffff; padding:8px 14px; border-radius:6px; font-weight:600; }}
+    .topbar .logout:hover {{ background: #FF6B6B; }}
+    @media (max-width: 900px) {{
+        .topbar {{ flex-direction: column; align-items: flex-start; gap:10px; }}
+        .topbar .links {{ width: 100%; justify-content: flex-start; }}
+    }}
+</style>
+
+<div class="topbar">
+    <div class="left">
+        <span class="brand"></span>
+        <span class="user-info"></span>
+    </div>
+    <div class="links">
+        <a href="Dashboard_Overview" title="Dashboard">Dashboard</a>
+        <a href="Live_Threat_Monitor" title="Live Threats">Live Monitor</a>
+        <a href="Threat_Scoring" title="Threat Scoring">Scoring</a>
+        <a href="Performance_Metrics" title="Metrics">Metrics</a>
+        <a href="Server_Performance" title="Server">Server</a>
+        <a class="cta" href="System_Configuration" title="Configuration">Configuration</a>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -343,7 +428,7 @@ def main():
     
     # Sidebar configuration
     with st.sidebar:
-        st.markdown("##Configuration")
+        st.markdown("## Configuration")
         
         ollama_host = st.text_input(
             "Ollama Host",
@@ -357,11 +442,54 @@ def main():
             help="Local Mistral model installed via Ollama"
         )
         
+        use_gpu = st.checkbox(
+            "Enable GPU Acceleration",
+            value=True,
+            help="Use GPU for faster inference (requires CUDA/ROCm/Metal)"
+        )
+        
         st.markdown("---")
-        st.markdown("##About")
+        
+        # Check Ollama status
+        st.markdown("## System Status")
+        try:
+            response = requests.get(f"{ollama_host}/api/tags", timeout=5)
+            if response.status_code == 200:
+                st.success("✅ Ollama Server: Online")
+                
+                models_data = response.json()
+                available_models = [m.get('name', '') for m in models_data.get('models', [])]
+                
+                if model in available_models or any(model in m for m in available_models):
+                    st.success(f"✅ Mistral Model: Available")
+                else:
+                    st.warning(f"⚠️ Model '{model}' not found")
+                    st.info("Available models: " + ", ".join(available_models[:3]))
+            else:
+                st.error("❌ Ollama Server: Offline")
+        except Exception as e:
+            st.error("❌ Cannot connect to Ollama")
+            st.caption(f"Error: {str(e)[:100]}")
+        
+        # GPU Status
+        st.markdown("### GPU Status")
+        if use_gpu:
+            st.info("🎮 GPU acceleration enabled\n\nOllama will automatically use available GPU (NVIDIA CUDA, AMD ROCm, or Apple Metal)")
+        else:
+            st.warning("💻 CPU-only mode\n\nProcessing will be slower")
+        
+        st.markdown("---")
+        st.markdown("## About")
         st.info(
-            "This page analyzes security logs using Mistral LLM running locally via Ollama. "
-            "Ensure Ollama is running and Mistral model is installed."
+            "**AI Log Analysis with Mistral LLM**\n\n"
+            "• Analyzes security logs using local Mistral model\n"
+            "• GPU-accelerated inference for faster processing\n"
+            "• Identifies threats, phishing, and anomalies\n"
+            "• Provides actionable security recommendations\n\n"
+            "**Setup:**\n"
+            "1. Install Ollama: `curl https://ollama.ai/install.sh | sh`\n"
+            "2. Pull Mistral: `ollama pull mistral`\n"
+            "3. Verify GPU: `ollama run mistral 'test'`"
         )
     
     # Create tabs for different analysis modes
@@ -411,8 +539,8 @@ def main():
                         ])
                         st.dataframe(logs_preview, use_container_width=True)
                     
-                    # Analyze with Mistral
-                    result = analyze_logs_batch(logs, ollama_host, model)
+                    # Analyze with Mistral using GPU
+                    result = analyze_logs_batch(logs, ollama_host, model, use_gpu)
                     
                     if "error" not in result:
                         st.markdown("### Analysis Results")
@@ -438,7 +566,7 @@ def main():
                         st.bar_chart(severity_df.set_index('Severity'))
                         
                         # Full analysis
-                        st.markdown("### Mistral AI Analysis")
+                        st.markdown("### AI Analysis Summary")
                         st.markdown(result['analysis'])
                         
                         # Extract and save threat score
@@ -481,24 +609,27 @@ def main():
                 placeholder="Paste multiple logs here..."
             )
         
-        if st.button("🔍 Analyze Logs", use_container_width=True, type="primary"):
+        if st.button("Analyze Logs", use_container_width=True, type="primary"):
             if log_text.strip():
-                prompt = f"""Analyze this security log and provide a threat assessment:
+                prompt = f"""You are a cybersecurity expert analyzing security logs. Provide a detailed threat assessment.
 
 LOG CONTENT:
 {log_text}
 
-Please provide:
-1. THREAT LEVEL: Critical/High/Medium/Low/Info
-2. PHISHING LIKELIHOOD (0-100%): Estimate probability of phishing/social engineering
-3. SUSPICIOUS PATTERNS: What patterns indicate threats?
-4. RECOMMENDED ACTIONS: What should be done?
-5. CONFIDENCE: How confident is this analysis?
+Analyze and provide:
 
-Be concise but thorough."""
+1. THREAT LEVEL: Classify as Critical/High/Medium/Low/Info
+2. PHISHING LIKELIHOOD: Estimate probability (0-100%) of phishing/social engineering
+3. ATTACK INDICATORS: List specific suspicious patterns and IOCs
+4. THREAT DESCRIPTION: Explain what type of attack or anomaly this represents
+5. RECOMMENDED ACTIONS: Provide immediate and preventive security measures
+6. CONFIDENCE LEVEL: Rate confidence in this analysis (Low/Medium/High)
 
-                with st.spinner("Analyzing with Mistral..."):
-                    analysis = call_mistral(ollama_host, model, prompt)
+Be specific and actionable."""
+
+                gpu_status = "with GPU acceleration" if use_gpu else "on CPU"
+                with st.spinner(f"🤖 Mistral LLM analyzing {gpu_status}..."):
+                    analysis = call_mistral(ollama_host, model, prompt, use_gpu)
                 
                 st.markdown("### Analysis Result")
                 st.markdown(analysis)
