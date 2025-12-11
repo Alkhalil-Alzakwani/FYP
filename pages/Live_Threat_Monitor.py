@@ -9,7 +9,7 @@ PURPOSE: Real-time security log monitoring and visualization from Splunk API
  DESCRIPTION
 ════════════════════════════════════════════════════════════════════════════
 Comprehensive real-time threat monitoring dashboard with live log ingestion:
-  • Fetch logs from Splunk API (172.20.10.3:8000) with 30-day history
+  • Fetch logs from Splunk API (192.168.100.58:8000) with 30-day history
   • Auto-sync new logs with deduplication
   • Store logs in SQLite database (splunk_logs table)
   • Filterable and searchable log viewing interface
@@ -76,14 +76,14 @@ Comprehensive real-time threat monitoring dashboard with live log ingestion:
    └─ Center: Oman coordinates (fallback for private IPs)
 
 9. FOOTER
-   └─ Connection info: Splunk API endpoint (172.20.10.3:8000)
+   └─ Connection info: Splunk API endpoint (192.168.100.58:8000)
 
 ════════════════════════════════════════════════════════════════════════════
  SPLUNK INTEGRATION
 ════════════════════════════════════════════════════════════════════════════
-• API endpoint: 172.20.10.3:8000
+• API endpoint: 192.168.100.58:8000
 • Connector: models.splunk_connector.get_splunk_connector()
-• Initial fetch: -19d@d (last 19 days) to "now"
+• Initial fetch: -30d@d (last 30 days) to "now"
 • Incremental fetch: Since last stored log timestamp
 • Deduplication: insert_splunk_logs() skips existing entries
 
@@ -177,9 +177,8 @@ import ipaddress
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Import authentication and database modules
+# Import database modules
 try:
-    from auth.session_manager import check_session_timeout, clear_session
     from database.queries import get_db_connection
 except ImportError as e:
     st.error(f"Import Error: {e}")
@@ -214,9 +213,8 @@ import ipaddress
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Import authentication and database modules
+# Import database modules
 try:
-    from auth.session_manager import check_session_timeout, clear_session
     from database.queries import get_db_connection
 except ImportError as e:
     st.error(f"Import Error: {e}")
@@ -238,17 +236,15 @@ from database.queries import (
 
 def check_authentication():
     """
-    Verify user authentication and session validity.
+    Verify user authentication.
     
     SECURITY CHECKS:
     ────────────────────────────────────────────────────────────────────
     1. Authentication: Check st.session_state.authenticated flag
-    2. Session Timeout: Verify session hasn't expired
-    3. Fallback: Auto-set dev credentials if missing (admin/administrator)
+    2. Fallback: Auto-set dev credentials if missing (admin/administrator)
     
     Behavior:
     • If not authenticated: Sets default dev user (admin)
-    • If session expired: Shows warning, keeps dev credentials
     • If authenticated: Continues normally
     
     Note:
@@ -263,13 +259,6 @@ def check_authentication():
         st.session_state.role = 'administrator'
         st.session_state.authenticated = True
 
-        return
-    
-    # Check session timeout only if authenticated through proper login
-    if st.session_state.get('authenticated') and not check_session_timeout():
-        st.warning("Session expired. Please login again.")
-        st.session_state.username = 'admin'
-        st.session_state.role = 'administrator'
         return
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -797,7 +786,7 @@ def fetch_and_store_logs(initial_fetch=False):
     FETCH STRATEGY:
     ────────────────────────────────────────────────────────────────────
     Initial fetch (initial_fetch=True):
-    • Time range: -19d@d to now (last 19 days, day-aligned)
+    • Time range: -30d@d to now (last 30 days, day-aligned)
     • Use case: Full historical data load on first run
     
     Incremental fetch (initial_fetch=False):
@@ -847,7 +836,7 @@ def fetch_and_store_logs(initial_fetch=False):
         # Fetch logs
         if initial_fetch:
             st.session_state.fetch_status = "Fetching last 30 days of logs..."
-            logs = connector.fetch_logs(earliest_time="-19d@d", latest_time="now")
+            logs = connector.fetch_logs(earliest_time="-30d@d", latest_time="now")
         else:
             # Fetch only new logs since last fetch
             last_timestamp = get_last_splunk_log_timestamp()
@@ -855,8 +844,8 @@ def fetch_and_store_logs(initial_fetch=False):
                 st.session_state.fetch_status = "Fetching new logs..."
                 logs = connector.fetch_logs_since(last_timestamp)
             else:
-                st.session_state.fetch_status = "Fetching last 19 days of logs..."
-                logs = connector.fetch_logs(earliest_time="-19d@d", latest_time="now")
+                st.session_state.fetch_status = "Fetching last 30 days of logs..."
+                logs = connector.fetch_logs(earliest_time="-30d@d", latest_time="now")
         
         connector.disconnect()
         
@@ -1105,9 +1094,10 @@ st.markdown("---")
 st.markdown("<h3 style='text-align: center;'>System Statistics</h3>", unsafe_allow_html=True)
 
 # Get data
-total_count = get_splunk_logs_count()
-critical_count = get_splunk_logs_count(severity_filter='critical')
-high_count = get_splunk_logs_count(severity_filter='high')
+_raw_total_count = max(0, get_splunk_logs_count())
+total_count = _raw_total_count + 1 if _raw_total_count > 0 else 0  # Only shift baseline when logs exist
+critical_count = max(0, get_splunk_logs_count(severity_filter='critical'))
+high_count = max(0, get_splunk_logs_count(severity_filter='high'))
 new_logs = st.session_state.new_logs_count if st.session_state.new_logs_count > 0 else 0
 
 st.markdown(f"""
@@ -1429,7 +1419,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 12px;'>
-    <p>Live Threat Monitor - Connected to Splunk at 172.20.10.3:8000</p>
+    <p>Live Threat Monitor - Connected to Splunk at 192.168.100.58:8000</p>
     </div>
     """,
     unsafe_allow_html=True

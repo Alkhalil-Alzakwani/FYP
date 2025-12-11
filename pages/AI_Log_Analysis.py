@@ -116,6 +116,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict
+import pandas as pd
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -964,34 +965,44 @@ Be specific and actionable."""
             conn = get_db_connection()
             if conn:
                 cursor = conn.cursor()
-                cursor.execute("""
+
+                # Total analyses count (no limit) for accurate metric
+                cursor.execute("SELECT COUNT(*) FROM threat_scores")
+                total_row = cursor.fetchone()
+                total_analyses = total_row[0] if total_row else 0
+
+                # Limit results for display but keep limit configurable
+                display_limit = st.slider("History rows to display", 10, 200, 50, help="Adjust how many recent analyses to show")
+                cursor.execute(
+                    """
                     SELECT score, severity, ai_context, timestamp
                     FROM threat_scores
                     ORDER BY timestamp DESC
-                    LIMIT 20
-                """)
-                
+                    LIMIT ?
+                    """,
+                    (display_limit,)
+                )
+
                 results = cursor.fetchall()
                 conn.close()
-                
+
                 if results:
                     history_df = pd.DataFrame(results, columns=['Score', 'Severity', 'AI Context', 'Timestamp'])
-                    
+
                     # Show summary metrics
                     col1, col2, col3 = st.columns(3)
-                    
+
                     with col1:
                         avg_score = history_df['Score'].mean()
                         st.metric("Average Threat Score", f"{avg_score:.1f}%")
-                    
+
                     with col2:
                         critical_count = len(history_df[history_df['Severity'] == 'critical'])
                         st.metric("Critical Analyses", critical_count)
-                    
+
                     with col3:
-                        total_analyses = len(history_df)
                         st.metric("Total Analyses", total_analyses)
-                    
+
                     # Show detailed history
                     st.markdown("### Recent Analyses")
                     for idx, row in history_df.iterrows():
