@@ -203,7 +203,7 @@ def insert_splunk_logs(logs):
         return 0
 
 
-def get_splunk_logs(limit=1000, offset=0, severity_filter=None, source_filter=None, search_text=None):
+def get_splunk_logs(limit=1000, offset=0, severity_filter=None, source_filter=None, search_text=None, host_filter=None):
     """
     Get Splunk logs from the database with optional filters
     
@@ -211,8 +211,9 @@ def get_splunk_logs(limit=1000, offset=0, severity_filter=None, source_filter=No
         limit (int): Maximum number of logs to return
         offset (int): Offset for pagination
         severity_filter (str): Filter by severity level
-        source_filter (str): Filter by source
+        source_filter (str): Filter by source (exact match)
         search_text (str): Search in event_data
+        host_filter (str): Filter by host (exact match)
         
     Returns:
         list: List of log dictionaries
@@ -233,8 +234,12 @@ def get_splunk_logs(limit=1000, offset=0, severity_filter=None, source_filter=No
             params.append(severity_filter)
         
         if source_filter:
-            query += " AND source LIKE ?"
-            params.append(f"%{source_filter}%")
+            query += " AND source = ?"
+            params.append(source_filter)
+        
+        if host_filter:
+            query += " AND host = ?"
+            params.append(host_filter)
         
         if search_text:
             query += " AND (event_data LIKE ? OR raw_log LIKE ?)"
@@ -256,14 +261,15 @@ def get_splunk_logs(limit=1000, offset=0, severity_filter=None, source_filter=No
         return []
 
 
-def get_splunk_logs_count(severity_filter=None, source_filter=None, search_text=None):
+def get_splunk_logs_count(severity_filter=None, source_filter=None, search_text=None, host_filter=None):
     """
     Get total count of Splunk logs with optional filters
     
     Args:
         severity_filter (str): Filter by severity level
-        source_filter (str): Filter by source
+        source_filter (str): Filter by source (exact match)
         search_text (str): Search in event_data
+        host_filter (str): Filter by host (exact match)
         
     Returns:
         int: Total count of logs
@@ -278,6 +284,34 @@ def get_splunk_logs_count(severity_filter=None, source_filter=None, search_text=
         # Build query with filters
         query = "SELECT COUNT(*) FROM splunk_logs WHERE 1=1"
         params = []
+        
+        if severity_filter:
+            query += " AND severity = ?"
+            params.append(severity_filter)
+        
+        if source_filter:
+            query += " AND source = ?"
+            params.append(source_filter)
+        
+        if host_filter:
+            query += " AND host = ?"
+            params.append(host_filter)
+        
+        if search_text:
+            query += " AND (event_data LIKE ? OR raw_log LIKE ?)"
+            params.append(f"%{search_text}%")
+            params.append(f"%{search_text}%")
+        
+        cursor.execute(query, params)
+        
+        count = cursor.fetchone()[0]
+        conn.close()
+        
+        return count
+        
+    except Exception as e:
+        print(f"Error counting Splunk logs: {e}")
+        return 0
         
         if severity_filter:
             query += " AND severity = ?"

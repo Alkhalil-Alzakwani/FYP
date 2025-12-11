@@ -1017,7 +1017,7 @@ st.markdown("""
 
 st.markdown('<h3 style="text-align:center;">Control Panel</h3>', unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns([3, 3, 3])
+col1, col2, col3, col4 = st.columns([2.5, 2.5, 2.5, 2.5])
 
 with col1:
     if st.button("Fetch Initial Logs (30 days)", use_container_width=True):
@@ -1046,6 +1046,34 @@ with col2:
     """, unsafe_allow_html=True)
 
 with col3:
+    if st.button("Fetch All Logs", use_container_width=True):
+        with st.spinner("Fetching all logs from Splunk..."):
+            try:
+                connector = get_splunk_connector()
+                if not connector.connect():
+                    st.error("Failed to connect to Splunk")
+                else:
+                    # Fetch all logs using Splunk's earliest time (use -1y for 1 year ago)
+                    st.session_state.fetch_status = "Fetching all stored logs..."
+                    logs = connector.fetch_logs(earliest_time="-1y", latest_time="now", max_results=250000)
+                    connector.disconnect()
+                    
+                    if logs:
+                        st.session_state.fetch_status = f"Storing {len(logs)} logs in database..."
+                        logs_added = insert_splunk_logs(logs)
+                        st.session_state.new_logs_count = logs_added
+                        st.session_state.last_fetch_time = datetime.now()
+                        st.success(f"Successfully added {logs_added} new logs out of {len(logs)} fetched from Splunk")
+                        st.rerun()
+                    else:
+                        st.info("No logs found in Splunk")
+            except Exception as e:
+                st.error(f"Error fetching all logs: {str(e)}")
+    
+    st.markdown("""
+    """, unsafe_allow_html=True)
+
+with col4:
     if st.button("Delete All Logs", use_container_width=True):
         # Confirmation dialog
         if 'confirm_delete' not in st.session_state:
@@ -1235,10 +1263,15 @@ with col4:
     search_text = st.text_input("Search in logs", "")
 
 with col5:
-    sort_order = st.selectbox(
-        "Sort by Severity",
-        options=["Highest First", "Lowest First"],
-        help="Sort logs by severity level"
+    sort_option = st.selectbox(
+        "Sort By",
+        options=[
+            "Severity: Highest First",
+            "Severity: Lowest First",
+            "Date: Newest First",
+            "Date: Oldest First"
+        ],
+        help="Sort logs by severity or date"
     )
 
 # Pagination
@@ -1265,25 +1298,34 @@ search = search_text if search_text else None
 
 # Get filtered logs with host filter
 logs = get_splunk_logs(
-    limit=logs_per_page,
+    limit=500,  # Fetch more logs internally to account for additional host filtering
     offset=0,
     severity_filter=severity,
     source_filter=source,
-    search_text=search
+    search_text=search,
+    host_filter=host
 )
 
-# Apply host filter manually (since queries.py doesn't have host_filter parameter)
-if host:
-    logs = [log for log in logs if log.get('host') == host]
+# No need for manual host filtering anymore - it's in the database query
 
-# Sort by severity
+# Sort by severity and date
 if logs:
     severity_order = {'critical': 5, 'high': 4, 'medium': 3, 'low': 2, 'info': 1, 'unknown': 0, None: 0}
     
-    if sort_order == "Highest First":
-        logs = sorted(logs, key=lambda x: severity_order.get(x.get('severity', 'unknown'), 0), reverse=True)
-    else:  # Lowest First
-        logs = sorted(logs, key=lambda x: severity_order.get(x.get('severity', 'unknown'), 0), reverse=False)
+    # Apply sorting based on combined sort_option
+    if "Severity" in sort_option:
+        if "Highest First" in sort_option:
+            logs = sorted(logs, key=lambda x: severity_order.get(x.get('severity', 'unknown'), 0), reverse=True)
+        else:  # Lowest First
+            logs = sorted(logs, key=lambda x: severity_order.get(x.get('severity', 'unknown'), 0), reverse=False)
+    elif "Date" in sort_option:
+        if "Newest First" in sort_option:
+            logs = sorted(logs, key=lambda x: x.get('timestamp', ''), reverse=True)
+        else:  # Oldest First
+            logs = sorted(logs, key=lambda x: x.get('timestamp', ''), reverse=False)
+    
+    # Limit to logs_per_page for display
+    logs = logs[:logs_per_page]
 
 if logs:
     # Convert to DataFrame
@@ -1315,7 +1357,8 @@ if logs:
         filtered_count = get_splunk_logs_count(
             severity_filter=severity,
             source_filter=source,
-            search_text=search
+            search_text=search,
+            host_filter=host
         )
         st.markdown(f'<div class="count-bar"></span>Showing <b>{len(logs)}</b> of <b>{filtered_count:,}</b> logs</div>', unsafe_allow_html=True)
 
