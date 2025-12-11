@@ -1,0 +1,2 @@
+timestamp,total_events,detected_events,avg_mttd_raw_seconds,avg_mttd_adjusted_seconds,median_mttd_raw_seconds,median_mttd_adjusted_seconds,min_mttd_seconds,max_mttd_seconds,splunk_delay_seconds
+2025-12-11T18:48:25.223033,80,72,193.96697279166668,163.96697279166668,139.598955,109.59895499999999,36.645859,634.079805,30.0

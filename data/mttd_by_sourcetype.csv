@@ -1,0 +1,5 @@
+Sourcetype,Events,Detected,Avg MTTD (s),Median MTTD (s),Min (s),Max (s)
+message_rfc822,18,16,161.6,113.82,28.84,579.8
+pfsense:syslog,20,18,243.39,226.04,49.62,604.08
+snort:alert,20,19,30.38,33.49,6.65,51.94
+wineventlog:security,22,19,224.31,217.37,55.41,506.45

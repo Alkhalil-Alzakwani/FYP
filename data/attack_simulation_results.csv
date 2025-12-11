@@ -1,0 +1,81 @@
+event_id,occurrence_time,event_time,timestamp,event_type,sourcetype,src_ip,dest_ip,severity,campaign_id,description
+ATK-0001,2025-12-11T06:48:18.263690,2025-12-11 06:48:18,2025-12-11 06:48:18,brute_force,message_rfc822,185.249.51.96,192.168.1.80,medium,CAMP-001,Multiple failed login attempts
+ATK-0002,2025-12-11T06:56:18.263690,2025-12-11 06:56:18,2025-12-11 06:56:18,port_scan,pfsense:syslog,133.148.116.71,192.168.1.73,critical,CAMP-010,Malware download from suspicious domain
+ATK-0003,2025-12-11T06:59:18.263690,2025-12-11 06:59:18,2025-12-11 06:59:18,malware_download,pfsense:syslog,171.109.17.166,192.168.1.10,critical,CAMP-002,Malware download from suspicious domain
+ATK-0004,2025-12-11T07:03:18.263690,2025-12-11 07:03:18,2025-12-11 07:03:18,sql_injection,pfsense:syslog,115.102.220.28,192.168.1.46,critical,CAMP-007,Malware download from suspicious domain
+ATK-0005,2025-12-11T07:08:18.263690,2025-12-11 07:08:18,2025-12-11 07:08:18,malware_download,pfsense:syslog,178.221.133.6,192.168.1.96,medium,CAMP-009,Port scanning activity detected
+ATK-0006,2025-12-11T07:16:18.263690,2025-12-11 07:16:18,2025-12-11 07:16:18,port_scan,snort:alert,192.90.47.58,192.168.1.73,medium,CAMP-008,Multiple failed login attempts
+ATK-0007,2025-12-11T07:19:18.263690,2025-12-11 07:19:18,2025-12-11 07:19:18,malware_download,wineventlog:security,184.111.126.110,192.168.1.92,high,CAMP-009,Multiple failed login attempts
+ATK-0008,2025-12-11T07:26:18.263690,2025-12-11 07:26:18,2025-12-11 07:26:18,phishing_email,wineventlog:security,157.22.76.153,192.168.1.54,medium,CAMP-008,Malware download from suspicious domain
+ATK-0009,2025-12-11T07:28:18.263690,2025-12-11 07:28:18,2025-12-11 07:28:18,port_scan,wineventlog:security,180.235.84.245,192.168.1.18,high,CAMP-005,Multiple failed login attempts
+ATK-0010,2025-12-11T07:36:18.263690,2025-12-11 07:36:18,2025-12-11 07:36:18,phishing_email,pfsense:syslog,164.127.82.197,192.168.1.45,critical,CAMP-007,Multiple failed login attempts
+ATK-0011,2025-12-11T07:38:18.263690,2025-12-11 07:38:18,2025-12-11 07:38:18,brute_force,wineventlog:security,124.215.247.236,192.168.1.32,medium,CAMP-004,Port scanning activity detected
+ATK-0012,2025-12-11T07:43:18.263690,2025-12-11 07:43:18,2025-12-11 07:43:18,malware_download,pfsense:syslog,156.7.46.222,192.168.1.26,high,CAMP-001,Phishing email with malicious attachment
+ATK-0013,2025-12-11T07:49:18.263690,2025-12-11 07:49:18,2025-12-11 07:49:18,malware_download,snort:alert,153.165.67.79,192.168.1.69,medium,CAMP-005,Phishing email with malicious attachment
+ATK-0014,2025-12-11T07:56:18.263690,2025-12-11 07:56:18,2025-12-11 07:56:18,sql_injection,wineventlog:security,166.145.115.225,192.168.1.35,high,CAMP-003,Phishing email with malicious attachment
+ATK-0015,2025-12-11T07:58:18.263690,2025-12-11 07:58:18,2025-12-11 07:58:18,brute_force,snort:alert,123.17.81.24,192.168.1.76,high,CAMP-009,Port scanning activity detected
+ATK-0016,2025-12-11T08:04:18.263690,2025-12-11 08:04:18,2025-12-11 08:04:18,sql_injection,wineventlog:security,126.20.142.244,192.168.1.71,medium,CAMP-003,Phishing email with malicious attachment
+ATK-0017,2025-12-11T08:08:18.263690,2025-12-11 08:08:18,2025-12-11 08:08:18,port_scan,pfsense:syslog,125.210.176.19,192.168.1.31,high,CAMP-002,Port scanning activity detected
+ATK-0018,2025-12-11T08:15:18.263690,2025-12-11 08:15:18,2025-12-11 08:15:18,brute_force,wineventlog:security,128.222.155.60,192.168.1.77,critical,CAMP-010,Phishing email with malicious attachment
+ATK-0019,2025-12-11T08:18:18.263690,2025-12-11 08:18:18,2025-12-11 08:18:18,sql_injection,message_rfc822,114.80.90.92,192.168.1.55,critical,CAMP-003,Phishing email with malicious attachment
+ATK-0020,2025-12-11T08:24:18.263690,2025-12-11 08:24:18,2025-12-11 08:24:18,phishing_email,snort:alert,108.143.76.183,192.168.1.54,medium,CAMP-010,Multiple failed login attempts
+ATK-0021,2025-12-11T08:28:18.263690,2025-12-11 08:28:18,2025-12-11 08:28:18,port_scan,wineventlog:security,162.222.149.4,192.168.1.19,critical,CAMP-009,Malware download from suspicious domain
+ATK-0022,2025-12-11T08:35:18.263690,2025-12-11 08:35:18,2025-12-11 08:35:18,port_scan,pfsense:syslog,171.211.87.171,192.168.1.19,critical,CAMP-010,Malware download from suspicious domain
+ATK-0023,2025-12-11T08:41:18.263690,2025-12-11 08:41:18,2025-12-11 08:41:18,brute_force,wineventlog:security,195.209.235.129,192.168.1.100,high,CAMP-007,Phishing email with malicious attachment
+ATK-0024,2025-12-11T08:46:18.263690,2025-12-11 08:46:18,2025-12-11 08:46:18,sql_injection,pfsense:syslog,183.13.158.171,192.168.1.52,medium,CAMP-001,Phishing email with malicious attachment
+ATK-0025,2025-12-11T08:48:18.263690,2025-12-11 08:48:18,2025-12-11 08:48:18,phishing_email,message_rfc822,114.114.192.191,192.168.1.18,critical,CAMP-008,SQL injection attempt on web server
+ATK-0026,2025-12-11T08:54:18.263690,2025-12-11 08:54:18,2025-12-11 08:54:18,port_scan,snort:alert,158.180.50.19,192.168.1.84,high,CAMP-004,Phishing email with malicious attachment
+ATK-0027,2025-12-11T08:59:18.263690,2025-12-11 08:59:18,2025-12-11 08:59:18,phishing_email,wineventlog:security,127.89.20.42,192.168.1.51,medium,CAMP-010,Multiple failed login attempts
+ATK-0028,2025-12-11T09:05:18.263690,2025-12-11 09:05:18,2025-12-11 09:05:18,port_scan,message_rfc822,179.166.78.21,192.168.1.39,high,CAMP-003,Malware download from suspicious domain
+ATK-0029,2025-12-11T09:10:18.263690,2025-12-11 09:10:18,2025-12-11 09:10:18,malware_download,snort:alert,114.231.127.236,192.168.1.68,critical,CAMP-006,Port scanning activity detected
+ATK-0030,2025-12-11T09:13:18.263690,2025-12-11 09:13:18,2025-12-11 09:13:18,port_scan,pfsense:syslog,135.38.89.152,192.168.1.92,critical,CAMP-008,SQL injection attempt on web server
+ATK-0031,2025-12-11T09:21:18.263690,2025-12-11 09:21:18,2025-12-11 09:21:18,sql_injection,snort:alert,122.120.81.92,192.168.1.24,critical,CAMP-004,Phishing email with malicious attachment
+ATK-0032,2025-12-11T09:26:18.263690,2025-12-11 09:26:18,2025-12-11 09:26:18,malware_download,wineventlog:security,190.23.119.219,192.168.1.65,critical,CAMP-005,Phishing email with malicious attachment
+ATK-0033,2025-12-11T09:30:18.263690,2025-12-11 09:30:18,2025-12-11 09:30:18,phishing_email,pfsense:syslog,172.84.28.184,192.168.1.61,medium,CAMP-006,Multiple failed login attempts
+ATK-0034,2025-12-11T09:34:18.263690,2025-12-11 09:34:18,2025-12-11 09:34:18,sql_injection,snort:alert,118.5.127.51,192.168.1.93,critical,CAMP-004,SQL injection attempt on web server
+ATK-0035,2025-12-11T09:41:18.263690,2025-12-11 09:41:18,2025-12-11 09:41:18,malware_download,snort:alert,180.77.254.147,192.168.1.81,medium,CAMP-001,SQL injection attempt on web server
+ATK-0036,2025-12-11T09:45:18.263690,2025-12-11 09:45:18,2025-12-11 09:45:18,malware_download,message_rfc822,133.221.121.232,192.168.1.59,high,CAMP-002,SQL injection attempt on web server
+ATK-0037,2025-12-11T09:51:18.263690,2025-12-11 09:51:18,2025-12-11 09:51:18,brute_force,snort:alert,175.232.200.94,192.168.1.14,high,CAMP-002,Port scanning activity detected
+ATK-0038,2025-12-11T09:56:18.263690,2025-12-11 09:56:18,2025-12-11 09:56:18,malware_download,wineventlog:security,174.111.225.165,192.168.1.72,high,CAMP-002,Malware download from suspicious domain
+ATK-0039,2025-12-11T09:59:18.263690,2025-12-11 09:59:18,2025-12-11 09:59:18,port_scan,wineventlog:security,185.238.164.19,192.168.1.25,high,CAMP-002,Malware download from suspicious domain
+ATK-0040,2025-12-11T10:04:18.263690,2025-12-11 10:04:18,2025-12-11 10:04:18,phishing_email,snort:alert,130.19.14.60,192.168.1.72,critical,CAMP-007,Malware download from suspicious domain
+ATK-0041,2025-12-11T10:09:18.263690,2025-12-11 10:09:18,2025-12-11 10:09:18,brute_force,snort:alert,176.69.116.170,192.168.1.19,medium,CAMP-007,Malware download from suspicious domain
+ATK-0042,2025-12-11T10:15:18.263690,2025-12-11 10:15:18,2025-12-11 10:15:18,brute_force,snort:alert,138.80.247.5,192.168.1.44,medium,CAMP-005,Phishing email with malicious attachment
+ATK-0043,2025-12-11T10:20:18.263690,2025-12-11 10:20:18,2025-12-11 10:20:18,port_scan,message_rfc822,182.239.115.46,192.168.1.51,high,CAMP-005,Multiple failed login attempts
+ATK-0044,2025-12-11T10:25:18.263690,2025-12-11 10:25:18,2025-12-11 10:25:18,phishing_email,snort:alert,178.156.218.137,192.168.1.87,medium,CAMP-009,SQL injection attempt on web server
+ATK-0045,2025-12-11T10:29:18.263690,2025-12-11 10:29:18,2025-12-11 10:29:18,phishing_email,snort:alert,186.131.140.153,192.168.1.18,medium,CAMP-010,SQL injection attempt on web server
+ATK-0046,2025-12-11T10:35:18.263690,2025-12-11 10:35:18,2025-12-11 10:35:18,phishing_email,pfsense:syslog,150.136.134.198,192.168.1.30,critical,CAMP-005,Phishing email with malicious attachment
+ATK-0047,2025-12-11T10:39:18.263690,2025-12-11 10:39:18,2025-12-11 10:39:18,malware_download,wineventlog:security,143.158.160.96,192.168.1.25,critical,CAMP-007,Phishing email with malicious attachment
+ATK-0048,2025-12-11T10:43:18.263690,2025-12-11 10:43:18,2025-12-11 10:43:18,phishing_email,message_rfc822,189.217.219.253,192.168.1.38,critical,CAMP-002,Multiple failed login attempts
+ATK-0049,2025-12-11T10:51:18.263690,2025-12-11 10:51:18,2025-12-11 10:51:18,port_scan,message_rfc822,103.145.161.195,192.168.1.34,high,CAMP-006,SQL injection attempt on web server
+ATK-0050,2025-12-11T10:54:18.263690,2025-12-11 10:54:18,2025-12-11 10:54:18,port_scan,pfsense:syslog,170.179.53.30,192.168.1.65,critical,CAMP-003,Malware download from suspicious domain
+ATK-0051,2025-12-11T11:01:18.263690,2025-12-11 11:01:18,2025-12-11 11:01:18,brute_force,message_rfc822,192.181.228.31,192.168.1.77,critical,CAMP-005,Multiple failed login attempts
+ATK-0052,2025-12-11T11:03:18.263690,2025-12-11 11:03:18,2025-12-11 11:03:18,sql_injection,pfsense:syslog,191.75.3.168,192.168.1.42,critical,CAMP-001,Phishing email with malicious attachment
+ATK-0053,2025-12-11T11:11:18.263690,2025-12-11 11:11:18,2025-12-11 11:11:18,port_scan,snort:alert,113.97.83.242,192.168.1.74,medium,CAMP-006,SQL injection attempt on web server
+ATK-0054,2025-12-11T11:14:18.263690,2025-12-11 11:14:18,2025-12-11 11:14:18,malware_download,message_rfc822,187.135.155.235,192.168.1.10,high,CAMP-001,Malware download from suspicious domain
+ATK-0055,2025-12-11T11:18:18.263690,2025-12-11 11:18:18,2025-12-11 11:18:18,phishing_email,wineventlog:security,106.91.209.10,192.168.1.10,critical,CAMP-009,SQL injection attempt on web server
+ATK-0056,2025-12-11T11:23:18.263690,2025-12-11 11:23:18,2025-12-11 11:23:18,port_scan,wineventlog:security,140.190.129.241,192.168.1.28,medium,CAMP-004,Phishing email with malicious attachment
+ATK-0057,2025-12-11T11:31:18.263690,2025-12-11 11:31:18,2025-12-11 11:31:18,port_scan,wineventlog:security,101.222.237.216,192.168.1.35,critical,CAMP-004,Malware download from suspicious domain
+ATK-0058,2025-12-11T11:33:18.263690,2025-12-11 11:33:18,2025-12-11 11:33:18,sql_injection,message_rfc822,126.206.82.114,192.168.1.43,medium,CAMP-005,Malware download from suspicious domain
+ATK-0059,2025-12-11T11:39:18.263690,2025-12-11 11:39:18,2025-12-11 11:39:18,brute_force,pfsense:syslog,132.232.24.188,192.168.1.50,critical,CAMP-010,Port scanning activity detected
+ATK-0060,2025-12-11T11:44:18.263690,2025-12-11 11:44:18,2025-12-11 11:44:18,phishing_email,pfsense:syslog,179.16.219.133,192.168.1.42,medium,CAMP-001,Malware download from suspicious domain
+ATK-0061,2025-12-11T11:49:18.263690,2025-12-11 11:49:18,2025-12-11 11:49:18,sql_injection,message_rfc822,152.216.42.135,192.168.1.92,medium,CAMP-002,SQL injection attempt on web server
+ATK-0062,2025-12-11T11:53:18.263690,2025-12-11 11:53:18,2025-12-11 11:53:18,brute_force,snort:alert,165.146.219.148,192.168.1.60,critical,CAMP-010,Multiple failed login attempts
+ATK-0063,2025-12-11T12:00:18.263690,2025-12-11 12:00:18,2025-12-11 12:00:18,port_scan,pfsense:syslog,145.17.65.95,192.168.1.29,critical,CAMP-006,Phishing email with malicious attachment
+ATK-0064,2025-12-11T12:05:18.263690,2025-12-11 12:05:18,2025-12-11 12:05:18,port_scan,pfsense:syslog,193.224.32.184,192.168.1.29,critical,CAMP-005,Phishing email with malicious attachment
+ATK-0065,2025-12-11T12:10:18.263690,2025-12-11 12:10:18,2025-12-11 12:10:18,malware_download,snort:alert,128.52.176.49,192.168.1.66,critical,CAMP-006,Phishing email with malicious attachment
+ATK-0066,2025-12-11T12:16:18.263690,2025-12-11 12:16:18,2025-12-11 12:16:18,phishing_email,wineventlog:security,138.229.57.186,192.168.1.47,critical,CAMP-006,Multiple failed login attempts
+ATK-0067,2025-12-11T12:21:18.263690,2025-12-11 12:21:18,2025-12-11 12:21:18,brute_force,message_rfc822,172.123.48.43,192.168.1.52,critical,CAMP-004,Multiple failed login attempts
+ATK-0068,2025-12-11T12:25:18.263690,2025-12-11 12:25:18,2025-12-11 12:25:18,sql_injection,message_rfc822,109.63.253.254,192.168.1.65,medium,CAMP-010,Phishing email with malicious attachment
+ATK-0069,2025-12-11T12:31:18.263690,2025-12-11 12:31:18,2025-12-11 12:31:18,sql_injection,message_rfc822,121.63.105.110,192.168.1.64,medium,CAMP-005,Malware download from suspicious domain
+ATK-0070,2025-12-11T12:36:18.263690,2025-12-11 12:36:18,2025-12-11 12:36:18,port_scan,wineventlog:security,108.4.172.107,192.168.1.15,medium,CAMP-010,SQL injection attempt on web server
+ATK-0071,2025-12-11T12:39:18.263690,2025-12-11 12:39:18,2025-12-11 12:39:18,phishing_email,pfsense:syslog,191.97.4.113,192.168.1.45,high,CAMP-005,Phishing email with malicious attachment
+ATK-0072,2025-12-11T12:43:18.263690,2025-12-11 12:43:18,2025-12-11 12:43:18,sql_injection,message_rfc822,176.229.156.214,192.168.1.53,critical,CAMP-006,Multiple failed login attempts
+ATK-0073,2025-12-11T12:51:18.263690,2025-12-11 12:51:18,2025-12-11 12:51:18,sql_injection,message_rfc822,172.43.132.77,192.168.1.86,medium,CAMP-006,Phishing email with malicious attachment
+ATK-0074,2025-12-11T12:53:18.263690,2025-12-11 12:53:18,2025-12-11 12:53:18,sql_injection,snort:alert,134.176.152.189,192.168.1.98,critical,CAMP-009,Multiple failed login attempts
+ATK-0075,2025-12-11T13:00:18.263690,2025-12-11 13:00:18,2025-12-11 13:00:18,phishing_email,wineventlog:security,139.175.35.171,192.168.1.95,critical,CAMP-004,Malware download from suspicious domain
+ATK-0076,2025-12-11T13:04:18.263690,2025-12-11 13:04:18,2025-12-11 13:04:18,sql_injection,snort:alert,197.62.106.58,192.168.1.33,medium,CAMP-010,Phishing email with malicious attachment
+ATK-0077,2025-12-11T13:09:18.263690,2025-12-11 13:09:18,2025-12-11 13:09:18,port_scan,pfsense:syslog,167.131.60.163,192.168.1.76,high,CAMP-008,Phishing email with malicious attachment
+ATK-0078,2025-12-11T13:14:18.263690,2025-12-11 13:14:18,2025-12-11 13:14:18,phishing_email,wineventlog:security,140.128.130.72,192.168.1.60,critical,CAMP-005,Multiple failed login attempts
+ATK-0079,2025-12-11T13:19:18.263690,2025-12-11 13:19:18,2025-12-11 13:19:18,phishing_email,message_rfc822,144.45.247.172,192.168.1.78,critical,CAMP-009,Malware download from suspicious domain
+ATK-0080,2025-12-11T13:23:18.263690,2025-12-11 13:23:18,2025-12-11 13:23:18,malware_download,wineventlog:security,123.9.178.80,192.168.1.67,high,CAMP-002,Malware download from suspicious domain

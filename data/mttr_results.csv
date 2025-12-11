@@ -1,0 +1,2 @@
+timestamp,total_detections,responded_detections,response_rate_percentage,automated_responses,manual_responses,avg_mttr_seconds,median_mttr_seconds,avg_mttr_automated_seconds,avg_mttr_manual_seconds,min_mttr_seconds,max_mttr_seconds
+2025-12-11T18:52:10.469473,72,60,83.33333333333334,33,27,252.70816296666666,26.085774,13.250485,545.3786582592593,1.134317,892.196302

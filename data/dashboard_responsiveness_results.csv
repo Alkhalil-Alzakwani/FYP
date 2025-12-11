@@ -1,0 +1,2 @@
+csv_load_time,db_time,db_rows,splunk_time,splunk_rows,visual_refresh_latency,interaction_latency,subscores,overall
+0.0031210000006467453,,0,,0,4.0,8.0,,44.93

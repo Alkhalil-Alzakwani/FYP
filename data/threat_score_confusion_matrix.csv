@@ -1,0 +1,5 @@
+Actual,low,medium,high,critical
+low,76,24,0,0
+medium,0,0,0,0
+high,0,0,6,28
+critical,0,0,2,14

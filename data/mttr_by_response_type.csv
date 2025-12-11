@@ -1,0 +1,3 @@
+Response Type,Count,Avg MTTR (s),Median MTTR (s),Min (s),Max (s)
+Automated,33,13.25,10.45,1.13,29.8
+Manual,27,545.38,653.42,140.09,892.2

@@ -1,0 +1,5 @@
+Sourcetype,Total Events,Benign Events,False Positives,True Negatives,FPR (%)
+pfsense:syslog,54,25,4,21,16.0
+syslog,38,38,4,34,10.53
+wineventlog:system,37,37,2,35,5.41
+snort:alert,21,0,0,0,N/A
