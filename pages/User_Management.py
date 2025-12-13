@@ -968,7 +968,9 @@ def main():
     # Check admin access
     check_admin_access()
     
-    st.markdown("#User Management")
+    st.markdown("""
+        <h1 style="font-size: 32px; font-weight: 700; margin-bottom: 0.25rem;">User Management</h1>
+    """, unsafe_allow_html=True)
     st.markdown("---")
     
     # Create tabs for different operations
@@ -1070,7 +1072,7 @@ def main():
                 )
             
             # Form submission
-            submitted = st.form_submit_button("➕ Create User", use_container_width=True, type="primary")
+            submitted = st.form_submit_button("Create User", use_container_width=True, type="primary")
             
             if submitted:
                 # Validation
