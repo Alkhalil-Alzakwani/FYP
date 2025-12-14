@@ -1283,7 +1283,7 @@ def render_threat_charts():
     
     # Attack Types Bar Chart
     with col2:
-        st.markdown("<h5 style='text-align: center; color: #65c1f9; margin-top: 20px;'>Attack Type Distribution</h5>", unsafe_allow_html=True)
+        st.markdown("<h5 style='text-align: center; color: #65c1f9; margin-top: 20px;'>Events Type Distribution</h5>", unsafe_allow_html=True)
         
         attack_types_df = get_attack_types()
         
@@ -1307,7 +1307,7 @@ def render_threat_charts():
             
             fig.update_layout(
                 height=400,
-                xaxis_title="Attack Category",
+                xaxis_title="Events Category",
                 yaxis_title="Count",
                 showlegend=False,
                 paper_bgcolor='rgba(0,0,0,0)',
