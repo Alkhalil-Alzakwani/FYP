@@ -523,6 +523,126 @@ def extract_threat_score(analysis_text: str) -> Optional[float]:
     return None
 
 
+def display_organized_analysis(analysis_text: str):
+    """
+    Display AI analysis in an organized, visually structured format.
+    
+    Parses the Mistral LLM response and presents it in sections with:
+    - Color-coded threat levels
+    - Expandable sections for detailed information
+    - Metrics and visual indicators
+    - Proper formatting for readability
+    
+    Args:
+        analysis_text (str): Raw analysis text from Mistral LLM
+    """
+    import re
+    
+    # Extract sections using regex patterns
+    sections = {
+        'phishing_likelihood': r'(?:1\.\s*)?PHISHING LIKELIHOOD[:\s]+(.*?)(?=(?:\d+\.\s*)?(?:THREAT SUMMARY|THREAT LEVEL|ATTACK INDICATORS|$))',
+        'threat_summary': r'(?:2\.\s*)?THREAT (?:SUMMARY|LEVEL)[:\s]+(.*?)(?=(?:\d+\.\s*)?(?:ATTACK INDICATORS|RESPONSE ACTIONS|$))',
+        'attack_indicators': r'(?:3\.\s*)?ATTACK INDICATORS[:\s]+(.*?)(?=(?:\d+\.\s*)?(?:RESPONSE ACTIONS|THREAT DESCRIPTION|RECOMMENDED ACTIONS|$))',
+        'response_actions': r'(?:4\.\s*)?(?:RESPONSE ACTIONS|RECOMMENDED ACTIONS)[:\s]+(.*?)(?=(?:\d+\.\s*)?(?:CONFIDENCE LEVEL|$))',
+        'confidence': r'(?:5\.\s*)?CONFIDENCE LEVEL[:\s]+(.*?)$'
+    }
+    
+    extracted = {}
+    for key, pattern in sections.items():
+        match = re.search(pattern, analysis_text, re.IGNORECASE | re.DOTALL)
+        if match:
+            extracted[key] = match.group(1).strip()
+    
+    # Display Phishing Likelihood with visual indicator
+    if 'phishing_likelihood' in extracted:
+        phishing_text = extracted['phishing_likelihood']
+        percentage_match = re.search(r'(\d+)%', phishing_text)
+        
+        if percentage_match:
+            percentage = int(percentage_match.group(1))
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                # Color-code based on threat level
+                if percentage >= 80:
+                    color = "🔴"
+                    level = "CRITICAL"
+                elif percentage >= 60:
+                    color = "🟠"
+                    level = "HIGH"
+                elif percentage >= 40:
+                    color = "🟡"
+                    level = "MEDIUM"
+                else:
+                    color = "🟢"
+                    level = "LOW"
+                
+                st.metric("Phishing Likelihood", f"{percentage}%", delta=level)
+            
+            with col2:
+                st.markdown(f"**{color} Risk Level: {level}**")
+                st.caption(phishing_text)
+        else:
+            st.info(f"**Phishing Likelihood:** {phishing_text}")
+    
+    st.markdown("---")
+    
+    # Threat Summary
+    if 'threat_summary' in extracted:
+        with st.expander("**Threat Summary**", expanded=True):
+            st.markdown(extracted['threat_summary'])
+    
+    # Attack Indicators
+    if 'attack_indicators' in extracted:
+        with st.expander("**Attack Indicators (IOCs)**", expanded=True):
+            indicators = extracted['attack_indicators']
+            # Try to format as bullet points if they contain dashes or newlines
+            if '\n -' in indicators or '\n-' in indicators:
+                st.markdown(indicators)
+            else:
+                # Split by common delimiters and format
+                lines = [line.strip() for line in indicators.split('\n') if line.strip()]
+                for line in lines:
+                    st.markdown(f"• {line}")
+    
+    # Response Actions
+    if 'response_actions' in extracted:
+        with st.expander("**Recommended Response Actions**", expanded=True):
+            actions = extracted['response_actions']
+            # Check for "Immediate" and "Long-term" sections
+            if 'Immediate' in actions or 'immediate' in actions.lower():
+                st.markdown(actions)
+            else:
+                lines = [line.strip() for line in actions.split('\n') if line.strip()]
+                st.markdown("**Recommended Actions:**")
+                for line in lines:
+                    if line and not line.startswith('-'):
+                        st.markdown(f"• {line}")
+                    else:
+                        st.markdown(line)
+    
+    # Confidence Level
+    if 'confidence' in extracted:
+        confidence_text = extracted['confidence'].lower()
+        if 'high' in confidence_text:
+            conf_icon = "🟢"
+            conf_level = "HIGH"
+        elif 'medium' in confidence_text:
+            conf_icon = "🟡"
+            conf_level = "MEDIUM"
+        else:
+            conf_icon = "🔵"
+            conf_level = "LOW"
+        
+        st.markdown(f"**{conf_icon} Confidence Level: {conf_level}**")
+        st.caption(extracted['confidence'])
+    
+    # If no sections were extracted, display raw text as fallback
+    if not extracted:
+        st.markdown("### Full Analysis")
+        st.markdown(analysis_text)
+
+
 def analyze_logs_batch(logs: List[Dict], ollama_host: str, model: str, use_gpu: bool = True) -> Dict:
     """
     Analyze batch of logs using Mistral LLM with GPU acceleration.
@@ -885,7 +1005,7 @@ def main():
                         
                         # Full analysis
                         st.markdown("### AI Analysis Summary")
-                        st.markdown(result['analysis'])
+                        display_organized_analysis(result['analysis'])
                         
                         # Extract and save threat score
                         threat_score = extract_threat_score(result['analysis'])
@@ -950,7 +1070,7 @@ Be specific and actionable."""
                     analysis = call_mistral(ollama_host, model, prompt, use_gpu)
                 
                 st.markdown("### Analysis Result")
-                st.markdown(analysis)
+                display_organized_analysis(analysis)
             else:
                 st.warning("Please enter log content to analyze")
     

@@ -271,31 +271,53 @@ def get_total_attacks():
 
 def get_high_severity_threats():
     """
-    Retrieve count of high severity threats.
+    Retrieve count of high severity threats from system_statistics.
     
     Query:
-        SELECT COUNT(*) FROM threat_scores WHERE severity = 'High'
+        SELECT high_severity_count FROM system_statistics
+        (Primary data source: Live_Threat_Monitor System Statistics)
     
     Returns:
-        int: Number of high severity threat records (0 on error)
+        int: Number of high and critical severity threat records (0 on error)
     
     Used By:
         render_key_metrics() for high severity KPI
     
     Note:
-        Searches for exact severity='High' (normalized by threat_scores table).
-        Does not include 'Critical' severity (counted separately if needed).
+        Retrieves pre-computed high severity count from system_statistics table.
+        Falls back to splunk_logs if system_statistics unavailable.
     """
     try:
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM threat_scores WHERE severity = 'High'")
-            count = cursor.fetchone()[0]
+            
+            # Try system_statistics table first (Live_Threat_Monitor data)
+            try:
+                cursor.execute("SELECT high_severity_count FROM system_statistics ORDER BY timestamp DESC LIMIT 1")
+                result = cursor.fetchone()
+                if result and result[0] is not None:
+                    conn.close()
+                    return int(result[0])
+            except:
+                pass
+            
+            # Fallback: Count from splunk_logs
+            cursor.execute("SELECT COUNT(*) FROM splunk_logs WHERE LOWER(severity) IN ('high', 'critical')")
+            result = cursor.fetchone()
+            splunk_count = result[0] if result else 0
+            
+            # Count from threat_scores (AI analysis)
+            cursor.execute("SELECT COUNT(*) FROM threat_scores WHERE LOWER(severity) IN ('high', 'critical')")
+            result = cursor.fetchone()
+            threat_count = result[0] if result else 0
+            
             conn.close()
-            return count
+            
+            # Return total count from both sources
+            return splunk_count + threat_count
         return 0
-    except:
+    except Exception as e:
         return 0
 
 
@@ -929,7 +951,6 @@ def render_key_metrics():
     # Get data
     total_attacks = get_total_attacks()
     high_threats = get_high_severity_threats()
-    blocked = get_blocked_connections()
     detection_rate = calculate_detection_rate()
     
     st.markdown(f"""
@@ -982,12 +1003,6 @@ def render_key_metrics():
                 <div>
                     <div class="stat-inline-value">{high_threats:,}</div>
                     <div class="stat-inline-label">High Severity Threats</div>
-                </div>
-            </div>
-            <div class="stat-inline">
-                <div>
-                    <div class="stat-inline-value">{blocked:,}</div>
-                    <div class="stat-inline-label">Blocked Connections</div>
                 </div>
             </div>
             <div class="stat-inline">
