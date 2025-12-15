@@ -1596,7 +1596,7 @@ def main():
         # Provide manual block option
         st.markdown("---")
         st.header("Manual Actions")
-        manual_ip = st.text_input("Manual IP to block (useful for testing)")
+        manual_ip = st.text_input("Manual IP to block")
         if st.button("Block Manual IP") and manual_ip:
             ok, msg = try_block_ip_via_pfsense(manual_ip, "Manual block via Threat Scoring UI")
             if ok:
