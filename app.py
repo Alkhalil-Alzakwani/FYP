@@ -93,10 +93,12 @@ This module serves as the public-facing landing page that:
  HOW TO RUN
 ════════════════════════════════════════════════════════════════════════════
 Terminal:
-  $ streamlit run app.py
+/Users/alkhalilalzakwani/Documents/GitHub/FYP/.venv/bin/python -m streamlit run app.py
 
 With specific environment:
-  $ .venv/Scripts/streamlit.exe run app.py
+cd /Users/alkhalilalzakwani/Documents/GitHub/FYP
+source .venv/bin/activate
+python -m streamlit run app.py
 
 ════════════════════════════════════════════════════════════════════════════
 """
