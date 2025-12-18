@@ -410,20 +410,14 @@ def main():
             </div>
             <div class="stat-inline">
                 <div>
-                    <div class="stat-inline-value">{stats_data['critical_threats']}</div>
-                    <div class="stat-inline-label">High Priority</div>
-                </div>
-            </div>
-            <div class="stat-inline">
-                <div>
                     <div class="stat-inline-value">{stats_data['active_analyses']}</div>
                     <div class="stat-inline-label">Active Sources</div>
                 </div>
             </div>
             <div class="stat-inline">
                 <div>
-                    <div class="stat-inline-value">99.7%</div>
-                    <div class="stat-inline-label">Detection Rate</div>
+                    <div class="stat-inline-value">90%</div>
+                    <div class="stat-inline-label">Detection Accuracy</div>
                 </div>
             </div>
             <div class="stat-inline">
@@ -510,7 +504,7 @@ def main():
             <div class="capability-card">
                 <h4>Intelligence</h4>
                 <ul>
-                    <li>Machine learning models</li>
+                    <li>Large Language Models</li>
                     <li>Behavioral analysis</li>
                     <li>Threat intelligence feeds</li>
                     <li>Predictive analytics</li>
