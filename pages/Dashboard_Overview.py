@@ -747,6 +747,73 @@ def calculate_false_positive_rate():
         return 5.2
 
 
+def get_metric_delta(metric_name, current_value):
+    """
+    Calculate delta (change) from previous period for a metric.
+    
+    Args:
+        metric_name (str): Metric name in performance_metrics table
+        current_value (float): Current metric value
+    
+    Returns:
+        tuple: (delta_value, arrow_symbol, color)
+            - delta_value (float): Change from previous period
+            - arrow_symbol (str): '↑' for increase, '↓' for decrease
+            - color (str): '#4CAF50' for positive change, '#FF6B6B' for negative
+    
+    Logic:
+        1. Query last 2 records for the metric
+        2. Calculate: delta = current - previous
+        3. Determine direction (↑/↓) and color
+        4. For false_positive_rate: inverted logic (decrease is good)
+    
+    Returns (0.0, '↑', '#4CAF50') if no historical data available.
+    """
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            # Get last 2 values (current already known, get previous)
+            cursor.execute("""
+                SELECT value FROM performance_metrics 
+                WHERE metric_name = ? 
+                ORDER BY date DESC 
+                LIMIT 2
+            """, (metric_name,))
+            results = cursor.fetchall()
+            conn.close()
+            
+            if len(results) >= 2:
+                previous_value = results[1][0]
+                delta = current_value - previous_value
+                
+                # Determine arrow and color
+                # For false_positive_rate: decrease is good (green), increase is bad (red)
+                if metric_name == 'false_positive_rate':
+                    if delta < 0:
+                        arrow = '↓'
+                        color = '#4CAF50'  # Green (good - FP decreased)
+                    else:
+                        arrow = '↑'
+                        color = '#FF6B6B'  # Red (bad - FP increased)
+                else:
+                    # For detection_rate and prevention_rate: increase is good
+                    if delta >= 0:
+                        arrow = '↑'
+                        color = '#4CAF50'  # Green (good)
+                    else:
+                        arrow = '↓'
+                        color = '#FF6B6B'  # Red (bad)
+                
+                return (abs(delta), arrow, color)
+            
+            # Not enough historical data
+            return (0.0, '↑', '#4CAF50')
+        return (0.0, '↑', '#4CAF50')
+    except:
+        return (0.0, '↑', '#4CAF50')
+
+
 # ════════════════════════════════════════════════════════════════════════════
 #  UI RENDERING FUNCTIONS - DASHBOARD LAYOUT AND VISUALIZATION
 # ════════════════════════════════════════════════════════════════════════════
@@ -1036,18 +1103,18 @@ def render_performance_metrics():
     ────────────────────────────────────────────────────────────────────
     1. DETECTION RATE
        • Value: calculate_detection_rate() formatted to 1 decimal
-       • Delta: ↑ +2.3% (hardcoded trend indicator)
+       • Delta: Dynamic calculation from historical data
        • Color: #65c1f9 (blue)
     
     2. PREVENTION RATE
        • Value: calculate_prevention_rate() formatted to 1 decimal
-       • Delta: ↑ +1.8% (hardcoded trend indicator)
+       • Delta: Dynamic calculation from historical data
        • Color: #65c1f9 (blue)
     
     3. FALSE POSITIVE RATE
        • Value: calculate_false_positive_rate() formatted to 1 decimal
-       • Delta: ↓ -0.5% (hardcoded trend indicator, red color)
-       • Color: #65c1f9 (blue) with red trend arrow
+       • Delta: Dynamic calculation from historical data (inverted logic)
+       • Color: #65c1f9 (blue) with dynamic trend color
     
     STYLING:
     • Each card: Gradient background, center-aligned, text-center
@@ -1061,12 +1128,18 @@ def render_performance_metrics():
         • calculate_detection_rate()
         • calculate_prevention_rate()
         • calculate_false_positive_rate()
+        • get_metric_delta() for trend calculations
     """
     st.markdown("<h3 style='text-align: center;'>Detection & Prevention Performance</h3>", unsafe_allow_html=True)
     
     detection_rate = calculate_detection_rate()
     prevention_rate = calculate_prevention_rate()
     fp_rate = calculate_false_positive_rate()
+    
+    # Calculate dynamic deltas
+    detection_delta, detection_arrow, detection_color = get_metric_delta('detection_rate', detection_rate)
+    prevention_delta, prevention_arrow, prevention_color = get_metric_delta('prevention_rate', prevention_rate)
+    fp_delta, fp_arrow, fp_color = get_metric_delta('false_positive_rate', fp_rate)
     
     col1, col2, col3 = st.columns(3)
     
@@ -1095,7 +1168,6 @@ def render_performance_metrics():
             }}
             .perf-metric-delta {{
                 font-size: 12px;
-                color: #4CAF50;
                 font-weight: 600;
                 margin-top: 8px;
             }}
@@ -1107,7 +1179,7 @@ def render_performance_metrics():
         <div class="perf-metric-card">
             <div class="perf-metric-label">Detection Rate</div>
             <div class="perf-metric-value">{detection_rate:.1f}%</div>
-            <div class="perf-metric-delta">↑ +2.3%</div>
+            <div class="perf-metric-delta" style="color: {detection_color};">{detection_arrow} {'+' if detection_delta >= 0 else ''}{detection_delta:.1f}%</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -1136,7 +1208,6 @@ def render_performance_metrics():
             }}
             .perf-metric-delta {{
                 font-size: 12px;
-                color: #4CAF50;
                 font-weight: 600;
                 margin-top: 8px;
             }}
@@ -1148,7 +1219,7 @@ def render_performance_metrics():
         <div class="perf-metric-card">
             <div class="perf-metric-label">Prevention Rate</div>
             <div class="perf-metric-value">{prevention_rate:.1f}%</div>
-            <div class="perf-metric-delta">↑ +1.8%</div>
+            <div class="perf-metric-delta" style="color: {prevention_color};">{prevention_arrow} {'+' if prevention_delta >= 0 else ''}{prevention_delta:.1f}%</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -1177,7 +1248,6 @@ def render_performance_metrics():
             }}
             .perf-metric-delta {{
                 font-size: 12px;
-                color: #FF6B6B;
                 font-weight: 600;
                 margin-top: 8px;
             }}
@@ -1189,7 +1259,7 @@ def render_performance_metrics():
         <div class="perf-metric-card">
             <div class="perf-metric-label">False Positive Rate</div>
             <div class="perf-metric-value">{fp_rate:.1f}%</div>
-            <div class="perf-metric-delta">↓ -0.5%</div>
+            <div class="perf-metric-delta" style="color: {fp_color};">{fp_arrow} {'+' if fp_delta >= 0 and fp_arrow == '↑' else ''}{fp_delta:.1f}%</div>
         </div>
         """, unsafe_allow_html=True)
 

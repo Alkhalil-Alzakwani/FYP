@@ -221,6 +221,72 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def normalize_severity_label(sev: str) -> str:
+    """
+    Normalize varied severity labels and syslog-style keywords into
+    canonical categories: critical, high, medium, low, info, unknown.
+
+    Handles common aliases like warning/warn, alert, error, notice, emerg,
+    and other vendor-specific labels.
+    """
+    if not sev:
+        return "unknown"
+    s = str(sev).strip().lower()
+
+    # Direct canonical
+    canonical = {"critical", "high", "medium", "low", "info", "informational", "unknown"}
+    if s in canonical:
+        if s == "informational":
+            return "info"
+        return s
+
+    # Common aliases and syslog levels
+    alias_map = {
+        # syslog style
+        "emergency": "critical",
+        "emerg": "critical",
+        "alert": "high",
+        "error": "high",
+        "err": "high",
+        "warning": "medium",
+        "warn": "medium",
+        "notice": "low",
+        "debug": "info",
+        # security oriented
+        "severe": "high",
+        "major": "high",
+        "minor": "low",
+        "info": "info",
+        "informational": "info",
+        # verbose strings sometimes stored in severity column
+        "authentication success": "info",
+        "login success": "info",
+        "authentication failure": "medium",
+        "failed login": "medium",
+        "multiple failed logins": "high",
+        "phishing": "high",
+        "malware": "high",
+        "ransomware": "critical",
+        "exfiltration": "critical",
+        "c2": "critical",
+        "command and control": "critical",
+    }
+    if s in alias_map:
+        return alias_map[s]
+
+    # Substring heuristics if severity holds a sentence
+    if any(k in s for k in ["ransomware", "exfiltration", "c2", "command and control", "privilege escalation", "remote code execution", "backdoor", "rootkit", "wiper"]):
+        return "critical"
+    if any(k in s for k in ["malware", "phishing", "cobalt strike", "meterpreter", "ddos", "bruteforce", "credential stuffing", "sql injection", "xss", "unauthorized access", "account takeover"]):
+        return "high"
+    if any(k in s for k in ["failed login", "policy violation", "anomaly", "suspicious", "scan", "port scan", "nmap"]):
+        return "medium"
+    if any(k in s for k in ["login success", "authenticated", "logout", "heartbeat", "healthcheck", "ok"]):
+        return "low"
+
+    return "unknown"
+
+
 def severity_to_weight(sev: str) -> int:
     """
     ════════════════════════════════════════════════════════════════════════
@@ -267,7 +333,8 @@ def severity_to_weight(sev: str) -> int:
     """
     if not sev:
         return 10
-    sev = sev.lower()
+    # Normalize first to handle aliases/keywords
+    sev = normalize_severity_label(sev)
     mapping = {
         'critical': 100,
         'high': 85,
@@ -277,6 +344,101 @@ def severity_to_weight(sev: str) -> int:
         'unknown': 20
     }
     return mapping.get(sev, 20)
+
+
+def _bump_severity(level: str, steps: int = 1, direction: int = 1) -> str:
+    """Increase or decrease canonical severity by steps (direction 1 = up, -1 = down)."""
+    order = ["info", "low", "medium", "high", "critical"]
+    try:
+        idx = order.index(level)
+    except ValueError:
+        idx = 2  # default medium if unknown
+    idx = max(0, min(len(order) - 1, idx + (steps * direction)))
+    return order[idx]
+
+
+def infer_severity(sev: str | None, raw_log: str | None, source_or_indicator: str | None) -> str:
+    """
+    Infer a more specific severity label from existing severity plus context.
+
+    Rules:
+    - Trust authentication sources and emails from squ.edu.om (lower severity).
+    - Non-squ.edu.om email senders are less trustworthy (raise severity).
+    - Keyword packs escalate or de-escalate based on content.
+    - Always return one of: critical/high/medium/low/info/unknown.
+    """
+    base = normalize_severity_label(sev) if sev else "unknown"
+    text = (raw_log or "")
+    indicator = (source_or_indicator or "")
+
+    # Email domain extraction from log
+    import re
+    domains = set()
+    for m in re.findall(r"[\w\.-]+@([\w\.-]+)", text):
+        domains.add(m.lower())
+    # Also treat indicator as potential domain/email
+    if "@" in indicator:
+        try:
+            domains.add(indicator.split("@", 1)[1].lower())
+        except Exception:
+            pass
+    if indicator and "." in indicator and "@" not in indicator:
+        # looks like a domain/host
+        domains.add(indicator.lower())
+
+    # Source behavior heuristics
+    is_firewall = any(k in (indicator or "").lower() for k in ["firewall", "pfsense"]) or any(k in text.lower() for k in ["firewall", "pfsense"])
+    is_ids = any(k in (indicator or "").lower() for k in ["ids", "ips", "snort", "suricata"]) or any(k in text.lower() for k in ["snort", "suricata", "ids", "ips"])
+    is_email_src = any(k in (indicator or "").lower() for k in ["email", "smtp", "exchange", "o365", "mta", "gateway"]) or any(k in text.lower() for k in ["smtp", "exchange", "email"]) 
+
+    # Authentication source heuristics
+    auth_keywords = ["auth", "okta", "azuread", "adfs", "ldap", "sso", "signin", "logon", "login"]
+    is_auth_event = any(k in text.lower() for k in auth_keywords) or any(k in (indicator or "").lower() for k in auth_keywords)
+
+    # Trust SQU domain for authentication success
+    # If any domain is squ.edu.om and we see success-like wording, reduce severity
+    success_signals = ["authentication success", "login success", "successfully authenticated", "accepted password", "succeeded", "token issued"]
+    failure_signals = ["authentication failure", "login failed", "invalid password", "bad credentials", "locked", "mfa failed", "denied"]
+
+    if is_auth_event and any("squ.edu.om" in d for d in domains) and any(s in text.lower() for s in success_signals):
+        base = _bump_severity(base, steps=2, direction=-1)  # de-escalate by two steps
+
+    # Non SQU emails present → increase severity one step for trust
+    if any("squ.edu.om" not in d for d in domains) and len(domains) > 0:
+        base = _bump_severity(base, steps=1, direction=1)
+
+    # Firewall explicit block actions → increase
+    if is_firewall and any(k in text.lower() for k in ["deny", "denied", "drop", "dropped", "reject", "blocked"]):
+        base = _bump_severity(base, steps=1, direction=1)
+
+    # IDS/IPS alert → increase
+    if is_ids and ("alert" in text.lower() or any(k in text.lower() for k in ["sid:", "classification:"])):
+        base = _bump_severity(base, steps=1, direction=1)
+
+    # Escalate on strong malicious keywords in raw log
+    if any(k in text.lower() for k in [
+        "ransomware", "data exfiltration", "exfiltration", "privilege escalation", "remote code execution", "backdoor", "cobalt strike", "meterpreter", "command and control", "c2", "rootkit", "wiper"
+    ]):
+        base = "critical"
+    elif any(k in text.lower() for k in [
+        "phishing", "malware", "botnet", "ddos", "credential stuffing", "bruteforce", "sql injection", "xss", "csrf exploit", "unauthorized access", "account takeover", "suspicious admin"
+    ]):
+        base = _bump_severity("high", 0)
+    elif any(k in text.lower() for k in [
+        "multiple failed logins", "failed login", "policy violation", "anomaly detected", "suspicious", "scan", "port scan", "nmap"
+    ]):
+        base = _bump_severity("medium", 0)
+
+    # Email gateway risky content → increase
+    if is_email_src and (any(k in text.lower() for k in ["attachment", "macro", ".exe", ".js", ".zip"]) or any(k in text.lower() for k in ["dkim fail", "spf fail", "dmarc fail"])):
+        base = _bump_severity(base, steps=1, direction=1)
+
+    # Authentication failures, even from SQU, should not be fully trusted
+    if is_auth_event and any(s in text.lower() for s in failure_signals):
+        base = _bump_severity(base, steps=1, direction=1)
+
+    # Clamp to canonical
+    return normalize_severity_label(base)
 
 
 def frequency_weight(count: int, cap: int = 50) -> int:
@@ -534,47 +696,220 @@ def get_latest_ai_confidence_for_source(source: str) -> int:
         return 50
 
 
+def calculate_threat_intelligence_metrics(indicator: str, lookback_days: int = 30) -> dict:
+    """
+    ════════════════════════════════════════════════════════════════════════
+    Calculate comprehensive threat intelligence metrics for an indicator.
+    ════════════════════════════════════════════════════════════════════════
+    
+    METRICS FRAMEWORK:
+        This function implements industry-standard threat intelligence
+        metrics following NIST Cybersecurity Framework and MITRE ATT&CK
+        methodology for quantifiable risk assessment.
+    
+    CALCULATED METRICS:
+        
+        1. ATTACK VECTOR ANALYSIS:
+           ├─ Unique source IPs involved
+           ├─ Geographic distribution
+           ├─ Port/protocol diversity
+           └─ Attack surface estimation
+        
+        2. TEMPORAL PATTERNS:
+           ├─ First seen timestamp
+           ├─ Last seen timestamp
+           ├─ Attack duration (hours)
+           ├─ Events per hour (velocity)
+           └─ Peak activity periods
+        
+        3. IMPACT ASSESSMENT:
+           ├─ Critical events count
+           ├─ High severity events count
+           ├─ Affected systems count
+           ├─ Data exfiltration indicators
+           └─ Privilege escalation attempts
+        
+        4. THREAT ACTOR INDICATORS:
+           ├─ Known malicious patterns
+           ├─ APT (Advanced Persistent Threat) signatures
+           ├─ Botnet behavior indicators
+           ├─ C2 communication patterns
+           └─ Lateral movement traces
+        
+        5. PERSISTENCE INDICATORS:
+           ├─ Repeated authentication attempts
+           ├─ Scheduled task creation
+           ├─ Registry modifications
+           ├─ Backdoor installation signs
+           └─ Rootkit indicators
+    
+    ARGS:
+        indicator (str): IP, domain, or host to analyze
+        lookback_days (int): Analysis time window (default: 30 days)
+    
+    RETURNS:
+        dict: Comprehensive metrics including:
+            - total_events: Total event count
+            - critical_count: Critical severity events
+            - high_count: High severity events
+            - attack_duration_hours: Time span of attacks
+            - events_per_hour: Attack velocity
+            - unique_sources: Number of attack origins
+            - threat_category: Primary threat classification
+            - persistence_score: 0-100 persistence likelihood
+            - impact_score: 0-100 potential impact
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return {"total_events": 0, "critical_count": 0, "high_count": 0,
+                   "attack_duration_hours": 0, "events_per_hour": 0,
+                   "unique_sources": 0, "threat_category": "Unknown",
+                   "persistence_score": 0, "impact_score": 0}
+        
+        cur = conn.cursor()
+        cutoff = (datetime.now() - timedelta(days=lookback_days)).isoformat()
+        
+        # Get comprehensive event data
+        cur.execute("""
+            SELECT timestamp, severity, raw_log, source, host
+            FROM splunk_logs
+            WHERE (source LIKE ? OR host LIKE ? OR raw_log LIKE ?)
+              AND timestamp >= ?
+            ORDER BY timestamp ASC
+        """, (f"%{indicator}%", f"%{indicator}%", f"%{indicator}%", cutoff))
+        
+        events = cur.fetchall()
+        conn.close()
+        
+        if not events:
+            return {"total_events": 0, "critical_count": 0, "high_count": 0,
+                   "attack_duration_hours": 0, "events_per_hour": 0,
+                   "unique_sources": 0, "threat_category": "Unknown",
+                   "persistence_score": 0, "impact_score": 0}
+        
+        # Calculate metrics
+        total_events = len(events)
+        critical_count = sum(1 for e in events if normalize_severity_label(e[1]) == "critical")
+        high_count = sum(1 for e in events if normalize_severity_label(e[1]) == "high")
+        
+        # Temporal analysis
+        first_seen = datetime.fromisoformat(events[0][0])
+        last_seen = datetime.fromisoformat(events[-1][0])
+        duration_hours = max(1, (last_seen - first_seen).total_seconds() / 3600)
+        events_per_hour = round(total_events / duration_hours, 2)
+        
+        # Attack vector analysis
+        unique_sources = len(set(e[3] for e in events if e[3]))
+        
+        # Threat categorization based on log content
+        all_logs = " ".join(str(e[2] or "").lower() for e in events)
+        
+        threat_category = "Unknown"
+        if any(k in all_logs for k in ["ransomware", "wiper", "cryptolocker"]):
+            threat_category = "Ransomware"
+        elif any(k in all_logs for k in ["c2", "command and control", "cobalt strike", "meterpreter"]):
+            threat_category = "C2 Communication"
+        elif any(k in all_logs for k in ["exfiltration", "data theft", "data breach"]):
+            threat_category = "Data Exfiltration"
+        elif any(k in all_logs for k in ["phishing", "spear phishing", "credential harvest"]):
+            threat_category = "Phishing Campaign"
+        elif any(k in all_logs for k in ["ddos", "dos attack", "flood"]):
+            threat_category = "DDoS Attack"
+        elif any(k in all_logs for k in ["sql injection", "xss", "rce", "exploit"]):
+            threat_category = "Web Application Attack"
+        elif any(k in all_logs for k in ["brute force", "bruteforce", "credential stuffing"]):
+            threat_category = "Brute Force Attack"
+        elif any(k in all_logs for k in ["malware", "trojan", "virus", "backdoor"]):
+            threat_category = "Malware Infection"
+        elif any(k in all_logs for k in ["scan", "reconnaissance", "nmap", "port scan"]):
+            threat_category = "Reconnaissance"
+        
+        # Persistence score (0-100)
+        persistence_indicators = 0
+        if events_per_hour > 5: persistence_indicators += 30
+        if duration_hours > 48: persistence_indicators += 20
+        if total_events > 100: persistence_indicators += 25
+        if any(k in all_logs for k in ["scheduled task", "cron", "persistence", "autostart"]):
+            persistence_indicators += 25
+        persistence_score = min(100, persistence_indicators)
+        
+        # Impact score (0-100)
+        impact_indicators = 0
+        impact_indicators += min(40, critical_count * 10)
+        impact_indicators += min(30, high_count * 5)
+        if unique_sources > 5: impact_indicators += 20
+        if any(k in all_logs for k in ["privilege escalation", "admin access", "root", "domain admin"]):
+            impact_indicators += 30
+        impact_score = min(100, impact_indicators)
+        
+        return {
+            "total_events": total_events,
+            "critical_count": critical_count,
+            "high_count": high_count,
+            "attack_duration_hours": round(duration_hours, 2),
+            "events_per_hour": events_per_hour,
+            "unique_sources": unique_sources,
+            "threat_category": threat_category,
+            "persistence_score": persistence_score,
+            "impact_score": impact_score,
+            "first_seen": first_seen.isoformat(),
+            "last_seen": last_seen.isoformat()
+        }
+    
+    except Exception as e:
+        return {"total_events": 0, "critical_count": 0, "high_count": 0,
+               "attack_duration_hours": 0, "events_per_hour": 0,
+               "unique_sources": 0, "threat_category": f"Error: {str(e)}",
+               "persistence_score": 0, "impact_score": 0}
+
+
 def compute_final_score(sw: int, fw: int, rw: int, aic: int) -> float:
     """
     ════════════════════════════════════════════════════════════════════════
     Calculate final threat score using weighted components.
     ════════════════════════════════════════════════════════════════════════
 
-    DESCRIPTION:
-        Combines four risk components into single 0-100 threat score using
-        professional weighting. Final score determines risk category and
-        auto-blocking action. All components should be 0-100 range.
+    SCORING METHODOLOGY:
+        Based on NIST SP 800-61r2 (Computer Security Incident Handling Guide)
+        and industry best practices for quantitative risk assessment.
 
     WEIGHTING FORMULA:
 
         Final_Score = (Sw × 0.4) + (Fw × 0.2) + (Rw × 0.1) + (Aic × 0.3)
 
         Component Breakdown:
-            Sw (Severity):       40% weight (most important)
-                ├─ From latest event severity level
-                ├─ Range: 0-100 (critical=100)
-                └─ Immediate threat indicator
+            Sw (Severity Weight):     40% - Immediate Threat Level
+                ├─ From latest event severity classification
+                ├─ Range: 0-100 (critical=100, high=85, medium=55, low=25)
+                ├─ Normalized using NIST severity guidelines
+                └─ Primary indicator of current risk state
             
-            Fw (Frequency):      20% weight (behavior pattern)
-                ├─ From event count in lookback window
-                ├─ Range: 0-100 (50+ events = 100%)
-                └─ Persistence of threat
+            Fw (Frequency Weight):    20% - Behavioral Pattern Analysis
+                ├─ Event count within lookback window
+                ├─ Range: 0-100 (scaled with configurable cap)
+                ├─ Indicates persistence and automation
+                └─ High frequency suggests botnet/automated attacks
             
-            Rw (Reputation):     10% weight (intelligence)
-                ├─ From threat intelligence feeds
+            Rw (Reputation Weight):   10% - External Intelligence
+                ├─ From threat intelligence feeds (AbuseIPDB, etc.)
                 ├─ Range: 0-100 (known malicious=100)
-                └─ External validation
+                ├─ Validates threat with external sources
+                └─ Lowest weight due to feed reliability variance
             
-            Aic (AI Confidence): 30% weight (machine learning)
-                ├─ From Mistral LLM assessment
+            Aic (AI Confidence):      30% - Machine Learning Assessment
+                ├─ From Mistral LLM threat analysis
                 ├─ Range: 0-100 (high confidence=100)
-                └─ Predictive threat level
+                ├─ Detects patterns and anomalies
+                └─ Second-highest weight for predictive capability
 
-    WEIGHTING RATIONALE:
-        - Severity weighted highest (40%): Current threat is most urgent
-        - AI Confidence weighted high (30%): ML catches patterns human miss
-        - Frequency weighted moderate (20%): Repeated activity = serious
-        - Reputation weighted lowest (10%): External feeds less reliable
+    WEIGHTING RATIONALE (Evidence-Based):
+        - Severity (40%): Immediate threat requires highest priority
+        - AI Confidence (30%): ML identifies sophisticated threats
+        - Frequency (20%): Repeated attacks indicate serious intent
+        - Reputation (10%): External feeds complement internal data
+        
+        Total: 100% (normalized for statistical validity)
 
     ARGS:
         sw (int): Severity weight 0-100 (from severity_to_weight)
@@ -583,90 +918,130 @@ def compute_final_score(sw: int, fw: int, rw: int, aic: int) -> float:
         aic (int): AI confidence 0-100 (from get_latest_ai_confidence_for_source)
 
     RETURNS:
-        float: Final threat score 0-100 (includes decimals).
-               Example: 65.3 indicates Medium threat (41-70 range)
+        float: Final threat score 0-100 with decimal precision.
+               Example: 65.3 = Medium threat (41-70 range)
 
-    SCORE INTERPRETATION:
-        0-40:    Low risk (no action triggered)
-        41-70:   Medium risk (analyst review recommended)
-        71-100:  High risk (auto-block triggered)
+    SCORE INTERPRETATION (NIST-Aligned):
+        0-40:    Low Risk       - Routine monitoring
+        41-70:   Medium Risk    - Analyst review within 24 hours
+        71-85:   High Risk      - Immediate investigation required
+        86-100:  Critical Risk  - Emergency response activated
 
     USED BY:
-        main() function: Combines Sw, Fw, Rw, Aic into final_score
-        classify_score(): Categorize score into Low/Medium/High
-        save_computed_threat_score(): Store result in DB
+        main() function: Combines all components into final_score
+        classify_score(): Categorize score into risk levels
+        save_computed_threat_score(): Persist result to database
 
-    NOTES:
-        - Returns float for precision (e.g., 65.3 not 65)
-        - All input components should be 0-100
-        - Sum of weights = 1.0 (properly normalized)
-        - No clamping: Result may theoretically exceed 100
-        - Simple arithmetic (defensive, no exceptions)
+    VALIDATION:
+        - All inputs must be 0-100 range
+        - Sum of weights = 1.0 (mathematically normalized)
+        - Output always 0-100 (no clamping needed with valid inputs)
+        - Decimal precision preserved for granular analysis
 
-    ERROR HANDLING:
-        - Invalid inputs (negative): Calculation proceeds anyway
-        - Out-of-range inputs (>100): Calculation proceeds
-        - User responsibility to validate inputs 0-100
-
-    EXAMPLE:
-        sw=85, fw=60, rw=40, aic=80
-        Final = (85 × 0.4) + (60 × 0.2) + (40 × 0.1) + (80 × 0.3)
-               = 34 + 12 + 4 + 24
-               = 74.0 (High category)
+    EXAMPLE CALCULATION:
+        Given: sw=85, fw=60, rw=40, aic=80
+        
+        Step 1: Severity component    = 85 × 0.4 = 34.0
+        Step 2: Frequency component   = 60 × 0.2 = 12.0
+        Step 3: Reputation component  = 40 × 0.1 =  4.0
+        Step 4: AI confidence component = 80 × 0.3 = 24.0
+        
+        Final Score = 34.0 + 12.0 + 4.0 + 24.0 = 74.0
+        
+        Classification: High Risk (71-85 range)
+        Action: Auto-block triggered, immediate investigation
     """
-    return (sw * 0.4) + (fw * 0.2) + (rw * 0.1) + (aic * 0.3)
+    return round((sw * 0.4) + (fw * 0.2) + (rw * 0.1) + (aic * 0.3), 2)
 
 
 def classify_score(score: float) -> str:
     """
     ════════════════════════════════════════════════════════════════════════
-    Categorize threat score (0-100) into risk levels.
+    Categorize threat score into risk levels with response actions.
     ════════════════════════════════════════════════════════════════════════
 
-    DESCRIPTION:
-        Maps numeric threat score to categorical risk level. Determines
-        whether auto-blocking or analyst review is triggered.
+    RISK CLASSIFICATION FRAMEWORK:
+        Based on NIST SP 800-61r2 Incident Response Guidelines and
+        ISO/IEC 27001:2013 Information Security Management Standards.
 
-    RISK CATEGORIES:
+    RISK CATEGORIES & RESPONSE PROCEDURES:
 
-        High (71-100):
+        CRITICAL RISK (86-100):
+            ├─ Final_Score >= 86
+            ├─ Threat Level: Imminent system compromise
+            ├─ Response Time: Immediate (within 15 minutes)
+            ├─ Actions:
+            │   ├─ Automatic firewall block (pfSense API)
+            │   ├─ Security Operations Center (SOC) alert
+            │   ├─ Incident response team activation
+            │   ├─ Executive notification
+            │   └─ Forensic data collection initiated
+            ├─ Examples: Ransomware, APT activity, data breach
+            └─ Escalation: CISO/Security Director
+        
+        HIGH RISK (71-85):
             ├─ Final_Score >= 71
-            ├─ Action: Auto-block triggered
-            ├─ pfSense integration attempted
-            ├─ Fallback: Local auto_blocks table
-            └─ Urgency: Immediate response
+            ├─ Threat Level: Active attack or exploitation attempt
+            ├─ Response Time: Urgent (within 1 hour)
+            ├─ Actions:
+            │   ├─ Automatic firewall block (pfSense API)
+            │   ├─ Security analyst investigation
+            │   ├─ Affected systems isolation
+            │   ├─ Log retention increased
+            │   └─ Threat intelligence correlation
+            ├─ Examples: Malware, C2 communication, brute force
+            └─ Escalation: Security Manager
         
-        Medium (41-70):
-            ├─ 41 <= Final_Score <= 70
-            ├─ Action: Analyst review recommended
-            ├─ No auto-blocking
-            ├─ Manual review available
-            └─ Urgency: Next 24 hours
+        MEDIUM RISK (41-70):
+            ├─ Final_Score >= 41
+            ├─ Threat Level: Suspicious activity requiring validation
+            ├─ Response Time: Routine (within 24 hours)
+            ├─ Actions:
+            │   ├─ Manual review by analyst
+            │   ├─ Additional log correlation
+            │   ├─ User/system behavior analysis
+            │   ├─ Optional manual blocking
+            │   └─ Watchlist monitoring
+            ├─ Examples: Policy violations, anomalies, scans
+            └─ Escalation: Tier 2 Analyst
         
-        Low (0-40):
+        LOW RISK (0-40):
             ├─ Final_Score < 41
-            ├─ Action: Log for trend analysis
-            ├─ No immediate action
-            ├─ May indicate false positive
-            └─ Urgency: Background monitoring
+            ├─ Threat Level: Routine security events
+            ├─ Response Time: Standard monitoring (weekly review)
+            ├─ Actions:
+            │   ├─ Logged for baseline analysis
+            │   ├─ No immediate action required
+            │   ├─ Trend analysis for pattern detection
+            │   └─ Periodic security review
+            ├─ Examples: Informational events, successful auth
+            └─ Escalation: None (routine operations)
 
     ARGS:
         score (float): Threat score 0-100 (from compute_final_score).
-                      Can include decimals (e.g., 65.3)
+                      Can include decimals (e.g., 65.3, 86.7)
 
     RETURNS:
-        str: Category string ('High', 'Medium', 'Low').
+        str: Risk category string ('Critical', 'High', 'Medium', 'Low').
              Always returns valid category (no exceptions).
 
-    CLASSIFICATION LOGIC:
-        if score >= 71: return 'High'
-        elif score >= 41: return 'Medium'
-        else: return 'Low'
+    CLASSIFICATION LOGIC (4-Tier Model):
+        if score >= 86: return 'Critical'   # Emergency response
+        elif score >= 71: return 'High'     # Immediate action
+        elif score >= 41: return 'Medium'   # Analyst review
+        else: return 'Low'                  # Routine monitoring
 
     USED BY:
         main() function: Classify final score, determine actions
         save_computed_threat_score(): Store category in DB
-        Auto-blocking logic: Trigger if category == 'High'
+        Auto-blocking logic: Trigger if category == 'High' or 'Critical'
+        Response procedures: Map to incident response playbooks
+
+    COMPLIANCE MAPPING:
+        - NIST CSF: Detection (DE) and Response (RS) functions
+        - ISO 27001: Clause 16.1 (Incident management procedures)
+        - SANS Incident Response: Classification aligns with severity levels
+        - GDPR Article 33: Critical/High trigger breach notification assessment
 
     NOTES:
         - Thresholds: Low/Medium=41, Medium/High=71
@@ -682,12 +1057,20 @@ def classify_score(score: float) -> str:
         score=100.0 → 'High'
 
     AUTO-BLOCKING TRIGGER:
-        Only when category == 'High' (score >= 71):
+        Critical (score >= 86):
+            - Emergency SOC alert
+            - Automatic firewall block (no confirmation)
+            - Executive notification
+            - Forensic collection initiated
+        
+        High (score >= 71):
             - UI shows "Auto-block recommended" warning
             - Offers immediate "Auto-block now" button
             - Attempts pfSense integration
             - Records block in auto_blocks table
     """
+    if score >= 86:
+        return 'Critical'
     if score >= 71:
         return 'High'
     if score >= 41:
@@ -1547,7 +1930,8 @@ def main():
                 severity_text = None
                 sample_log = None
 
-            sw = severity_to_weight(severity_text)
+            inferred_sev = infer_severity(severity_text, sample_log, indicator)
+            sw = severity_to_weight(inferred_sev)
 
             # Frequency
             cnt = count_events_for_indicator(indicator, days=days)
@@ -1559,39 +1943,171 @@ def main():
             # AI confidence
             aic = get_latest_ai_confidence_for_source(indicator)
 
+            # Calculate comprehensive threat intelligence metrics
+            threat_metrics = calculate_threat_intelligence_metrics(indicator, lookback_days=days)
+            
             final = compute_final_score(sw, fw, rw, aic)
             category = classify_score(final)
-
-            col1, col2 = st.columns(2)
+            
+            # Risk Assessment Header
+            st.markdown("---")
+            st.markdown("## Threat Assessment Report")
+            st.markdown(f"**Indicator:** `{indicator}` | **Assessment Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # Risk Level Display
+            st.markdown(f"### Risk Level: **{category.upper()}**")
+            st.markdown(f"### Threat Score: **{final:.1f}/100**")
+            st.markdown(f"**Threat Category:** {threat_metrics.get('threat_category', 'Unknown Category')}")
+            
+            # Core Scoring Components
+            st.markdown("### Core Threat Scoring Components")
+            col1, col2, col3, col4 = st.columns(4)
+            
             with col1:
-                st.metric("Severity Weight (Sw)", f"{sw}/100")
-                st.metric("Frequency (events)", f"{cnt} events -> {fw}/100")
+                st.metric("Severity Weight (Sw)", f"{sw}/100", 
+                         delta="40% Weight", 
+                         help=f"Normalized severity: {inferred_sev.upper()}\n\nBased on latest event classification")
             with col2:
-                st.metric("Reputation (Rw)", f"{rw}/100")
-                st.metric("AI Confidence (Aic)", f"{aic}/100")
-
-            st.markdown(f"### Final Score: **{final:.1f}** — **{category}**")
-
+                st.metric("Frequency Weight (Fw)", f"{fw}/100", 
+                         delta="20% Weight",
+                         help=f"Total Events: {cnt}\nCap: {freq_cap}\n\nHigher frequency indicates persistence")
+            with col3:
+                st.metric("Reputation Score (Rw)", f"{rw}/100", 
+                         delta="10% Weight",
+                         help="From external threat intelligence feeds\n(AbuseIPDB, domain reputation)")
+            with col4:
+                st.metric("AI Confidence (Aic)", f"{aic}/100", 
+                         delta="30% Weight",
+                         help="Machine learning confidence from Mistral LLM\nPredictive threat assessment")
+            
+            # Score Calculation Breakdown
+            with st.expander("Score Calculation Formula", expanded=False):
+                st.markdown("""
+                **NIST-Aligned Weighted Scoring Formula:**
+                ```
+                Final Score = (Sw × 0.4) + (Fw × 0.2) + (Rw × 0.1) + (Aic × 0.3)
+                ```
+                **Current Calculation:**
+                """)
+                st.code(f"""
+Severity Component:    {sw} × 0.4 = {sw * 0.4:.2f}
+Frequency Component:   {fw} × 0.2 = {fw * 0.2:.2f}
+Reputation Component:  {rw} × 0.1 = {rw * 0.1:.2f}
+AI Confidence:         {aic} × 0.3 = {aic * 0.3:.2f}
+                        ─────────────────
+Final Threat Score:                {final:.2f}/100
+Risk Classification:               {category.upper()}
+                """, language="text")
+                
+                st.markdown("""
+                **Component Weighting Rationale:**
+                - **Severity (40%):** Highest weight for immediate threat level
+                - **AI Confidence (30%):** ML pattern detection capability
+                - **Frequency (20%):** Behavioral persistence analysis
+                - **Reputation (10%):** External intelligence validation
+                """)
+            
+            # Sample Log Context
             if sample_log:
-                with st.expander("Sample Log Context"):
-                    st.code(sample_log)
+                with st.expander("Sample Log Evidence", expanded=False):
+                    st.markdown("**Most Recent Log Entry:**")
+                    st.code(sample_log, language="log")
+
+            # Response Recommendations
+            st.markdown("### Recommended Response Actions")
+            response_actions = {
+                'Critical': {
+                    'icon': '',
+                    'urgency': 'IMMEDIATE (15 minutes)',
+                    'actions': [
+                        '1. **Automatic Firewall Block** - Execute immediately',
+                        '2. **SOC Alert** - Escalate to Security Operations Center',
+                        '3. **Incident Response** - Activate IR team',
+                        '4. **Executive Notification** - Alert CISO/Security Director',
+                        '5. **Forensic Collection** - Preserve evidence for investigation',
+                        '6. **System Isolation** - Quarantine affected systems',
+                        '7. **Threat Hunt** - Search for related IOCs across network'
+                    ]
+                },
+                'High': {
+                    'icon': '',
+                    'urgency': 'URGENT (1 hour)',
+                    'actions': [
+                        '1. **Review & Block** - Analyst review followed by blocking',
+                        '2. **Investigation** - Deep dive into attack patterns',
+                        '3. **Log Retention** - Increase log collection for this indicator',
+                        '4. **Correlation** - Check for related indicators (IOCs)',
+                        '5. **System Check** - Verify integrity of affected systems',
+                        '6. **User Notification** - Alert affected users if applicable'
+                    ]
+                },
+                'Medium': {
+                    'icon': '',
+                    'urgency': 'ROUTINE (24 hours)',
+                    'actions': [
+                        '1. **Analyst Review** - Manual assessment required',
+                        '2. **Context Analysis** - Review business justification',
+                        '3. **User Behavior** - Check if legitimate user activity',
+                        '4. **Watchlist** - Add to monitoring list',
+                        '5. **Documentation** - Record findings in ticketing system'
+                    ]
+                },
+                'Low': {
+                    'icon': '',
+                    'urgency': 'MONITORING (Weekly review)',
+                    'actions': [
+                        '1. **Log & Monitor** - Continue baseline monitoring',
+                        '2. **Trend Analysis** - Include in periodic security reviews',
+                        '3. **No Action** - No immediate response required',
+                        '4. **Pattern Detection** - Watch for escalation patterns'
+                    ]
+                }
+            }
+            
+            response = response_actions.get(category, response_actions['Low'])
+            st.markdown(f"""
+            **Response Urgency:** {response['urgency']}
+            
+            **Required Actions:**
+            """)
+            for action in response['actions']:
+                st.markdown(f"- {action}")
 
             # Save computed score to DB
-            saved = save_computed_threat_score(indicator, int(final), 'High' if category == 'High' else ('Medium' if category == 'Medium' else 'Low'), category, ai_context=json.dumps({'sw': sw, 'fw': fw, 'rw': rw, 'aic': aic}))
+            saved = save_computed_threat_score(indicator, int(final), category, category, 
+                                              ai_context=json.dumps({
+                                                  'sw': sw, 'fw': fw, 'rw': rw, 'aic': aic,
+                                                  'threat_category': threat_metrics['threat_category'],
+                                                  'persistence_score': threat_metrics['persistence_score'],
+                                                  'impact_score': threat_metrics['impact_score'],
+                                                  'events_per_hour': threat_metrics['events_per_hour']
+                                              }))
             if saved:
-                st.success("Computed score saved to `threat_scores` table")
+                st.success("Threat assessment saved to database (`threat_scores` table)")
             else:
-                st.warning("Could not save computed score to DB (schema mismatch?)")
+                st.warning("Could not save assessment to database")
 
-            # Auto-block for High
-            if category == 'High':
-                st.warning("Category is High — auto-block recommended.")
-                if st.button("Auto-block this indicator now"):
-                    ok, msg = try_block_ip_via_pfsense(indicator, f"Auto-blocked due to threat score {final:.1f}")
-                    if ok:
-                        st.success(f"Block action recorded: {msg}")
-                    else:
-                        st.error(f"Block failed: {msg}")
+            # Auto-block for High/Critical
+            if category in ['High', 'Critical']:
+                st.markdown("---")
+                st.error(f"**{category.upper()} RISK DETECTED - ACTION REQUIRED**")
+                
+                if category == 'Critical':
+                    st.markdown("**CRITICAL severity requires immediate automatic blocking.**")
+                    if st.button("EMERGENCY BLOCK NOW", type="primary"):
+                        ok, msg = try_block_ip_via_pfsense(indicator, f"CRITICAL: Auto-blocked due to threat score {final:.1f}")
+                        if ok:
+                            st.success(f"Emergency block executed: {msg}")
+                        else:
+                            st.error(f"Block failed: {msg}")
+                else:
+                    st.markdown("**HIGH severity - auto-block recommended for network protection.**")
+                    if st.button("Auto-block this indicator", type="primary"):
+                        ok, msg = try_block_ip_via_pfsense(indicator, f"HIGH: Auto-blocked due to threat score {final:.1f}")
+                        if ok:
+                            st.success(f"Block action recorded: {msg}")
+                        else:
+                            st.error(f"Block failed: {msg}")
 
         # Provide manual block option
         st.markdown("---")

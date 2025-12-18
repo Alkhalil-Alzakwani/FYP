@@ -426,6 +426,58 @@ def get_severity_reasons(log):
     sourcetype = (log.get('sourcetype') or '').lower()
     source = (log.get('source') or '').lower()
     raw_log = (log.get('raw_log') or '').lower()
+
+    # Source-behavior analysis: add contextual reasons by source type
+    def analyze_source_behavior():
+        src_reasons = []
+        # Firewall/pfSense
+        if any(k in source or k in sourcetype for k in ["firewall", "pfsense"]):
+            if any(k in raw_log for k in ["deny", "denied", "drop", "dropped", "reject", "blocked"]):
+                src_reasons.append("Firewall blocked traffic (deny/drop/reject event)")
+            if any(k in raw_log for k in ["c2", "command and control", "malware", "ransomware"]):
+                src_reasons.append("Firewall flagged malicious signature (C2/Malware)")
+        # IDS/IPS
+        if any(k in source or k in sourcetype for k in ["ids", "ips", "snort", "suricata"]):
+            if "alert" in raw_log:
+                src_reasons.append("IDS/IPS alert triggered by rule match")
+            if any(k in raw_log for k in ["exploit", "rce", "buffer overflow", "lfi", "rfi", "sql injection"]):
+                src_reasons.append("Exploit pattern detected by IDS/IPS")
+        # Authentication
+        if any(k in source or k in sourcetype for k in ["okta", "azuread", "adfs", "ldap", "sso", "signin", "logon", "login"]):
+            # Extract email domains
+            domains = set(re.findall(r"[\w\.-]+@([\w\.-]+)", raw_log))
+            if any("squ.edu.om" in d for d in domains) and any(k in raw_log for k in ["authentication success", "login success", "accepted password", "succeeded", "token issued", "success"]):
+                src_reasons.append("Trusted SQU authentication success event")
+            if any("squ.edu.om" not in d for d in domains) and len(domains) > 0:
+                src_reasons.append("Non-SQU email domain involved in authentication")
+            if any(k in raw_log for k in ["authentication failure", "login failed", "invalid password", "bad credentials", "locked", "mfa failed", "denied"]):
+                src_reasons.append("Repeated authentication failures detected")
+        # Email gateways / SMTP
+        if any(k in source or k in sourcetype for k in ["email", "smtp", "exchange", "o365", "mta", "gateway"]):
+            domains = set(re.findall(r"[\w\.-]+@([\w\.-]+)", raw_log))
+            if any("squ.edu.om" not in d for d in domains) and len(domains) > 0:
+                src_reasons.append("Email from non-SQU sender domain")
+            if any(k in raw_log for k in ["attachment", "macro", ".exe", ".js", ".zip", "link", "http://", "https://"]):
+                src_reasons.append("Email contains risky attachment or link")
+            if any(k in raw_log for k in ["phishing", "spoof", "dkim fail", "spf fail", "dmarc fail"]):
+                src_reasons.append("Email anti-spoofing/phishing signals present")
+        # Web servers
+        if any(k in source or k in sourcetype for k in ["nginx", "apache", "httpd", "iis"]):
+            if any(k in raw_log for k in ["/wp-admin", "wp-login", "xmlrpc.php", "admin", "shell", "/phpmyadmin"]):
+                src_reasons.append("Web admin surface probing detected")
+            if any(k in raw_log for k in ["union select", "or 1=1", "sleep(", "xp_"]):
+                src_reasons.append("SQL injection probing in HTTP requests")
+            if any(k in raw_log for k in ["/etc/passwd", "..\\", "../", "%00"]):
+                src_reasons.append("Path traversal or LFI probing")
+        # VPN
+        if "vpn" in source or "vpn" in sourcetype:
+            if any(k in raw_log for k in ["login failed", "auth failed", "invalid credentials"]):
+                src_reasons.append("VPN authentication failures from client")
+            if any(k in raw_log for k in ["connected", "assigned ip", "session started"]):
+                src_reasons.append("VPN session established")
+        return src_reasons
+
+    reasons.extend(analyze_source_behavior())
     
     # Critical severity indicators
     if severity == 'critical':
@@ -497,6 +549,23 @@ def get_severity_reasons(log):
         if not reasons:
             reasons.append("Informational event for audit logging")
     
+    # Optional suggested severity based on behavior/context
+    def suggested_severity():
+        base = severity
+        # Promote on strong malicious signals
+        if any(k in raw_log for k in ["ransomware", "exfiltration", "privilege escalation", "remote code execution", "c2", "command and control", "rootkit", "wiper"]):
+            return "critical"
+        if any(k in raw_log for k in ["malware", "phishing", "ddos", "credential stuffing", "bruteforce", "sql injection", "xss", "unauthorized access", "account takeover"]):
+            base = "high"
+        # De-escalate trusted SQU auth successes
+        if any(k in source or k in sourcetype for k in ["okta", "azuread", "adfs", "ldap", "sso"]) and re.search(r"[\w\.-]+@squ\.edu\.om", raw_log) and any(k in raw_log for k in ["authentication success", "login success", "accepted password", "succeeded", "token issued", "success"]):
+            return "low" if severity in ["info", "low", "unknown"] else "medium"
+        return base
+
+    sug = suggested_severity()
+    if sug and sug != severity:
+        reasons.append(f"Suggested severity based on behavior: {sug}")
+
     return reasons
 
 def get_unique_hosts():
@@ -559,40 +628,61 @@ def get_unique_sources():
 
 def get_sourcetype_stats():
     """
-    Retrieve sourcetype distribution with counts.
-    
-    Query:
-        SELECT sourcetype, COUNT(*) FROM splunk_logs 
-        WHERE sourcetype IS NOT NULL GROUP BY sourcetype
+    Retrieve detailed sourcetype distribution.
     
     Returns:
-        List[Tuple]: List of (sourcetype, count) tuples ordered by count DESC
+        List[Dict]: List of dicts with sourcetype, count, severity breakdown, unique sources/hosts, latest timestamp
     
     Used By:
         Sourcetype statistics table in System Statistics section
     
     Error Handling:
         Returns empty list if database query fails
-    
-    Display:
-        Converted to DataFrame with Sourcetype, Count, Percentage columns
     """
     from database.queries import get_db_connection
     try:
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
+            # Get basic stats
             cursor.execute("""
-                SELECT sourcetype, COUNT(*) as count 
+                SELECT 
+                    sourcetype,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN LOWER(COALESCE(derived_severity, severity)) = 'critical' THEN 1 ELSE 0 END) as critical_count,
+                    SUM(CASE WHEN LOWER(COALESCE(derived_severity, severity)) = 'high' THEN 1 ELSE 0 END) as high_count,
+                    SUM(CASE WHEN LOWER(COALESCE(derived_severity, severity)) = 'medium' THEN 1 ELSE 0 END) as medium_count,
+                    SUM(CASE WHEN LOWER(COALESCE(derived_severity, severity)) = 'low' THEN 1 ELSE 0 END) as low_count,
+                    SUM(CASE WHEN LOWER(COALESCE(derived_severity, severity)) = 'info' THEN 1 ELSE 0 END) as info_count,
+                    COUNT(DISTINCT source) as unique_sources,
+                    COUNT(DISTINCT host) as unique_hosts,
+                    MAX(timestamp) as latest_timestamp
                 FROM splunk_logs 
                 WHERE sourcetype IS NOT NULL 
                 GROUP BY sourcetype 
-                ORDER BY count DESC
+                ORDER BY total DESC
             """)
-            stats = cursor.fetchall()
+            rows = cursor.fetchall()
             conn.close()
-            return stats
-    except:
+            
+            # Convert to list of dicts
+            result = []
+            for row in rows:
+                result.append({
+                    'sourcetype': row[0],
+                    'total': row[1],
+                    'critical': row[2],
+                    'high': row[3],
+                    'medium': row[4],
+                    'low': row[5],
+                    'info': row[6],
+                    'unique_sources': row[7],
+                    'unique_hosts': row[8],
+                    'latest_timestamp': row[9]
+                })
+            return result
+    except Exception as e:
+        print(f"Error getting sourcetype stats: {e}")
         return []
     return []
 
@@ -1117,6 +1207,15 @@ if auto_refresh:
 # ════════════════════════════════════════════════════════════════════════════
 # Purpose: Display key threat indicators and sourcetype distribution
 
+# Ensure derived_severity is available and backfilled for existing rows
+try:
+    import database.queries as dbq
+    dbq.ensure_derived_severity_column()
+    # Backfill a reasonable batch each render; adjust as needed
+    dbq.backfill_derived_severity()
+except Exception:
+    pass
+
 st.markdown("---")
 
 st.markdown("<h3 style='text-align: center;'>System Statistics</h3>", unsafe_allow_html=True)
@@ -1126,7 +1225,9 @@ _raw_total_count = max(0, get_splunk_logs_count())
 total_count = _raw_total_count + 1 if _raw_total_count > 0 else 0  # Only shift baseline when logs exist
 critical_count = max(0, get_splunk_logs_count(severity_filter='critical'))
 high_count = max(0, get_splunk_logs_count(severity_filter='high'))
-new_logs = st.session_state.new_logs_count if st.session_state.new_logs_count > 0 else 0
+medium_count = max(0, get_splunk_logs_count(severity_filter='medium'))
+low_count = max(0, get_splunk_logs_count(severity_filter='low'))
+info_count = max(0, get_splunk_logs_count(severity_filter='info'))
 
 st.markdown(f"""
 <style>
@@ -1172,19 +1273,31 @@ st.markdown(f"""
         <div class="stat-inline">
             <div>
                 <div class="stat-inline-value">{critical_count:,}</div>
-                <div class="stat-inline-label">Critical Events</div>
+                <div class="stat-inline-label">Critical</div>
             </div>
         </div>
         <div class="stat-inline">
             <div>
                 <div class="stat-inline-value">{high_count:,}</div>
-                <div class="stat-inline-label">High Severity</div>
+                <div class="stat-inline-label">High</div>
             </div>
         </div>
         <div class="stat-inline">
             <div>
-                <div class="stat-inline-value">{new_logs:,}</div>
-                <div class="stat-inline-label">New Logs</div>
+                <div class="stat-inline-value">{medium_count:,}</div>
+                <div class="stat-inline-label">Medium</div>
+            </div>
+        </div>
+        <div class="stat-inline">
+            <div>
+                <div class="stat-inline-value">{low_count:,}</div>
+                <div class="stat-inline-label">Low</div>
+            </div>
+        </div>
+        <div class="stat-inline">
+            <div>
+                <div class="stat-inline-value">{info_count:,}</div>
+                <div class="stat-inline-label">Info</div>
             </div>
         </div>
         <div class="stat-inline">
@@ -1204,33 +1317,49 @@ sourcetype_stats = get_sourcetype_stats()
 
 # Blue-themed styling for the sourcetype stats table
 if sourcetype_stats:
-    stats_df = pd.DataFrame(sourcetype_stats, columns=['Sourcetype', 'Count'])
-    stats_df['Percentage'] = (stats_df['Count'] / stats_df['Count'].sum() * 100).round(2)
-    # Apply blue style using pandas Styler
-    def blue_style():
-        return [
-            {'selector': 'th', 'props': [('background-color', '#243447'), ('color', 'white'), ('font-weight', 'bold')]},
-            {'selector': 'td', 'props': [('background-color', '#243447'), ('color', '#243447')]},
-            {'selector': 'tr:nth-child(even) td', 'props': [('background-color', '#d0e6f7')]},
-        ]
-    styled_df = stats_df.style.set_table_styles(blue_style())
+    # Build detailed DataFrame
+    stats_df = pd.DataFrame(sourcetype_stats)
+    stats_df['Percentage'] = (stats_df['total'] / stats_df['total'].sum() * 100).round(2)
+    
+    # Format timestamp
+    stats_df['latest_timestamp'] = stats_df['latest_timestamp'].apply(
+        lambda x: x[:19] if x and len(x) >= 19 else (x or 'N/A')
+    )
+    
+    # Reorder columns for display
+    display_df = stats_df[[
+        'sourcetype', 'total', 'Percentage',
+        'critical', 'high', 'medium', 'low', 'info',
+        'unique_sources', 'unique_hosts', 'latest_timestamp'
+    ]]
+    
+    # Rename columns for display
+    display_df.columns = [
+        'Sourcetype', 'Total', '%',
+        'Critical', 'High', 'Medium', 'Low', 'Info',
+        'Sources', 'Hosts', 'Latest Event'
+    ]
+    
+    # Apply blue style
     st.markdown("""
         <style>
         .stDataFrame thead tr th {
             background-color: #243447 !important;
             color: white !important;
             font-weight: bold !important;
+            font-size: 12px !important;
         }
         .stDataFrame tbody tr td {
             background-color: #eaf3fb !important;
             color: #243447 !important;
+            font-size: 12px !important;
         }
         .stDataFrame tbody tr:nth-child(even) td {
             background-color: #d0e6f7 !important;
         }
         </style>
     """, unsafe_allow_html=True)
-    st.dataframe(stats_df, use_container_width=True, hide_index=True)
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 st.markdown("---")
 
@@ -1311,13 +1440,16 @@ logs = get_splunk_logs(
 # Sort by severity and date
 if logs:
     severity_order = {'critical': 5, 'high': 4, 'medium': 3, 'low': 2, 'info': 1, 'unknown': 0, None: 0}
+
+    def effective_severity(log):
+        return (log.get('derived_severity') or log.get('severity') or 'unknown').lower()
     
-    # Apply sorting based on combined sort_option
+    # Apply sorting based on combined sort_option (use derived severity if present)
     if "Severity" in sort_option:
         if "Highest First" in sort_option:
-            logs = sorted(logs, key=lambda x: severity_order.get(x.get('severity', 'unknown'), 0), reverse=True)
+            logs = sorted(logs, key=lambda x: severity_order.get(effective_severity(x), 0), reverse=True)
         else:  # Lowest First
-            logs = sorted(logs, key=lambda x: severity_order.get(x.get('severity', 'unknown'), 0), reverse=False)
+            logs = sorted(logs, key=lambda x: severity_order.get(effective_severity(x), 0), reverse=False)
     elif "Date" in sort_option:
         if "Newest First" in sort_option:
             logs = sorted(logs, key=lambda x: x.get('timestamp', ''), reverse=True)
@@ -1364,8 +1496,9 @@ if logs:
 
     # Display table with custom formatting
     for idx, log in enumerate(logs):
+        eff_sev = (log.get('derived_severity') or log.get('severity') or 'unknown')
         with st.expander(
-            f"[{log['timestamp']}] {log['host']} - {log['source']} - Severity: {log['severity'] or 'unknown'}",
+            f"[{log['timestamp']}] {log['host']} - {log['source']} - Severity: {eff_sev}",
             expanded=False
         ):
             col1, col2, col3 = st.columns([2, 2, 2])
@@ -1376,7 +1509,10 @@ if logs:
                 st.markdown(f"**Host:** `{log['host']}`")
                 st.markdown(f"**Source:** `{log['source']}`")
                 st.markdown(f"**Type:** `{log['sourcetype']}`")
-                st.markdown(f"**Severity:** {get_severity_badge(log['severity'])}", unsafe_allow_html=True)
+                eff_sev = (log.get('derived_severity') or log.get('severity') or 'unknown')
+                st.markdown(f"**Severity (derived):** {get_severity_badge(eff_sev)}", unsafe_allow_html=True)
+                if log.get('severity') and log.get('severity') != eff_sev:
+                    st.markdown(f"<span style='font-size:12px; opacity:0.8;'>Original severity: {log['severity']}</span>", unsafe_allow_html=True)
                 st.markdown(f"**Timestamp:** `{log['timestamp']}`")
             
             with col2:

@@ -123,6 +123,306 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from database.queries import get_db_connection
+
+# ════════════════════════════════════════════════════════════════════════════
+#  SEVERITY SCORING AND CLASSIFICATION ENGINE
+# ════════════════════════════════════════════════════════════════════════════
+# Purpose: Rule-based severity assessment with trusted domain logic
+
+def normalize_severity_label(sev: str) -> str:
+    """Normalize severity labels to canonical form (critical/high/medium/low/info/unknown)."""
+    if not sev:
+        return "unknown"
+    s = str(sev).strip().lower()
+    
+    canonical = {"critical", "high", "medium", "low", "info", "informational", "unknown"}
+    if s in canonical:
+        return "info" if s == "informational" else s
+    
+    # Syslog and common aliases
+    alias_map = {
+        "emergency": "critical", "emerg": "critical", "alert": "high",
+        "error": "high", "err": "high", "severe": "high", "major": "high",
+        "warning": "medium", "warn": "medium",
+        "notice": "low", "minor": "low", "debug": "info",
+        # Security-specific
+        "authentication success": "info", "login success": "info",
+        "authentication failure": "medium", "failed login": "medium",
+        "multiple failed logins": "high", "phishing": "high", "malware": "high",
+        "ransomware": "critical", "exfiltration": "critical", "c2": "critical",
+        "command and control": "critical"
+    }
+    if s in alias_map:
+        return alias_map[s]
+    
+    # Substring keyword detection for verbose severity strings
+    if any(k in s for k in ["ransomware", "exfiltration", "c2", "command and control", "privilege escalation", "remote code execution", "backdoor", "rootkit", "wiper", "data breach", "compromise"]):
+        return "critical"
+    if any(k in s for k in ["malware", "phishing", "cobalt strike", "meterpreter", "ddos", "bruteforce", "credential stuffing", "sql injection", "xss", "unauthorized access", "account takeover", "exploit"]):
+        return "high"
+    if any(k in s for k in ["failed login", "policy violation", "anomaly", "suspicious", "scan", "port scan", "nmap", "reconnaissance"]):
+        return "medium"
+    if any(k in s for k in ["login success", "authenticated", "logout", "heartbeat", "healthcheck", "ok", "info", "notice"]):
+        return "low"
+    
+    return "unknown"
+
+
+def _bump_severity(level: str, steps: int = 1, direction: int = 1) -> str:
+    """Adjust severity level up or down by steps (direction: 1=up, -1=down)."""
+    order = ["info", "low", "medium", "high", "critical"]
+    try:
+        idx = order.index(level)
+    except ValueError:
+        idx = 2  # Default to medium if unknown
+    idx = max(0, min(len(order) - 1, idx + (steps * direction)))
+    return order[idx]
+
+
+def compute_rule_based_severity(log: Dict) -> Dict:
+    """
+    Compute detailed severity assessment using rule-based scoring.
+    
+    Returns dict with:
+        - derived_severity: Final computed severity
+        - confidence: Scoring confidence (0-100)
+        - reasons: List of reasons for severity assignment
+        - threat_indicators: List of specific threat keywords found
+        - trust_factors: Trusted/untrusted domain findings
+    """
+    severity = normalize_severity_label(log.get('severity', ''))
+    raw_log = (log.get('raw_log', '') or '').lower()
+    source = (log.get('source', '') or '').lower()
+    sourcetype = (log.get('sourcetype', '') or '').lower()
+    host = (log.get('host', '') or '').lower()
+    
+    reasons = []
+    threat_indicators = []
+    trust_factors = []
+    confidence = 50
+    
+    # Extract email domains
+    import re
+    domains = set(re.findall(r"[\w\.-]+@([\w\.-]+)", raw_log))
+    
+    # Authentication source detection
+    auth_keywords = ["auth", "okta", "azuread", "adfs", "ldap", "sso", "signin", "logon", "login"]
+    is_auth = any(k in source or k in sourcetype or k in raw_log for k in auth_keywords)
+    
+    # Trust SQU authentication successes
+    success_signals = ["authentication success", "login success", "successfully authenticated", "accepted password", "succeeded", "token issued", "granted", "authenticated"]
+    failure_signals = ["authentication failure", "login failed", "invalid password", "bad credentials", "locked", "mfa failed", "denied", "rejected"]
+    
+    if is_auth:
+        squ_domains = [d for d in domains if "squ.edu.om" in d]
+        non_squ_domains = [d for d in domains if "squ.edu.om" not in d]
+        
+        if squ_domains and any(s in raw_log for s in success_signals):
+            severity = _bump_severity(severity, 2, -1)  # De-escalate trusted auth
+            trust_factors.append(f"Trusted SQU domain authentication: {', '.join(squ_domains)}")
+            reasons.append("SQU authentication success - trusted source")
+            confidence += 20
+        
+        if non_squ_domains:
+            severity = _bump_severity(severity, 1, 1)  # Escalate non-SQU
+            trust_factors.append(f"Non-SQU email domains: {', '.join(non_squ_domains)}")
+            reasons.append("Non-SQU domain authentication - increased scrutiny")
+            confidence += 10
+        
+        if any(s in raw_log for s in failure_signals):
+            severity = _bump_severity(severity, 1, 1)
+            reasons.append("Authentication failure detected")
+            threat_indicators.append("Failed authentication attempt")
+            confidence += 15
+    
+    # Critical threat keywords
+    critical_keywords = {
+        "ransomware": "Ransomware activity",
+        "data exfiltration": "Data exfiltration attempt",
+        "exfiltration": "Possible data theft",
+        "privilege escalation": "Privilege escalation detected",
+        "remote code execution": "RCE attempt",
+        "backdoor": "Backdoor installation",
+        "cobalt strike": "Cobalt Strike C2",
+        "meterpreter": "Meterpreter payload",
+        "command and control": "C2 communication",
+        "c2": "C2 communication",
+        "rootkit": "Rootkit detected",
+        "wiper": "Wiper malware",
+        "data breach": "Data breach indicator",
+        "compromised": "System compromise"
+    }
+    
+    for keyword, desc in critical_keywords.items():
+        if keyword in raw_log:
+            severity = "critical"
+            threat_indicators.append(desc)
+            reasons.append(f"Critical keyword: {keyword}")
+            confidence += 30
+    
+    # High severity keywords
+    high_keywords = {
+        "malware": "Malware detected",
+        "phishing": "Phishing attempt",
+        "botnet": "Botnet activity",
+        "ddos": "DDoS attack",
+        "credential stuffing": "Credential stuffing",
+        "bruteforce": "Brute force attack",
+        "brute force": "Brute force attack",
+        "sql injection": "SQL injection",
+        "xss": "Cross-site scripting",
+        "csrf": "CSRF exploit",
+        "unauthorized access": "Unauthorized access",
+        "account takeover": "Account takeover",
+        "suspicious admin": "Suspicious admin activity",
+        "exploit": "Exploit attempt",
+        "vulnerability": "Vulnerability exploitation",
+        "buffer overflow": "Buffer overflow",
+        "lfi": "Local file inclusion",
+        "rfi": "Remote file inclusion"
+    }
+    
+    for keyword, desc in high_keywords.items():
+        if keyword in raw_log:
+            if severity not in ["critical"]:
+                severity = "high"
+            threat_indicators.append(desc)
+            reasons.append(f"High-risk keyword: {keyword}")
+            confidence += 20
+    
+    # Medium severity keywords
+    medium_keywords = {
+        "multiple failed logins": "Multiple login failures",
+        "failed login": "Failed login attempt",
+        "policy violation": "Policy violation",
+        "anomaly detected": "Anomaly detected",
+        "suspicious": "Suspicious activity",
+        "scan": "Scanning activity",
+        "port scan": "Port scanning",
+        "nmap": "Network mapping",
+        "reconnaissance": "Reconnaissance activity"
+    }
+    
+    for keyword, desc in medium_keywords.items():
+        if keyword in raw_log and severity not in ["critical", "high"]:
+            if severity in ["low", "info", "unknown"]:
+                severity = "medium"
+            threat_indicators.append(desc)
+            reasons.append(f"Medium-risk keyword: {keyword}")
+            confidence += 10
+    
+    # Source-specific behavior analysis
+    if any(k in source or k in sourcetype for k in ["firewall", "pfsense"]):
+        if any(k in raw_log for k in ["deny", "denied", "drop", "dropped", "reject", "blocked"]):
+            severity = _bump_severity(severity, 1, 1)
+            reasons.append("Firewall blocked traffic")
+            confidence += 15
+    
+    if any(k in source or k in sourcetype for k in ["ids", "ips", "snort", "suricata"]):
+        if "alert" in raw_log or any(k in raw_log for k in ["sid:", "classification:"]):
+            severity = _bump_severity(severity, 1, 1)
+            reasons.append("IDS/IPS alert triggered")
+            threat_indicators.append("IDS/IPS rule match")
+            confidence += 20
+    
+    if any(k in source or k in sourcetype for k in ["email", "smtp", "exchange", "o365", "mta"]):
+        if any(k in raw_log for k in ["attachment", "macro", ".exe", ".js", ".zip", ".vbs", ".bat"]):
+            severity = _bump_severity(severity, 1, 1)
+            reasons.append("Email with risky attachment/content")
+            threat_indicators.append("Suspicious email attachment")
+            confidence += 15
+        if any(k in raw_log for k in ["dkim fail", "spf fail", "dmarc fail", "spoof"]):
+            severity = _bump_severity(severity, 1, 1)
+            reasons.append("Email authentication failure (spoofing indicator)")
+            threat_indicators.append("Email spoofing")
+            confidence += 20
+    
+    # Web application attack patterns
+    if any(k in sourcetype or k in source for k in ["nginx", "apache", "httpd", "iis", "web"]):
+        web_attack_patterns = [
+            ("/wp-admin", "WordPress admin probing"),
+            ("wp-login", "WordPress login probing"),
+            ("xmlrpc.php", "WordPress XML-RPC exploit"),
+            ("/phpmyadmin", "phpMyAdmin access attempt"),
+            ("union select", "SQL injection attempt"),
+            ("or 1=1", "SQL injection attempt"),
+            ("../", "Path traversal"),
+            ("..\\", "Path traversal"),
+            ("/etc/passwd", "LFI attempt"),
+            ("%00", "Null byte injection"),
+            ("<script", "XSS attempt")
+        ]
+        for pattern, desc in web_attack_patterns:
+            if pattern in raw_log:
+                severity = _bump_severity(severity, 1, 1)
+                threat_indicators.append(desc)
+                reasons.append(f"Web attack pattern: {pattern}")
+                confidence += 15
+    
+    # Confidence clamping
+    confidence = min(100, confidence)
+    
+    if not reasons:
+        reasons.append(f"Base severity classification: {severity}")
+    
+    return {
+        "derived_severity": severity,
+        "confidence": confidence,
+        "reasons": reasons,
+        "threat_indicators": threat_indicators,
+        "trust_factors": trust_factors
+    }
+
+
+def aggregate_batch_severity(logs: List[Dict]) -> Dict:
+    """
+    Aggregate severity assessment across log batch.
+    
+    Returns comprehensive threat intelligence with:
+        - overall_severity: Highest severity found
+        - severity_distribution: Count by level
+        - total_threats: Count of high/critical logs
+        - unique_threat_types: Deduplicated threat indicators
+        - trust_score: 0-100 based on SQU domain ratio
+        - confidence: Average confidence across all logs
+    """
+    severity_scores = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1, "unknown": 0}
+    severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0, "unknown": 0}
+    
+    all_threats = set()
+    all_trust_factors = []
+    total_confidence = 0
+    max_severity = "info"
+    max_score = 0
+    
+    for log in logs:
+        assessment = compute_rule_based_severity(log)
+        sev = assessment["derived_severity"]
+        severity_counts[sev] += 1
+        all_threats.update(assessment["threat_indicators"])
+        all_trust_factors.extend(assessment["trust_factors"])
+        total_confidence += assessment["confidence"]
+        
+        if severity_scores[sev] > max_score:
+            max_score = severity_scores[sev]
+            max_severity = sev
+    
+    # Calculate trust score
+    squ_trust_count = sum(1 for t in all_trust_factors if "Trusted SQU" in t)
+    non_squ_count = sum(1 for t in all_trust_factors if "Non-SQU" in t)
+    total_auth = squ_trust_count + non_squ_count
+    trust_score = int((squ_trust_count / total_auth * 100) if total_auth > 0 else 50)
+    
+    return {
+        "overall_severity": max_severity,
+        "severity_distribution": severity_counts,
+        "total_threats": severity_counts["critical"] + severity_counts["high"],
+        "unique_threat_types": list(all_threats),
+        "trust_score": trust_score,
+        "confidence": int(total_confidence / len(logs)) if logs else 0,
+        "trust_factors": list(set(all_trust_factors))
+    }
+
 # ════════════════════════════════════════════════════════════════════════════
 #  CUSTOM CSS AND STYLING
 # ════════════════════════════════════════════════════════════════════════════
@@ -523,20 +823,91 @@ def extract_threat_score(analysis_text: str) -> Optional[float]:
     return None
 
 
-def display_organized_analysis(analysis_text: str):
+def display_organized_analysis(analysis_text: str, rule_based_data: Dict = None):
     """
     Display AI analysis in an organized, visually structured format.
     
     Parses the Mistral LLM response and presents it in sections with:
     - Color-coded threat levels
+    - Rule-based scoring metrics (NEW)
     - Expandable sections for detailed information
     - Metrics and visual indicators
     - Proper formatting for readability
     
     Args:
         analysis_text (str): Raw analysis text from Mistral LLM
+        rule_based_data (Dict): Pre-computed rule-based intelligence including:
+            - threat_score: 0-100 threat level
+            - severity: Overall severity classification
+            - confidence: Scoring confidence
+            - threat_indicators: List of detected threats
+            - trust_score: SQU domain trust ratio
     """
     import re
+    
+    # Display rule-based metrics first if provided
+    if rule_based_data:
+        st.markdown("### 🔍 Rule-Based Threat Assessment")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            threat_score = rule_based_data.get('threat_score', 0)
+            severity_colors = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢", "info": "🔵"}
+            severity = rule_based_data.get('severity', 'unknown')
+            color_icon = severity_colors.get(severity, "⚪")
+            
+            st.metric("Threat Score", f"{threat_score}/100", delta=f"{color_icon} {severity.upper()}")
+        
+        with col2:
+            confidence = rule_based_data.get('confidence', 0)
+            st.metric("Confidence", f"{confidence}%")
+        
+        with col3:
+            trust_score = rule_based_data.get('trust_score', 50)
+            trust_icon = "🟢" if trust_score >= 70 else ("🟡" if trust_score >= 40 else "🔴")
+            st.metric("Trust Score", f"{trust_icon} {trust_score}%", help="SQU domain authentication ratio")
+        
+        with col4:
+            threat_count = len(rule_based_data.get('threat_indicators', []))
+            st.metric("Threats Detected", threat_count)
+        
+        # Display threat indicators
+        threat_indicators = rule_based_data.get('threat_indicators', [])
+        if threat_indicators:
+            with st.expander(f"**🚨 Detected Threat Indicators ({len(threat_indicators)})**", expanded=True):
+                for threat in threat_indicators[:15]:  # Limit display
+                    st.markdown(f"• {threat}")
+                if len(threat_indicators) > 15:
+                    st.caption(f"... and {len(threat_indicators) - 15} more threats")
+        
+        # Display severity distribution
+        severity_dist = rule_based_data.get('severity_distribution', {})
+        if severity_dist:
+            st.markdown("**Severity Distribution:**")
+            cols = st.columns(5)
+            for idx, (level, count) in enumerate(severity_dist.items()):
+                if count > 0:
+                    with cols[idx % 5]:
+                        st.metric(level.capitalize(), count)
+        
+        # Display trust factors (SQU domain analysis)
+        rule_summary = rule_based_data.get('rule_based_summary', {})
+        trust_factors = rule_summary.get('trust_factors', [])
+        if trust_factors:
+            with st.expander("**🔐 Trust & Authentication Analysis**", expanded=False):
+                for factor in trust_factors:
+                    if "Trusted SQU" in factor:
+                        st.markdown(f"✅ {factor}")
+                    elif "Non-SQU" in factor:
+                        st.markdown(f"⚠️ {factor}")
+                    else:
+                        st.markdown(f"• {factor}")
+        
+        st.markdown("---")
+        st.markdown("### 🤖 AI Validation & Additional Analysis")
+    
+    # Original LLM analysis display continues...
     
     # Extract sections using regex patterns
     sections = {
@@ -645,15 +1016,15 @@ def display_organized_analysis(analysis_text: str):
 
 def analyze_logs_batch(logs: List[Dict], ollama_host: str, model: str, use_gpu: bool = True) -> Dict:
     """
-    Analyze batch of logs using Mistral LLM with GPU acceleration.
+    Analyze batch of logs using rule-based scoring + Mistral LLM with GPU acceleration.
     
-    ANALYSIS PROCESS (5 Steps):
+    ANALYSIS PROCESS (Enhanced with Rule-Based Pre-Processing):
     ─────────────────────────────────────────────────────────────────────
-    1. AGGREGATION: Collect logs, count severity levels, create summaries
-    2. PROMPT GENERATION: Build detailed threat assessment prompt for LLM
-    3. LLM INFERENCE: Send to Mistral via Ollama (GPU-accelerated if enabled)
-    4. RESPONSE PARSING: Extract threat score, severity, IOCs, recommendations
-    5. RESULT FORMATTING: Prepare structured output with assessments
+    1. RULE-BASED SCORING: Apply comprehensive keyword and pattern detection
+    2. AGGREGATION: Collect threat intelligence, severity distribution, trust scores
+    3. PROMPT GENERATION: Build enriched prompt with pre-computed insights
+    4. LLM INFERENCE: Send to Mistral via Ollama (GPU-accelerated if enabled)
+    5. RESPONSE PARSING: Combine rule-based + LLM analysis for comprehensive output
     
     Args:
         logs (List[Dict]): Log records with timestamp, source, severity, raw_log, etc.
@@ -663,75 +1034,98 @@ def analyze_logs_batch(logs: List[Dict], ollama_host: str, model: str, use_gpu: 
     
     Returns:
         Dict containing:
-            - threat_score (int): 0-100 threat level
-            - severity (str): 'low', 'medium', 'high', or 'critical'
-            - phishing_likelihood (float): 0-1.0 probability
-            - summary (str): Threat assessment summary
-            - iocs (str): Indicators of compromise found
-            - recommendations (str): Recommended actions
+            - threat_score (int): 0-100 computed threat level
+            - severity (str): Overall severity from rule-based scoring
+            - confidence (int): Scoring confidence (0-100)
+            - threat_indicators (list): Specific threats found
+            - trust_score (int): SQU domain trust ratio (0-100)
             - analysis (str): Full LLM analysis text
+            - rule_based_summary (dict): Pre-computed threat intelligence
             - error (str): Error message if analysis failed
     
-    GPU Acceleration:
-        • NVIDIA CUDA: Requires CUDA toolkit and nvidia-smi
-        • AMD ROCm: Requires ROCm driver installation
-        • Apple Metal: Native GPU support on Apple Silicon
-        • CPU Fallback: Automatic fallback if GPU unavailable
-        • Timeout: 120 seconds allows GPU processing time
-    
-    Error Handling:
-        Returns dict with 'error' key if LLM connection fails.
-        Gracefully handles empty log lists.
-        API timeouts logged and returned as error.
-    
-    Used By:
-        Source Analysis tab ("Analyze Source" button).
-        Batch processing workflow for security monitoring.
+    Enhanced Features:
+        • SQU domain trust evaluation (squ.edu.om = trusted)
+        • 100+ threat keyword detection (ransomware, phishing, etc.)
+        • Source-behavior analysis (firewall, IDS, email)
+        • Web attack pattern detection (SQLi, XSS, LFI)
+        • Email spoofing detection (DKIM/SPF/DMARC)
     """
     
     if not logs:
         return {"error": "No logs to analyze"}
     
-    # Aggregate log data
+    # Rule-based pre-analysis
+    rule_summary = aggregate_batch_severity(logs)
+    
+    # Build enhanced log summaries with rule-based insights
     total_logs = len(logs)
-    severity_counts = {}
     log_summaries = []
     
-    for log in logs[:20]:  # Limit to first 20 for analysis
-        severity = log.get('severity', 'unknown')
-        severity_counts[severity] = severity_counts.get(severity, 0) + 1
-        
-        log_summaries.append(f"[{log['timestamp']}] {log['source']} - {log['host']}: {log['raw_log'][:200]}")
+    for log in logs[:20]:  # Limit to first 20 for LLM analysis
+        assessment = compute_rule_based_severity(log)
+        log_summaries.append(
+            f"[{log['timestamp']}] {log['source']} - Severity: {assessment['derived_severity']} "
+            f"(Confidence: {assessment['confidence']}%) - {log['raw_log'][:150]}"
+        )
     
-    # Create comprehensive prompt for Mistral
-    prompt = f"""You are a cybersecurity expert analyzing security logs. Provide a detailed threat assessment.
+    # Create enriched prompt with rule-based intelligence
+    threat_list = "\n  • ".join(rule_summary["unique_threat_types"]) if rule_summary["unique_threat_types"] else "None detected"
+    trust_info = "\n  • ".join(rule_summary["trust_factors"]) if rule_summary["trust_factors"] else "No authentication events"
+    
+    prompt = f"""You are a cybersecurity expert analyzing security logs. Rule-based analysis has been pre-computed.
 
-LOGS TO ANALYZE ({total_logs} total):
-{chr(10).join(log_summaries)}
+PRE-COMPUTED THREAT INTELLIGENCE:
+• Overall Severity: {rule_summary['overall_severity'].upper()}
+• Total Threats (High/Critical): {rule_summary['total_threats']}
+• Trust Score: {rule_summary['trust_score']}/100 (SQU domain trust ratio)
+• Confidence: {rule_summary['confidence']}%
 
 SEVERITY DISTRIBUTION:
-{json.dumps(severity_counts, indent=2)}
+{json.dumps(rule_summary['severity_distribution'], indent=2)}
 
-Analyze these logs and provide:
+THREAT INDICATORS DETECTED:
+  • {threat_list}
 
-1. PHISHING LIKELIHOOD: Estimate probability (0-100%) of phishing/social engineering attacks
-2. THREAT SUMMARY: Identify suspicious patterns, anomalies, and potential security risks
-3. ATTACK INDICATORS: List specific indicators of compromise (IOCs)
-4. RESPONSE ACTIONS: Recommend immediate and long-term security responses
-5. CONFIDENCE LEVEL: Rate your confidence in this analysis (Low/Medium/High)
+TRUST FACTORS:
+  • {trust_info}
 
-Be specific and actionable in your recommendations."""
+LOG SAMPLES ({total_logs} total, showing 20):
+{chr(10).join(log_summaries)}
+
+Based on the rule-based analysis above, provide:
+
+1. THREAT VALIDATION: Confirm or refine the detected threat indicators
+2. ATTACK NARRATIVE: Describe the attack pattern or security event sequence
+3. ADDITIONAL IOCS: Identify any indicators missed by rule-based analysis
+4. RESPONSE PRIORITY: Immediate actions (next 1 hour) and strategic responses (24-48 hours)
+5. FALSE POSITIVE ASSESSMENT: Evaluate likelihood of false positives in detected threats
+
+Be specific and actionable. Focus on what rule-based analysis may have missed."""
 
     # Call Mistral with GPU acceleration
     gpu_status = "with GPU acceleration" if use_gpu else "on CPU"
-    with st.spinner(f"Mistral LLM analyzing logs {gpu_status}..."):
-        analysis = call_mistral(ollama_host, model, prompt, use_gpu)
+    with st.spinner(f"Rule-based scoring complete. Mistral LLM validating {gpu_status}..."):
+        llm_analysis = call_mistral(ollama_host, model, prompt, use_gpu)
+    
+    # Compute final threat score (0-100)
+    severity_scores = {"critical": 100, "high": 75, "medium": 50, "low": 25, "info": 10, "unknown": 30}
+    base_score = severity_scores.get(rule_summary["overall_severity"], 30)
+    threat_count_bonus = min(rule_summary["total_threats"] * 5, 20)
+    confidence_factor = rule_summary["confidence"] / 100
+    
+    final_threat_score = int(min(100, (base_score + threat_count_bonus) * confidence_factor))
     
     return {
-        "analysis": analysis,
+        "analysis": llm_analysis,
+        "threat_score": final_threat_score,
+        "severity": rule_summary["overall_severity"],
+        "confidence": rule_summary["confidence"],
+        "threat_indicators": rule_summary["unique_threat_types"],
+        "trust_score": rule_summary["trust_score"],
         "total_logs": total_logs,
         "logs_analyzed": min(20, total_logs),
-        "severity_counts": severity_counts
+        "rule_based_summary": rule_summary,
+        "severity_distribution": rule_summary["severity_distribution"]
     }
 
 # Top navigation bar
@@ -977,35 +1371,17 @@ def main():
                         ])
                         st.dataframe(logs_preview, use_container_width=True)
                     
-                    # Analyze with Mistral using GPU
+                    # Analyze with Mistral using GPU (now includes rule-based scoring)
                     result = analyze_logs_batch(logs, ollama_host, model, use_gpu)
                     
                     if "error" not in result:
-                        st.markdown("### Analysis Results")
+                        st.markdown("### 📊 Analysis Results")
                         
-                        col1, col2, col3 = st.columns(3)
-                        
-                        with col1:
-                            st.metric("Total Logs Analyzed", result['total_logs'])
-                        
-                        with col2:
-                            st.metric("Logs Processed", result['logs_analyzed'])
-                        
-                        with col3:
-                            critical_count = result['severity_counts'].get('critical', 0)
-                            st.metric("Critical Events", critical_count)
-                        
-                        # Severity distribution
-                        st.markdown("#### Severity Breakdown")
-                        severity_df = pd.DataFrame(
-                            list(result['severity_counts'].items()),
-                            columns=['Severity', 'Count']
+                        # Full analysis with rule-based metrics
+                        display_organized_analysis(
+                            result['analysis'],
+                            rule_based_data=result  # Pass all rule-based intelligence
                         )
-                        st.bar_chart(severity_df.set_index('Severity'))
-                        
-                        # Full analysis
-                        st.markdown("### AI Analysis Summary")
-                        display_organized_analysis(result['analysis'])
                         
                         # Extract and save threat score
                         threat_score = extract_threat_score(result['analysis'])
