@@ -113,6 +113,7 @@ import streamlit as st
 import requests
 import json
 import sys
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict
@@ -612,6 +613,10 @@ def call_mistral(host: str, model: str, prompt: str, use_gpu: bool = True) -> st
     host = host.rstrip("/")
     errors = []
 
+    # Allow longer processing time for local GPU and add simple retries
+    timeout_seconds = 180
+    max_retries = 2
+
     def try_chat():
         try:
             url = f"{host}/api/chat"
@@ -620,13 +625,16 @@ def call_mistral(host: str, model: str, prompt: str, use_gpu: bool = True) -> st
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
                 "options": {
-                    "num_gpu": 1 if use_gpu else 0,  # Force GPU usage
-                    "num_thread": 8,  # CPU threads for preprocessing
-                    "temperature": 0.7,
-                    "top_p": 0.9,
+                    "num_gpu": 1 if use_gpu else 0,  # Force GPU usage (1 = use all available VRAM)
+                    "num_thread": 16,  # Increased CPU threads for faster preprocessing
+                    "num_parallel": 4,  # Process multiple sequences in parallel on GPU
+                    "temperature": 0.5,  # Lower = faster + consistent (better for security analysis)
+                    "top_p": 0.8,  # Reduced for faster sampling
+                    "top_k": 40,  # Limit vocabulary for faster selection
+                    "mirostat": 0,  # Faster sampling strategy
                 }
             }
-            r = requests.post(url, json=payload, timeout=120)  # Increased timeout for GPU processing
+            r = requests.post(url, json=payload, timeout=timeout_seconds)
             r.raise_for_status()
             return parse_ollama_response(r)
         except Exception as e:
@@ -641,25 +649,31 @@ def call_mistral(host: str, model: str, prompt: str, use_gpu: bool = True) -> st
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "num_gpu": 1 if use_gpu else 0,  # Force GPU usage
-                    "num_thread": 8,
-                    "temperature": 0.7,
-                    "top_p": 0.9,
+                    "num_gpu": 1 if use_gpu else 0,  # Force GPU usage (1 = use all available VRAM)
+                    "num_thread": 16,  # Increased CPU threads for faster preprocessing
+                    "num_parallel": 4,  # Process multiple sequences in parallel on GPU
+                    "temperature": 0.5,  # Lower = faster + consistent
+                    "top_p": 0.8,  # Reduced for faster sampling
+                    "top_k": 40,  # Limit vocabulary for faster selection
+                    "mirostat": 0,  # Faster sampling strategy
                 }
             }
-            r = requests.post(url, json=payload, timeout=120)
+            r = requests.post(url, json=payload, timeout=timeout_seconds)
             r.raise_for_status()
             return parse_ollama_response(r)
         except Exception as e:
             errors.append(f"generate: {e}")
             return None
 
-    res = try_chat()
-    if res is not None:
-        return res
-    res = try_generate()
-    if res is not None:
-        return res
+    # Retry both endpoints before failing
+    for attempt in range(max_retries + 1):
+        res = try_chat()
+        if res is not None:
+            return res
+        res = try_generate()
+        if res is not None:
+            return res
+        time.sleep(1)  # brief pause before retry
 
     return "Failed to get response from Ollama. Errors:\n" + "\n".join(errors)
 
@@ -857,11 +871,12 @@ def display_organized_analysis(analysis_text: str, rule_based_data: Dict = None)
             severity = rule_based_data.get('severity', 'unknown')
             color_icon = severity_colors.get(severity, "UNK")
             
-            st.metric("Threat Score", f"{threat_score}/100", delta=f"{color_icon} {severity.upper()}")
+            st.metric("Threat Score", f"{threat_score}/100", delta=f"{color_icon} {severity.upper()}", 
+                     help="Overall threat level (0-100). Higher = more dangerous. 0-30: Low, 31-60: Medium, 61-80: High, 81-100: Critical")
         
         with col2:
             confidence = rule_based_data.get('confidence', 0)
-            st.metric("Confidence", f"{confidence}%")
+            st.metric("Confidence", f"{confidence}%", help="Rule-based scoring confidence (0-100%). Higher = more reliable analysis. Based on keyword matches and pattern detection")
         
         with col3:
             trust_score = rule_based_data.get('trust_score', 50)
@@ -870,7 +885,7 @@ def display_organized_analysis(analysis_text: str, rule_based_data: Dict = None)
         
         with col4:
             threat_count = len(rule_based_data.get('threat_indicators', []))
-            st.metric("Threats Detected", threat_count)
+            st.metric("Threats Detected", threat_count, help="Number of distinct threat indicators found. Includes malware, phishing, attacks, anomalies, and suspicious patterns")
         
         # Display threat indicators
         threat_indicators = rule_based_data.get('threat_indicators', [])
@@ -1023,50 +1038,38 @@ def analyze_logs_batch(logs: List[Dict], ollama_host: str, model: str, use_gpu: 
     total_logs = len(logs)
     log_summaries = []
     
-    for log in logs[:20]:  # Limit to first 20 for LLM analysis
+    # OPTIMIZATION: Reduce log samples to 10 for faster LLM processing
+    for log in logs[:10]:
         assessment = compute_rule_based_severity(log)
+        # OPTIMIZATION: Shorter log representation
         log_summaries.append(
-            f"[{log['timestamp']}] {log['source']} - Severity: {assessment['derived_severity']} "
-            f"(Confidence: {assessment['confidence']}%) - {log['raw_log'][:150]}"
+            f"[{log['timestamp']}] {log['source']} ({assessment['derived_severity']}) - {log['raw_log'][:100]}"
         )
     
-    # Create enriched prompt with rule-based intelligence
-    threat_list = "\n  • ".join(rule_summary["unique_threat_types"]) if rule_summary["unique_threat_types"] else "None detected"
-    trust_info = "\n  • ".join(rule_summary["trust_factors"]) if rule_summary["trust_factors"] else "No authentication events"
+    # Create optimized prompt with rule-based intelligence
+    threat_list = ", ".join(rule_summary["unique_threat_types"][:8]) if rule_summary["unique_threat_types"] else "None"
+    trust_info = ", ".join(rule_summary["trust_factors"][:3]) if rule_summary["trust_factors"] else "None"
     
-    prompt = f"""You are a cybersecurity expert analyzing security logs. Rule-based analysis has been pre-computed.
+    # OPTIMIZATION: More concise prompt structure for faster LLM processing
+    prompt = f"""Analyze security logs. Pre-computed rule analysis shows:
 
-PRE-COMPUTED THREAT INTELLIGENCE:
-• Overall Severity: {rule_summary['overall_severity'].upper()}
-• Total Threats (High/Critical): {rule_summary['total_threats']}
-• Trust Score: {rule_summary['trust_score']}/100 (SQU domain trust ratio)
-• Confidence: {rule_summary['confidence']}%
+SEVERITY: {rule_summary['overall_severity'].upper()} | THREATS: {rule_summary['total_threats']} | CONFIDENCE: {rule_summary['confidence']}%
+THREATS: {threat_list}
+TRUST: {trust_info}
 
-SEVERITY DISTRIBUTION:
-{json.dumps(rule_summary['severity_distribution'], indent=2)}
-
-THREAT INDICATORS DETECTED:
-  • {threat_list}
-
-TRUST FACTORS:
-  • {trust_info}
-
-LOG SAMPLES ({total_logs} total, showing 20):
+LOG SAMPLES ({total_logs} total, analyzing {len(log_summaries)}):
 {chr(10).join(log_summaries)}
 
-Based on the rule-based analysis above, provide:
-
-1. THREAT VALIDATION: Confirm or refine the detected threat indicators
-2. ATTACK NARRATIVE: Describe the attack pattern or security event sequence
-3. ADDITIONAL IOCS: Identify any indicators missed by rule-based analysis
-4. RESPONSE PRIORITY: Immediate actions (next 1 hour) and strategic responses (24-48 hours)
-5. FALSE POSITIVE ASSESSMENT: Evaluate likelihood of false positives in detected threats
-
-Be specific and actionable. Focus on what rule-based analysis may have missed."""
+Provide concise analysis:
+1. Threat Validation - confirm/refine threats
+2. Attack Narrative - event sequence
+3. Additional IOCs - missed indicators
+4. Response Priority - immediate and long-term actions
+5. False Positive Assessment - confidence in findings"""
 
     # Call Mistral with GPU acceleration
-    gpu_status = "with GPU acceleration" if use_gpu else "on CPU"
-    with st.spinner(f"Rule-based scoring complete. Mistral LLM validating {gpu_status}..."):
+    gpu_status = "[GPU ACCELERATED]" if use_gpu else "[CPU MODE]"
+    with st.spinner(f"{gpu_status} Mistral LLM analysis in progress..."):
         llm_analysis = call_mistral(ollama_host, model, prompt, use_gpu)
     
     # Compute final threat score (0-100)
@@ -1077,10 +1080,22 @@ Be specific and actionable. Focus on what rule-based analysis may have missed.""
     
     final_threat_score = int(min(100, (base_score + threat_count_bonus) * confidence_factor))
     
+    # Determine severity level based on threat score (0-100)
+    if final_threat_score >= 80:
+        score_severity = "critical"
+    elif final_threat_score >= 60:
+        score_severity = "high"
+    elif final_threat_score >= 40:
+        score_severity = "medium"
+    elif final_threat_score >= 20:
+        score_severity = "low"
+    else:
+        score_severity = "info"
+    
     return {
         "analysis": llm_analysis,
         "threat_score": final_threat_score,
-        "severity": rule_summary["overall_severity"],
+        "severity": score_severity,  # Use score-based severity instead of rule-based
         "confidence": rule_summary["confidence"],
         "threat_indicators": rule_summary["unique_threat_types"],
         "trust_score": rule_summary["trust_score"],
