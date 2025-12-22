@@ -613,8 +613,8 @@ def call_mistral(host: str, model: str, prompt: str, use_gpu: bool = True) -> st
     host = host.rstrip("/")
     errors = []
 
-    # Allow longer processing time for local GPU and add simple retries
-    timeout_seconds = 180
+    # Allow reasonable processing time for local GPU and add simple retries
+    timeout_seconds = 120
     max_retries = 2
 
     def try_chat():
@@ -625,13 +625,11 @@ def call_mistral(host: str, model: str, prompt: str, use_gpu: bool = True) -> st
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
                 "options": {
-                    "num_gpu": 1 if use_gpu else 0,  # Force GPU usage (1 = use all available VRAM)
-                    "num_thread": 16,  # Increased CPU threads for faster preprocessing
-                    "num_parallel": 4,  # Process multiple sequences in parallel on GPU
-                    "temperature": 0.5,  # Lower = faster + consistent (better for security analysis)
-                    "top_p": 0.8,  # Reduced for faster sampling
-                    "top_k": 40,  # Limit vocabulary for faster selection
-                    "mirostat": 0,  # Faster sampling strategy
+                    "num_gpu": 1 if use_gpu else 0,  # Use GPU offloading but limit context
+                    "num_thread": 6,  # Reduce CPU threads to avoid system lockups
+                    "num_ctx": 2048,  # Smaller context to reduce VRAM usage
+                    "temperature": 0.6,
+                    "top_p": 0.85
                 }
             }
             r = requests.post(url, json=payload, timeout=timeout_seconds)
@@ -649,13 +647,11 @@ def call_mistral(host: str, model: str, prompt: str, use_gpu: bool = True) -> st
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "num_gpu": 1 if use_gpu else 0,  # Force GPU usage (1 = use all available VRAM)
-                    "num_thread": 16,  # Increased CPU threads for faster preprocessing
-                    "num_parallel": 4,  # Process multiple sequences in parallel on GPU
-                    "temperature": 0.5,  # Lower = faster + consistent
-                    "top_p": 0.8,  # Reduced for faster sampling
-                    "top_k": 40,  # Limit vocabulary for faster selection
-                    "mirostat": 0,  # Faster sampling strategy
+                    "num_gpu": 1 if use_gpu else 0,
+                    "num_thread": 6,
+                    "num_ctx": 2048,
+                    "temperature": 0.6,
+                    "top_p": 0.85
                 }
             }
             r = requests.post(url, json=payload, timeout=timeout_seconds)
