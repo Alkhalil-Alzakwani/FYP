@@ -847,15 +847,15 @@ def display_organized_analysis(analysis_text: str, rule_based_data: Dict = None)
     
     # Display rule-based metrics first if provided
     if rule_based_data:
-        st.markdown("### 🔍 Rule-Based Threat Assessment")
+        st.markdown("### Rule-Based Threat Assessment")
         
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             threat_score = rule_based_data.get('threat_score', 0)
-            severity_colors = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢", "info": "🔵"}
+            severity_colors = {"critical": "CRIT", "high": "HIGH", "medium": "MED", "low": "LOW", "info": "INFO"}
             severity = rule_based_data.get('severity', 'unknown')
-            color_icon = severity_colors.get(severity, "⚪")
+            color_icon = severity_colors.get(severity, "UNK")
             
             st.metric("Threat Score", f"{threat_score}/100", delta=f"{color_icon} {severity.upper()}")
         
@@ -865,7 +865,7 @@ def display_organized_analysis(analysis_text: str, rule_based_data: Dict = None)
         
         with col3:
             trust_score = rule_based_data.get('trust_score', 50)
-            trust_icon = "🟢" if trust_score >= 70 else ("🟡" if trust_score >= 40 else "🔴")
+            trust_icon = "HIGH" if trust_score >= 70 else ("MED" if trust_score >= 40 else "LOW")
             st.metric("Trust Score", f"{trust_icon} {trust_score}%", help="SQU domain authentication ratio")
         
         with col4:
@@ -875,7 +875,7 @@ def display_organized_analysis(analysis_text: str, rule_based_data: Dict = None)
         # Display threat indicators
         threat_indicators = rule_based_data.get('threat_indicators', [])
         if threat_indicators:
-            with st.expander(f"**🚨 Detected Threat Indicators ({len(threat_indicators)})**", expanded=True):
+            with st.expander(f"**Detected Threat Indicators ({len(threat_indicators)})**", expanded=True):
                 for threat in threat_indicators[:15]:  # Limit display
                     st.markdown(f"• {threat}")
                 if len(threat_indicators) > 15:
@@ -895,122 +895,84 @@ def display_organized_analysis(analysis_text: str, rule_based_data: Dict = None)
         rule_summary = rule_based_data.get('rule_based_summary', {})
         trust_factors = rule_summary.get('trust_factors', [])
         if trust_factors:
-            with st.expander("**🔐 Trust & Authentication Analysis**", expanded=False):
+            with st.expander("**Trust & Authentication Analysis**", expanded=False):
                 for factor in trust_factors:
                     if "Trusted SQU" in factor:
-                        st.markdown(f"✅ {factor}")
+                        st.markdown(f"[TRUSTED] {factor}")
                     elif "Non-SQU" in factor:
-                        st.markdown(f"⚠️ {factor}")
+                        st.markdown(f"[WARNING] {factor}")
                     else:
                         st.markdown(f"• {factor}")
         
         st.markdown("---")
-        st.markdown("### 🤖 AI Validation & Additional Analysis")
+        st.markdown("### AI Validation & Additional Analysis")
     
-    # Original LLM analysis display continues...
+    # Try multiple section extraction patterns
+    sections = {}
     
-    # Extract sections using regex patterns
-    sections = {
-        'phishing_likelihood': r'(?:1\.\s*)?PHISHING LIKELIHOOD[:\s]+(.*?)(?=(?:\d+\.\s*)?(?:THREAT SUMMARY|THREAT LEVEL|ATTACK INDICATORS|$))',
-        'threat_summary': r'(?:2\.\s*)?THREAT (?:SUMMARY|LEVEL)[:\s]+(.*?)(?=(?:\d+\.\s*)?(?:ATTACK INDICATORS|RESPONSE ACTIONS|$))',
-        'attack_indicators': r'(?:3\.\s*)?ATTACK INDICATORS[:\s]+(.*?)(?=(?:\d+\.\s*)?(?:RESPONSE ACTIONS|THREAT DESCRIPTION|RECOMMENDED ACTIONS|$))',
-        'response_actions': r'(?:4\.\s*)?(?:RESPONSE ACTIONS|RECOMMENDED ACTIONS)[:\s]+(.*?)(?=(?:\d+\.\s*)?(?:CONFIDENCE LEVEL|$))',
-        'confidence': r'(?:5\.\s*)?CONFIDENCE LEVEL[:\s]+(.*?)$'
-    }
+    # Pattern 1: Numbered format with colons (1. SECTION:)
+    pattern1 = r'(\d+)\.\s*([A-Z_\s]+?)[:\s]+(.*?)(?=(?:\n\d+\.|$))'
+    matches1 = re.finditer(pattern1, analysis_text, re.DOTALL)
+    for match in matches1:
+        num = match.group(1)
+        title = match.group(2).strip().title()
+        content = match.group(3).strip()
+        sections[f"section_{num}_{title.lower().replace(' ', '_')}"] = (title, content)
     
-    extracted = {}
-    for key, pattern in sections.items():
-        match = re.search(pattern, analysis_text, re.IGNORECASE | re.DOTALL)
-        if match:
-            extracted[key] = match.group(1).strip()
+    # Pattern 2: Section headers without numbers
+    if not sections:
+        pattern2 = r'([A-Z][A-Z\s]+?)[:]\s*(.*?)(?=(?:[A-Z][A-Z\s]+?:|$))'
+        matches2 = re.finditer(pattern2, analysis_text, re.DOTALL)
+        for match in matches2:
+            title = match.group(1).strip().title()
+            content = match.group(2).strip()
+            if len(content) > 20:  # Only add if content is substantial
+                sections[title.lower().replace(' ', '_')] = (title, content)
     
-    # Display Phishing Likelihood with visual indicator
-    if 'phishing_likelihood' in extracted:
-        phishing_text = extracted['phishing_likelihood']
-        percentage_match = re.search(r'(\d+)%', phishing_text)
+    # Display sections in organized manner
+    if sections:
+        # Sort by order they appear in original text
+        section_order = ["attack narrative", "threat validation", "attack indicators", "additional iocs", 
+                        "response priority", "response actions", "false positive", "confidence"]
         
-        if percentage_match:
-            percentage = int(percentage_match.group(1))
-            col1, col2 = st.columns([1, 3])
-            
-            with col1:
-                # Color-code based on threat level
-                if percentage >= 80:
-                    color = "🔴"
-                    level = "CRITICAL"
-                elif percentage >= 60:
-                    color = "🟠"
-                    level = "HIGH"
-                elif percentage >= 40:
-                    color = "🟡"
-                    level = "MEDIUM"
-                else:
-                    color = "🟢"
-                    level = "LOW"
-                
-                st.metric("Phishing Likelihood", f"{percentage}%", delta=level)
-            
-            with col2:
-                st.markdown(f"**{color} Risk Level: {level}**")
-                st.caption(phishing_text)
-        else:
-            st.info(f"**Phishing Likelihood:** {phishing_text}")
-    
-    st.markdown("---")
-    
-    # Threat Summary
-    if 'threat_summary' in extracted:
-        with st.expander("**Threat Summary**", expanded=True):
-            st.markdown(extracted['threat_summary'])
-    
-    # Attack Indicators
-    if 'attack_indicators' in extracted:
-        with st.expander("**Attack Indicators (IOCs)**", expanded=True):
-            indicators = extracted['attack_indicators']
-            # Try to format as bullet points if they contain dashes or newlines
-            if '\n -' in indicators or '\n-' in indicators:
-                st.markdown(indicators)
-            else:
-                # Split by common delimiters and format
-                lines = [line.strip() for line in indicators.split('\n') if line.strip()]
-                for line in lines:
-                    st.markdown(f"• {line}")
-    
-    # Response Actions
-    if 'response_actions' in extracted:
-        with st.expander("**Recommended Response Actions**", expanded=True):
-            actions = extracted['response_actions']
-            # Check for "Immediate" and "Long-term" sections
-            if 'Immediate' in actions or 'immediate' in actions.lower():
-                st.markdown(actions)
-            else:
-                lines = [line.strip() for line in actions.split('\n') if line.strip()]
-                st.markdown("**Recommended Actions:**")
-                for line in lines:
-                    if line and not line.startswith('-'):
-                        st.markdown(f"• {line}")
-                    else:
-                        st.markdown(line)
-    
-    # Confidence Level
-    if 'confidence' in extracted:
-        confidence_text = extracted['confidence'].lower()
-        if 'high' in confidence_text:
-            conf_icon = "🟢"
-            conf_level = "HIGH"
-        elif 'medium' in confidence_text:
-            conf_icon = "🟡"
-            conf_level = "MEDIUM"
-        else:
-            conf_icon = "🔵"
-            conf_level = "LOW"
+        displayed = set()
         
-        st.markdown(f"**{conf_icon} Confidence Level: {conf_level}**")
-        st.caption(extracted['confidence'])
-    
-    # If no sections were extracted, display raw text as fallback
-    if not extracted:
-        st.markdown("### Full Analysis")
+        # First display in preferred order
+        for preferred in section_order:
+            for key, (title, content) in sections.items():
+                if preferred.lower() in title.lower() and key not in displayed:
+                    with st.expander(f"**{title}**", expanded=(preferred == "attack narrative")):
+                        # Format content nicely
+                        lines = content.split('\n')
+                        for line in lines:
+                            line = line.strip()
+                            if line:
+                                # Detect list items and format accordingly
+                                if line.startswith('-') or line.startswith('•'):
+                                    st.markdown(f"• {line.lstrip('-•').strip()}")
+                                elif re.match(r'^\d+\)', line):
+                                    st.markdown(f"**{line}**")
+                                else:
+                                    st.markdown(line)
+                    displayed.add(key)
+        
+        # Display remaining sections not in preferred order
+        for key, (title, content) in sections.items():
+            if key not in displayed:
+                with st.expander(f"**{title}**", expanded=False):
+                    lines = content.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if line:
+                            if line.startswith('-') or line.startswith('•'):
+                                st.markdown(f"• {line.lstrip('-•').strip()}")
+                            elif re.match(r'^\d+\)', line):
+                                st.markdown(f"**{line}**")
+                            else:
+                                st.markdown(line)
+    else:
+        # Fallback: display raw text in clean format
+        st.markdown("### Analysis Details")
         st.markdown(analysis_text)
 
 
@@ -1375,7 +1337,7 @@ def main():
                     result = analyze_logs_batch(logs, ollama_host, model, use_gpu)
                     
                     if "error" not in result:
-                        st.markdown("### 📊 Analysis Results")
+                        st.markdown("### Analysis Results")
                         
                         # Full analysis with rule-based metrics
                         display_organized_analysis(
