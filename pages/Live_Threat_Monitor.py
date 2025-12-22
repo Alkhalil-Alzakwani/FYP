@@ -9,7 +9,7 @@ PURPOSE: Real-time security log monitoring and visualization from Splunk API
  DESCRIPTION
 ════════════════════════════════════════════════════════════════════════════
 Comprehensive real-time threat monitoring dashboard with live log ingestion:
-  • Fetch logs from Splunk API (192.168.100.58:8000) with 30-day history
+    • Fetch logs from Splunk API (192.168.100.59:8000) with 30-day history
   • Auto-sync new logs with deduplication
   • Store logs in SQLite database (splunk_logs table)
   • Filterable and searchable log viewing interface
@@ -76,12 +76,12 @@ Comprehensive real-time threat monitoring dashboard with live log ingestion:
    └─ Center: Oman coordinates (fallback for private IPs)
 
 9. FOOTER
-   └─ Connection info: Splunk API endpoint (192.168.100.58:8000)
+    └─ Connection info: Splunk API endpoint (192.168.100.59:8000)
 
 ════════════════════════════════════════════════════════════════════════════
  SPLUNK INTEGRATION
 ════════════════════════════════════════════════════════════════════════════
-• API endpoint: 192.168.100.58:8000
+• API endpoint: 192.168.100.59:8000
 • Connector: models.splunk_connector.get_splunk_connector()
 • Initial fetch: -30d@d (last 30 days) to "now"
 • Incremental fetch: Since last stored log timestamp
@@ -1598,7 +1598,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 12px;'>
-    <p>Live Threat Monitor - Connected to Splunk at 192.168.100.58:8000</p>
+    <p>Live Threat Monitor - Connected to Splunk at 192.168.100.59:8000</p>
     </div>
     """,
     unsafe_allow_html=True
