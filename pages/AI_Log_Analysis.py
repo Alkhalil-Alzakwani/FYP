@@ -918,69 +918,60 @@ def display_organized_analysis(analysis_text: str, rule_based_data: Dict = None)
         st.markdown("---")
         st.markdown("### AI Validation & Additional Analysis")
     
-    # Try multiple section extraction patterns
+    # Extract numbered sections (1. Title: content)
     sections = {}
+    pattern = r'(\d+)\.\s*([A-Za-z\s]+?):\s*(.*?)(?=\n\d+\.\s*[A-Za-z]|$)'
+    matches = re.finditer(pattern, analysis_text, re.DOTALL)
     
-    # Pattern 1: Numbered format with colons (1. SECTION:)
-    pattern1 = r'(\d+)\.\s*([A-Z_\s]+?)[:\s]+(.*?)(?=(?:\n\d+\.|$))'
-    matches1 = re.finditer(pattern1, analysis_text, re.DOTALL)
-    for match in matches1:
+    for match in matches:
         num = match.group(1)
-        title = match.group(2).strip().title()
+        title = match.group(2).strip()
         content = match.group(3).strip()
-        sections[f"section_{num}_{title.lower().replace(' ', '_')}"] = (title, content)
+        sections[int(num)] = (title, content)
     
-    # Pattern 2: Section headers without numbers
-    if not sections:
-        pattern2 = r'([A-Z][A-Z\s]+?)[:]\s*(.*?)(?=(?:[A-Z][A-Z\s]+?:|$))'
-        matches2 = re.finditer(pattern2, analysis_text, re.DOTALL)
-        for match in matches2:
-            title = match.group(1).strip().title()
-            content = match.group(2).strip()
-            if len(content) > 20:  # Only add if content is substantial
-                sections[title.lower().replace(' ', '_')] = (title, content)
-    
-    # Display sections in organized manner
+    # Display sections in organized expandable cards
     if sections:
-        # Sort by order they appear in original text
-        section_order = ["attack narrative", "threat validation", "attack indicators", "additional iocs", 
-                        "response priority", "response actions", "false positive", "confidence"]
+        # Define section icons and colors
+        section_config = {
+            1: ("Threat Validation", "Check the accuracy of detected threats"),
+            2: ("Attack Narrative", "Sequence of events and attack flow"),
+            3: ("Additional IOCs", "Missed indicators of compromise"),
+            4: ("Response Priority", "Immediate and long-term actions"),
+            5: ("False Positive Assessment", "Likelihood of false positives")
+        }
         
-        displayed = set()
-        
-        # First display in preferred order
-        for preferred in section_order:
-            for key, (title, content) in sections.items():
-                if preferred.lower() in title.lower() and key not in displayed:
-                    with st.expander(f"**{title}**", expanded=(preferred == "attack narrative")):
-                        # Format content nicely
-                        lines = content.split('\n')
-                        for line in lines:
-                            line = line.strip()
-                            if line:
-                                # Detect list items and format accordingly
-                                if line.startswith('-') or line.startswith('•'):
-                                    st.markdown(f"• {line.lstrip('-•').strip()}")
-                                elif re.match(r'^\d+\)', line):
-                                    st.markdown(f"**{line}**")
+        # Display in order
+        for num in sorted(sections.keys()):
+            title, content = sections[num]
+            config_title = section_config.get(num, (title, ""))[0]
+            
+            # Determine if expanded by default (first section)
+            expanded = (num == 1)
+            
+            with st.expander(f"**{num}. {config_title}**", expanded=expanded):
+                # Parse content into paragraphs and bullet points
+                paragraphs = content.split('\n')
+                for para in paragraphs:
+                    para = para.strip()
+                    if not para:
+                        continue
+                    
+                    # Check if it's a bullet/list item
+                    if para.startswith('-') or para.startswith('•'):
+                        st.markdown(f"• {para.lstrip('-•').strip()}")
+                    # Check if it contains multiple sentences (split and format)
+                    elif len(para) > 100 and '. ' in para:
+                        # Break into sentences for readability
+                        sentences = para.split('. ')
+                        for i, sent in enumerate(sentences):
+                            sent = sent.strip()
+                            if sent:
+                                if i < len(sentences) - 1:
+                                    st.markdown(f"{sent}.")
                                 else:
-                                    st.markdown(line)
-                    displayed.add(key)
-        
-        # Display remaining sections not in preferred order
-        for key, (title, content) in sections.items():
-            if key not in displayed:
-                with st.expander(f"**{title}**", expanded=False):
-                    lines = content.split('\n')
-                    for line in lines:
-                        line = line.strip()
-                        if line:
-                            if line.startswith('-') or line.startswith('•'):
-                                st.markdown(f"• {line.lstrip('-•').strip()}")
-                            elif re.match(r'^\d+\)', line):
-                                st.markdown(f"**{line}**")
-                            else:
-                                st.markdown(line)
+                                    st.markdown(sent)
+                    else:
+                        st.markdown(para)
     else:
         # Fallback: display raw text in clean format
         st.markdown("### Analysis Details")
@@ -1324,51 +1315,71 @@ def main():
             with col2:
                 max_logs = st.slider("Max logs to analyze", 10, 100, 50)
             
-            # Get logs for selected source
-            if st.button("Fetch and Analyze", use_container_width=True, type="primary"):
+            # Get logs for selected source and persist in session_state
+            if st.button("Fetch Logs", use_container_width=True, type="primary"):
                 logs = get_logs_by_source(selected_source, max_logs)
-                
-                if logs:
+                st.session_state['fetched_logs'] = logs
+                st.session_state['fetched_source'] = selected_source
+                # Clear previous per-log selections
+                for k in list(st.session_state.keys()):
+                    if str(k).startswith('log_select_'):
+                        del st.session_state[k]
 
-                    
-                    # Show logs preview
-                    with st.expander("Preview Logs", expanded=False):
-                        logs_preview = pd.DataFrame([
-                            {
-                                'timestamp': log['timestamp'],
-                                'host': log['host'],
-                                'severity': log['severity'],
-                                'raw_log': log['raw_log'][:100] + "..."
-                            }
-                            for log in logs[:10]
-                        ])
-                        st.dataframe(logs_preview, use_container_width=True)
-                    
-                    # Analyze with Mistral using GPU (now includes rule-based scoring)
-                    result = analyze_logs_batch(logs, ollama_host, model, use_gpu)
-                    
-                    if "error" not in result:
-                        st.markdown("### Analysis Results")
-                        
-                        # Full analysis with rule-based metrics
-                        display_organized_analysis(
-                            result['analysis'],
-                            rule_based_data=result  # Pass all rule-based intelligence
-                        )
-                        
-                        # Extract and save threat score
-                        threat_score = extract_threat_score(result['analysis'])
-                        if threat_score is not None:
-                            st.success(f"Phishing Likelihood: **{threat_score*100:.1f}%**")
-                            
-                            # Save to database
-                            if st.button("Save Analysis Result", use_container_width=True):
-                                severity = "high" if threat_score > 0.7 else "medium" if threat_score > 0.4 else "low"
-                                if save_threat_score(selected_source, int(threat_score*100), severity, result['analysis']):
-                                    st.success("Analysis saved to threat_scores table")
-                
-                else:
-                    st.warning(f"No logs found for source: {selected_source}")
+            # Render selection UI from persisted logs to avoid flashing/rerun loss
+            persisted_logs = st.session_state.get('fetched_logs', [])
+            persisted_source = st.session_state.get('fetched_source')
+
+            if persisted_source and persisted_source != selected_source:
+                st.info("Source changed. Click 'Fetch Logs' to load logs for the new source.")
+            elif persisted_logs:
+                st.markdown("#### Select Logs to Analyze")
+                select_all = st.checkbox(
+                    "Select all fetched logs",
+                    value=False,
+                    key="select_all_fetched",
+                    help="Analyze all logs returned for this source"
+                )
+
+                for log in persisted_logs:
+                    label = f"[{log['id']}] {log['timestamp']} | {log['severity']} | " \
+                            f"{(log['raw_log'][:80] + '...') if len(log['raw_log']) > 80 else log['raw_log']}"
+                    st.checkbox(
+                        label,
+                        key=f"log_select_{log['id']}",
+                        value=False,
+                        help="Include this log in the analysis"
+                    )
+
+                if st.button("Analyze Selected Logs", use_container_width=True):
+                    if st.session_state.get("select_all_fetched", False):
+                        selected_logs = persisted_logs
+                    else:
+                        selected_logs = [
+                            log for log in persisted_logs
+                            if st.session_state.get(f"log_select_{log['id']}", False)
+                        ]
+
+                    if not selected_logs:
+                        st.warning("No logs selected. Please choose one or enable 'Select all'.")
+                    else:
+                        result = analyze_logs_batch(selected_logs, ollama_host, model, use_gpu)
+                        if "error" not in result:
+                            st.markdown("### Analysis Results")
+                            display_organized_analysis(
+                                result['analysis'],
+                                rule_based_data=result
+                            )
+                            threat_score = extract_threat_score(result['analysis'])
+                            if threat_score is not None:
+                                st.success(f"Phishing Likelihood: **{threat_score*100:.1f}%**")
+                                if st.button("Save Analysis Result", use_container_width=True):
+                                    severity = "high" if threat_score > 0.7 else "medium" if threat_score > 0.4 else "low"
+                                    if save_threat_score(persisted_source, int(threat_score*100), severity, result['analysis']):
+                                        st.success("Analysis saved to threat_scores table")
+                        else:
+                            st.error(result.get("error", "Analysis failed"))
+            else:
+                st.info("Click 'Fetch Logs' to load logs for the selected source.")
     
     # ========================================================================
     # TAB 2: MANUAL INPUT
