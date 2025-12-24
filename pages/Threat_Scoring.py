@@ -8,12 +8,13 @@ Purpose: Compute dynamic threat scores for indicators (IPs/domains) using multi-
 DESCRIPTION:
     Real-time threat scoring engine that combines four risk factors into a
     composite threat score (0-100). Evaluates source severity, event frequency,
-    threat intelligence reputation, and AI confidence. High-risk indicators
-    trigger automatic firewall blocking via pfSense API or local recording.
+    threat intelligence reputation, and Phishing Likelihood (from AI scoring).
+    High-risk indicators trigger automatic firewall blocking via pfSense API
+    or local recording.
 
 THREAT SCORING ALGORITHM:
 
-    Final_Score = (Sw × 0.4) + (Fw × 0.2) + (Rw × 0.1) + (Aic × 0.3)
+    Final_Score = (Sw × 0.5) + (Rw × 0.1) + (PL × 0.4)
 
     Where:
         Sw (Severity Weight):
@@ -26,10 +27,9 @@ THREAT SCORING ALGORITHM:
             └─ Extracted from latest event for indicator
         
         Fw (Frequency Weight):
-            ├─ Count of events in splunk_logs (past 30 days configurable)
-            ├─ Scaled to 0-100 (capped at 50 events = 100%)
-            ├─ Formula: min((count / cap) * 100, 100)
-            └─ Counts source/host/raw_log matches
+            ├─ Ignored in final score (0% weight)
+            ├─ Still displayed for context
+            └─ Not used in calculation
         
         Rw (Reputation Weight):
             ├─ Lookup from threat_intel_feeds table
@@ -37,11 +37,11 @@ THREAT SCORING ALGORITHM:
             ├─ Fallback: 20 if no data found
             └─ Based on most recent threat feed entry
         
-        Aic (AI Confidence):
-            ├─ From latest threat_scores entry
+        PL (Phishing Likelihood):
+            ├─ From latest threat_scores entry (LLM phishing likelihood)
             ├─ Defensive parsing (handles 0-1 decimal or 0-100)
-            ├─ Fallback: 50 if no AI data available
-            └─ Represents LLM confidence in threat assessment
+            ├─ Fallback: 0 if no AI score detected
+            └─ Represents LLM phishing likelihood in threat assessment
 
 RISK CATEGORIES:
 
@@ -86,7 +86,7 @@ DATABASE INTERACTIONS:
     Tables Read:
         - splunk_logs: Events, severity, source/host, raw logs
         - threat_intel_feeds: Reputation scores (0-100)
-        - threat_scores: Historical AI confidence scores
+        - threat_scores: Historical AI phishing likelihood scores
     
     Tables Written:
         - auto_blocks: Block action records (auto-created if missing)
@@ -107,7 +107,7 @@ PAGE LAYOUT:
     2. Configuration Panel (left column):
        - Lookback days (1-90, default 30)
        - Frequency cap (10-1000, default 50)
-       - Note about AI confidence fallback
+    - Note about phishing likelihood fallback
     
     3. Main UI (right column):
        - Select Indicator:
@@ -115,7 +115,7 @@ PAGE LAYOUT:
          * Dropdown or text input based on mode
        - "Compute Score" button
        - Results display:
-         * 4 metrics (Sw, Fw, Rw, Aic)
+         * 4 metrics (Sw, Fw, Rw, PL)
          * Final score and category
          * Sample log context (expandable)
        - Save confirmation
@@ -129,7 +129,7 @@ PAGE LAYOUT:
 COMPONENT WEIGHTING:
 
     Severity (40%): Most important indicator
-    AI Confidence (30%): Machine learning assessment
+    Phishing Likelihood (30%): Machine learning assessment
     Frequency (20%): Behavioral pattern
     Reputation (10%): External intelligence
 
@@ -151,7 +151,7 @@ ERROR HANDLING:
 
     Database Connection Failure:
         - All functions catch and return defaults
-        - Sw: 20, Fw: 0, Rw: 20, Aic: 50
+        - Sw: 20, Fw: 0, Rw: 20, PL: 0
     
     Missing Data:
         - Column not found: Try alternate names
@@ -318,7 +318,7 @@ def severity_to_weight(sev: str) -> int:
 
     USED BY:
         main() function: Extract severity from latest event, weight for Sw
-        compute_final_score(): Combines with Fw, Rw, Aic into final score
+        compute_final_score(): Combines with Fw, Rw, PL into final score
 
     ERROR HANDLING:
         - None/empty string: Returns 10 (assumes minimal threat)
@@ -579,121 +579,42 @@ def get_reputation_for_indicator(indicator: str) -> int:
     return 20
 
 
-def get_latest_ai_confidence_for_source(source: str) -> int:
+def get_latest_phishing_likelihood_for_source(source: str) -> int:
     """
-    ════════════════════════════════════════════════════════════════════════
-    Retrieve AI confidence (Aic) from latest threat_scores entry.
-    ════════════════════════════════════════════════════════════════════════
+    Retrieve phishing likelihood (0-100) from latest threat_scores entry.
 
-    DESCRIPTION:
-        Queries threat_scores table for most recent AI confidence score
-        for a given source/indicator. Defensive about storage format:
-        Handles both decimal (0-1) and percentage (0-100) representations.
-        Returns normalized 0-100 integer. Used as Aic component (30% weight).
-
-    DATABASE QUERY:
-        Target: threat_scores table
-        Columns: source OR event_id (flexible), score, ai_context, timestamp
-        Match: source = $source OR most recent entry (defensive)
-        Order: Most recent by timestamp (ORDER BY timestamp DESC)
-        Result: First score found, converted to 0-100
-
-    FORMAT HANDLING (DEFENSIVE):
-        The 'score' column may store confidence differently:
-        
-        Decimal Format (0-1):
-            - Input: 0.85
-            - Conversion: 0.85 * 100 = 85
-            - Used if input <= 1
-        
-        Percentage Format (0-100):
-            - Input: 85
-            - Conversion: No change, already normalized
-            - Used if input > 1
-        
-        Detection Logic:
-            if score <= 1.0:
-                return int(score * 100)
-            else:
-                return int(score)
-
-    COLUMN NAME FALLBACK:
-        Tries multiple column names for schema flexibility:
-            1. SELECT ... WHERE source = $source (primary)
-            2. SELECT ... WHERE event_id = $source (fallback)
-            3. SELECT ... (no WHERE, most recent entry)
-        Stops at first successful query
-
-    ARGS:
-        source (str): Source IP, hostname, or indicator to lookup.
-                     Will match splunk_logs 'source' field.
-
-    RETURNS:
-        int: AI confidence 0-100 (0=low confidence, 100=high confidence).
-             Fallback 50 if not found or error (neutral estimate).
-
-    FALLBACK BEHAVIOR:
-        - Not found in DB: 50 (neutral, no AI data available)
-        - Connection error: 50
-        - NULL score: 50
-        - Invalid type/parse: 50
-        - Schema mismatch: 50 (tries multiple column names first)
-
-    USED BY:
-        main() function: Get AI confidence, compute Aic
-        compute_final_score(): Aic (30% weight, second highest)
-
-    NOTES:
-        - Largest component in threat scoring (30% weight)
-        - Represents Mistral LLM confidence in threat assessment
-        - Defensive parsing handles multiple storage formats
-        - Conservative fallback (50) prevents bias if no AI data
-        - Queries most recent entry (AI scores update over time)
-
-    DEFENSIVE DESIGN:
-        - Handles schema variations gracefully
-        - Multiple column name attempts
-        - Format detection (decimal vs percentage)
-        - Type conversion with fallback
-        - No exception throwing (always returns valid 0-100)
-
-    ERROR HANDLING:
-        - Database unavailable: Returns 50
-        - Connection timeout: Returns 50
-        - Query syntax error: Retries with fallback query
-        - Invalid type conversion: Returns 50
-        - Missing timestamp column: Still works (no ORDER BY time)
+    - Reads threat_scores.score (stored as 0-1 or 0-100).
+    - Converts decimals to percentage when <= 1.0.
+    - Fallback: 0 if missing or on error.
     """
     try:
         conn = get_db_connection()
         if not conn:
-            return 50
+            return 0
         cur = conn.cursor()
-        # Try common column names: source, event_id
         try:
-            cur.execute("SELECT score, ai_context FROM threat_scores WHERE source = ? ORDER BY timestamp DESC LIMIT 1", (source,))
+            cur.execute("SELECT score FROM threat_scores WHERE source = ? ORDER BY timestamp DESC LIMIT 1", (source,))
         except Exception:
             try:
-                cur.execute("SELECT score, ai_context FROM threat_scores ORDER BY timestamp DESC LIMIT 1")
+                cur.execute("SELECT score FROM threat_scores ORDER BY timestamp DESC LIMIT 1")
             except Exception:
                 conn.close()
-                return 50
+                return 0
 
         row = cur.fetchone()
         conn.close()
         if not row:
-            return 50
+            return 0
         score = row[0]
-        # Determine if stored as decimal
         try:
             s = float(score)
             if s <= 1:
-                return int(s * 100)
+                return int(max(0, min(s * 100, 100)))
             return int(max(0, min(s, 100)))
         except Exception:
-            return 50
+            return 0
     except Exception:
-        return 50
+        return 0
 
 
 def calculate_threat_intelligence_metrics(indicator: str, lookback_days: int = 30) -> dict:
@@ -864,7 +785,7 @@ def calculate_threat_intelligence_metrics(indicator: str, lookback_days: int = 3
                "persistence_score": 0, "impact_score": 0}
 
 
-def compute_final_score(sw: int, fw: int, rw: int, aic: int) -> float:
+def compute_final_score(sw: int, fw: int, rw: int, phl: int) -> float:
     """
     ════════════════════════════════════════════════════════════════════════
     Calculate final threat score using weighted components.
@@ -876,7 +797,7 @@ def compute_final_score(sw: int, fw: int, rw: int, aic: int) -> float:
 
     WEIGHTING FORMULA:
 
-        Final_Score = (Sw × 0.4) + (Fw × 0.2) + (Rw × 0.1) + (Aic × 0.3)
+        Final_Score = (Sw × 0.5) + (Rw × 0.1) + (PL × 0.4)
 
         Component Breakdown:
             Sw (Severity Weight):     40% - Immediate Threat Level
@@ -885,27 +806,26 @@ def compute_final_score(sw: int, fw: int, rw: int, aic: int) -> float:
                 ├─ Normalized using NIST severity guidelines
                 └─ Primary indicator of current risk state
             
-            Fw (Frequency Weight):    20% - Behavioral Pattern Analysis
-                ├─ Event count within lookback window
-                ├─ Range: 0-100 (scaled with configurable cap)
-                ├─ Indicates persistence and automation
-                └─ High frequency suggests botnet/automated attacks
-            
+            Fw (Frequency Weight):    0% - (Ignored in final calculation)
+                ├─ Event count still shown for context
+                ├─ Weight contribution fixed to 0
+                └─ Does not affect final score
+
             Rw (Reputation Weight):   10% - External Intelligence
                 ├─ From threat intelligence feeds (AbuseIPDB, etc.)
                 ├─ Range: 0-100 (known malicious=100)
                 ├─ Validates threat with external sources
                 └─ Lowest weight due to feed reliability variance
             
-            Aic (AI Confidence):      30% - Machine Learning Assessment
-                ├─ From Mistral LLM threat analysis
-                ├─ Range: 0-100 (high confidence=100)
+            PL (Phishing Likelihood): 40% - Machine Learning Assessment
+                ├─ From Mistral LLM phishing likelihood
+                ├─ Range: 0-100 (high likelihood=100)
                 ├─ Detects patterns and anomalies
                 └─ Second-highest weight for predictive capability
 
     WEIGHTING RATIONALE (Evidence-Based):
         - Severity (40%): Immediate threat requires highest priority
-        - AI Confidence (30%): ML identifies sophisticated threats
+        - Phishing Likelihood (30%): ML identifies sophisticated threats
         - Frequency (20%): Repeated attacks indicate serious intent
         - Reputation (10%): External feeds complement internal data
         
@@ -913,9 +833,9 @@ def compute_final_score(sw: int, fw: int, rw: int, aic: int) -> float:
 
     ARGS:
         sw (int): Severity weight 0-100 (from severity_to_weight)
-        fw (int): Frequency weight 0-100 (from frequency_weight)
+        fw (int): Frequency weight 0-100 (from frequency_weight) — ignored
         rw (int): Reputation weight 0-100 (from get_reputation_for_indicator)
-        aic (int): AI confidence 0-100 (from get_latest_ai_confidence_for_source)
+        phl (int): Phishing Likelihood 0-100 (from get_latest_phishing_likelihood_for_source)
 
     RETURNS:
         float: Final threat score 0-100 with decimal precision.
@@ -939,19 +859,19 @@ def compute_final_score(sw: int, fw: int, rw: int, aic: int) -> float:
         - Decimal precision preserved for granular analysis
 
     EXAMPLE CALCULATION:
-        Given: sw=85, fw=60, rw=40, aic=80
+        Given: sw=85, fw=60, rw=40, phl=80
         
-        Step 1: Severity component    = 85 × 0.4 = 34.0
-        Step 2: Frequency component   = 60 × 0.2 = 12.0
+        Step 1: Severity component    = 85 × 0.5 = 42.5
+        Step 2: Frequency component   = 60 × 0.0 = 0.0 (ignored)
         Step 3: Reputation component  = 40 × 0.1 =  4.0
-        Step 4: AI confidence component = 80 × 0.3 = 24.0
-        
-        Final Score = 34.0 + 12.0 + 4.0 + 24.0 = 74.0
+        Step 4: Phishing likelihood component = 80 × 0.4 = 32.0
+
+        Final Score = 42.5 + 0.0 + 4.0 + 32.0 = 78.5
         
         Classification: High Risk (71-85 range)
         Action: Auto-block triggered, immediate investigation
     """
-    return round((sw * 0.4) + (fw * 0.2) + (rw * 0.1) + (aic * 0.3), 2)
+    return round((sw * 0.5) + (rw * 0.1) + (phl * 0.4), 2)
 
 
 def classify_score(score: float) -> str:
@@ -1566,7 +1486,7 @@ def save_computed_threat_score(indicator: str, score: int, severity: str, catego
                 "sw": 85,      # Severity weight
                 "fw": 60,      # Frequency weight
                 "rw": 40,      # Reputation weight
-                "aic": 80      # AI confidence
+                "phl": 80      # Phishing likelihood
             }
         
         Stored as JSON string in ai_context column
@@ -1610,8 +1530,8 @@ def save_computed_threat_score(indicator: str, score: int, severity: str, catego
     DATA FLOW:
 
         main() ← Compute Score
-            ├─ sw, fw, rw, aic = Get components
-            ├─ final = compute_final_score(sw, fw, rw, aic)
+            ├─ sw, fw, rw, phl = Get components
+            ├─ final = compute_final_score(sw, fw, rw, phl)
             ├─ category = classify_score(final)
             ├─ ai_context = json.dumps({'sw': sw, 'fw': fw, ...})
             └─ save_computed_threat_score(indicator, int(final),
@@ -1639,7 +1559,7 @@ def save_computed_threat_score(indicator: str, score: int, severity: str, catego
 
     HISTORICAL USE:
         Stored scores used by:
-            - get_latest_ai_confidence_for_source(): Reads Aic
+            - get_latest_phishing_likelihood_for_source(): Reads PL
             - Trend analysis: View score progression over time
             - ML model training: Historical threat assessments
             - Audit logging: Full record of scoring decisions
@@ -1655,7 +1575,7 @@ def save_computed_threat_score(indicator: str, score: int, severity: str, catego
             score=75,
             severity='High',
             category='High',
-            ai_context='{"sw": 85, "fw": 60, "rw": 40, "aic": 80}'
+            ai_context='{"sw": 85, "fw": 60, "rw": 40, "phl": 80}'
         )
         Returns: True (if inserted)
     """
@@ -1694,7 +1614,7 @@ def main():
         Complete Streamlit page for analyzing threats and computing final
         threat scores using the multi-factor algorithm. Analysts select
         indicators (source IPs, hostnames) or enter manual IPs to compute
-        Sw/Fw/Rw/Aic components and final risk score. High-risk indicators
+        Sw/Fw/Rw/PL components and final risk score. High-risk indicators
         trigger auto-blocking via pfSense or local recording.
 
     PAGE LAYOUT:
@@ -1706,7 +1626,7 @@ def main():
         Left Column (Configuration):
             ├─ "Lookback days for frequency" (1-90, default 30)
             ├─ "Frequency cap (events → 100)" (10-1000, default 50)
-            └─ Note: AI Confidence fallback = 50
+            └─ Note: Phishing Likelihood fallback = 0
         
         Right Column (Main UI):
             ├─ "Select Indicator" section
@@ -1715,7 +1635,7 @@ def main():
             │   └─ "Compute Score" button
             │
             ├─ Results Display (shown after compute):
-            │   ├─ 2×2 metrics grid: Sw, Fw, Rw, Aic
+            │   ├─ 2×2 metrics grid: Sw, Fw, Rw, PL
             │   ├─ Final Score display (large heading)
             │   ├─ Sample Log Context (expandable)
             │   ├─ Save confirmation message
@@ -1742,8 +1662,8 @@ def main():
            ├─ Get latest severity from splunk_logs
            ├─ Count events in lookback window
            ├─ Lookup reputation from threat_intel_feeds
-           ├─ Get AI confidence from threat_scores
-           ├─ Compute Sw, Fw, Rw, Aic
+           ├─ Get phishing likelihood from threat_scores
+           ├─ Compute Sw, Fw, Rw, PL
            ├─ Calculate final_score
            ├─ Classify into Low/Medium/High
            ├─ Display metrics and results
@@ -1779,27 +1699,27 @@ def main():
         Four metrics shown after compute:
             Severity Weight (Sw): 0-100
                 ├─ From latest event severity
-                ├─ 40% weight in final formula
+                ├─ 50% weight in final formula
                 └─ Example: 85 (high severity)
             
             Frequency: Count → Weight (Fw): 0-100
                 ├─ From event count in window
-                ├─ 20% weight in final formula
-                └─ Example: "25 events → 50/100"
+                ├─ 0% weight in final formula (ignored)
+                └─ Example: "25 events → 50/100" (context only)
             
             Reputation (Rw): 0-100
                 ├─ From threat_intel_feeds
                 ├─ 10% weight in final formula
                 └─ Example: 40
             
-            AI Confidence (Aic): 0-100
+            Phishing Likelihood (PL): 0-100
                 ├─ From latest threat_scores
-                ├─ 30% weight in final formula
+                ├─ 40% weight in final formula
                 └─ Example: 80
 
         Final Score:
             ├─ Large heading: "Final Score: 75.0 — High"
-            ├─ Calculation: (85×0.4) + (50×0.2) + (40×0.1) + (80×0.3)
+            ├─ Calculation: (85×0.5) + (50×0.0) + (40×0.1) + (80×0.4)
             └─ Color/style by category (High=red, Medium=yellow, Low=green)
 
     AUTO-BLOCK LOGIC:
@@ -1840,8 +1760,8 @@ def main():
         - severity_to_weight(): Convert text severity to weight
         - frequency_weight(): Count events to frequency weight
         - get_reputation_for_indicator(): Lookup threat feed
-        - get_latest_ai_confidence_for_source(): Get AI confidence
-        - compute_final_score(): Calculate Sw+Fw+Rw+Aic formula
+        - get_latest_phishing_likelihood_for_source(): Get phishing likelihood
+        - compute_final_score(): Calculate Sw+Fw+Rw+PL formula
         - classify_score(): Map score to category
         - try_block_ip_via_pfsense(): Execute block action
         - save_computed_threat_score(): Persist results to DB
@@ -1898,7 +1818,7 @@ def main():
         days = st.number_input("Lookback days for frequency", min_value=1, max_value=90, value=30)
         freq_cap = st.number_input("Frequency cap (events -> 100)", min_value=10, max_value=1000, value=50)
         st.markdown("---")
-        st.markdown("AI Confidence fallback: default 50 when no AI data present")
+        st.markdown("Phishing Likelihood fallback: default 0 when no AI score present")
 
     sources, hosts = get_unique_sources_and_hosts()
 
@@ -1940,13 +1860,13 @@ def main():
             # Reputation
             rw = get_reputation_for_indicator(indicator)
 
-            # AI confidence
-            aic = get_latest_ai_confidence_for_source(indicator)
+            # Phishing likelihood from AI scoring
+            phl = get_latest_phishing_likelihood_for_source(indicator)
 
             # Calculate comprehensive threat intelligence metrics
             threat_metrics = calculate_threat_intelligence_metrics(indicator, lookback_days=days)
             
-            final = compute_final_score(sw, fw, rw, aic)
+            final = compute_final_score(sw, fw, rw, phl)
             category = classify_score(final)
             
             # Risk Assessment Header
@@ -1969,31 +1889,30 @@ def main():
                          help=f"Normalized severity: {inferred_sev.upper()}\n\nBased on latest event classification")
             with col2:
                 st.metric("Frequency Weight (Fw)", f"{fw}/100", 
-                         delta="20% Weight",
-                         help=f"Total Events: {cnt}\nCap: {freq_cap}\n\nHigher frequency indicates persistence")
+                     delta="0% (ignored)",
+                     help=f"Total Events: {cnt}\nCap: {freq_cap}\n\nFrequency shown for context only; excluded from final score.")
             with col3:
                 st.metric("Reputation Score (Rw)", f"{rw}/100", 
                          delta="10% Weight",
                          help="From external threat intelligence feeds\n(AbuseIPDB, domain reputation)")
             with col4:
-                st.metric("AI Confidence (Aic)", f"{aic}/100", 
-                         delta="30% Weight",
-                         help="Machine learning confidence from Mistral LLM\nPredictive threat assessment")
+                st.metric("Phishing Likelihood (PL)", f"{phl}/100", 
+                         delta="40% Weight",
+                         help="Phishing likelihood returned by AI scoring (0-100). Uses 0 if no AI score detected.")
             
             # Score Calculation Breakdown
             with st.expander("Score Calculation Formula", expanded=False):
                 st.markdown("""
-                **NIST-Aligned Weighted Scoring Formula:**
+                **NIST-Aligned Weighted Scoring Formula (Frequency ignored):**
                 ```
-                Final Score = (Sw × 0.4) + (Fw × 0.2) + (Rw × 0.1) + (Aic × 0.3)
+                Final Score = (Sw × 0.5) + (Rw × 0.1) + (PL × 0.4)
                 ```
                 **Current Calculation:**
                 """)
                 st.code(f"""
-Severity Component:    {sw} × 0.4 = {sw * 0.4:.2f}
-Frequency Component:   {fw} × 0.2 = {fw * 0.2:.2f}
+Severity Component:    {sw} × 0.5 = {sw * 0.5:.2f}
 Reputation Component:  {rw} × 0.1 = {rw * 0.1:.2f}
-AI Confidence:         {aic} × 0.3 = {aic * 0.3:.2f}
+Phishing Likelihood:   {phl} × 0.4 = {phl * 0.4:.2f}
                         ─────────────────
 Final Threat Score:                {final:.2f}/100
 Risk Classification:               {category.upper()}
@@ -2001,9 +1920,8 @@ Risk Classification:               {category.upper()}
                 
                 st.markdown("""
                 **Component Weighting Rationale:**
-                - **Severity (40%):** Highest weight for immediate threat level
-                - **AI Confidence (30%):** ML pattern detection capability
-                - **Frequency (20%):** Behavioral persistence analysis
+                - **Severity (50%):** Highest weight for immediate threat level
+                - **Phishing Likelihood (40%):** ML-derived phishing probability
                 - **Reputation (10%):** External intelligence validation
                 """)
             
@@ -2076,7 +1994,7 @@ Risk Classification:               {category.upper()}
             # Save computed score to DB
             saved = save_computed_threat_score(indicator, int(final), category, category, 
                                               ai_context=json.dumps({
-                                                  'sw': sw, 'fw': fw, 'rw': rw, 'aic': aic,
+                                                  'sw': sw, 'fw': fw, 'rw': rw, 'phl': phl,
                                                   'threat_category': threat_metrics['threat_category'],
                                                   'persistence_score': threat_metrics['persistence_score'],
                                                   'impact_score': threat_metrics['impact_score'],
