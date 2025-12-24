@@ -42,7 +42,7 @@ This module serves as the public-facing landing page that:
 5. TECHNOLOGY STACK (4-Column Layout)
    └─ Frontend: Streamlit, Plotly, Altair
    └─ Backend: Python 3.12, SQLite, Pandas
-   └─ AI/ML: Mistral AI, NumPy, Scikit-learn
+   └─ AI: Mistral AI, NumPy, Scikit-learn
    └─ Security: bcrypt, JWT, YAML Config
 
 6. GETTING STARTED (Action Cards)
@@ -530,7 +530,7 @@ def main():
     # ────────────────────────────────────────────────────────────────────────
     # TECHNOLOGY STACK
     # ────────────────────────────────────────────────────────────────────────
-    # Four-column layout: Frontend, Backend, AI/ML, Security tools
+    # Four-column layout: Frontend, Backend, AI, Security tools
     st.markdown("""
     <h2 id="technology-stack" style="color: #E2E2D2; text-align: center; margin-bottom: 20px;">Technology Stack</h2>
     """, unsafe_allow_html=True)
@@ -550,10 +550,11 @@ def main():
         st.markdown('- Pandas')
         
     with tech_col3:
-        st.markdown('**AI/ML**')
+        st.markdown('**AI/LLM**')
         st.markdown('- Mistral AI')
+        st.markdown('- Zero-shot Learning')
         st.markdown('- NumPy')
-        st.markdown('- Scikit-learn')
+
         
     with tech_col4:
         st.markdown('**Security**')
