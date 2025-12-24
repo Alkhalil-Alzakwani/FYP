@@ -1,6 +1,6 @@
 # Splunk Configuration
 splunk:
-  host: "192.168.100.59"   # Splunk instance IP (Web UI at 8000, management API at 8089)
+  host: "10.120.254.7"   # Splunk instance IP (Web UI at 8000, management API at 8089) #change here
   port: 8089                # Splunk management/REST port (use 8089, not 8000)
   username: "kumail"
   password: "kumailalajmi"
