@@ -187,12 +187,30 @@ def get_incidents(limit: int = 50):
         conn = get_db_connection()
         if conn:
             cur = conn.cursor()
-            # Try to select commonly used columns; be permissive if schema varies
+            # Prefer explicit source column when present
             try:
-                cur.execute("SELECT rowid as id, source, score, severity, ai_context, timestamp FROM threat_scores ORDER BY timestamp DESC LIMIT ?", (limit,))
+                cur.execute(
+                    "SELECT rowid as id, source, score, severity, ai_context, timestamp "
+                    "FROM threat_scores ORDER BY timestamp DESC LIMIT ?",
+                    (limit,)
+                )
             except Exception:
-                # Fallback: try existing schema columns
-                cur.execute("SELECT id, NULL as source, score, severity, ai_context, timestamp FROM threat_scores ORDER BY timestamp DESC LIMIT ?", (limit,))
+                # Threat scores table lacks source; derive from splunk_logs via event_id
+                try:
+                    cur.execute(
+                        "SELECT ts.id as id, COALESCE(sl.source, 'unknown') as source, ts.score, ts.severity, ts.ai_context, ts.timestamp "
+                        "FROM threat_scores ts "
+                        "LEFT JOIN splunk_logs sl ON sl.event_id = ts.event_id "
+                        "ORDER BY ts.timestamp DESC LIMIT ?",
+                        (limit,)
+                    )
+                except Exception:
+                    # Final fallback when schema is highly variant
+                    cur.execute(
+                        "SELECT id, 'unknown' as source, score, severity, ai_context, timestamp "
+                        "FROM threat_scores ORDER BY timestamp DESC LIMIT ?",
+                        (limit,)
+                    )
             rows = cur.fetchall()
             conn.close()
             return [dict(r) for r in rows]
@@ -460,12 +478,21 @@ def main():
         if not incidents:
             st.info("No incidents found. Run AI analyses to generate entries in threat_scores.")
         else:
-            incident_df = pd.DataFrame(incidents)
-            st.dataframe(incident_df[['id','source','score','severity','timestamp']], use_container_width=True)
+            # Sort by id ascending and hide the default 0-based index
+            sorted_incidents = sorted(incidents, key=lambda i: int(i.get('id') or 0))
+            incident_df = pd.DataFrame(sorted_incidents)
+            st.dataframe(
+                incident_df[['id','source','score','severity','timestamp']],
+                use_container_width=True,
+                hide_index=True
+            )
 
-            selected = st.selectbox("Select incident to generate report", options=[f"{i.get('id')} | {i.get('source')} | {i.get('timestamp')}" for i in incidents])
+            selected = st.selectbox(
+                "Select incident to generate report",
+                options=[f"{i.get('id')} | {i.get('source')} | {i.get('timestamp')}" for i in sorted_incidents]
+            )
             sel_id = int(selected.split('|')[0].strip())
-            incident = next((i for i in incidents if int(i.get('id')) == sel_id), None)
+            incident = next((i for i in sorted_incidents if int(i.get('id')) == sel_id), None)
 
             col1, col2 = st.columns([3,1])
             with col1:
@@ -490,8 +517,6 @@ def main():
                 logs = st.session_state.get('forensics_current_logs', [])
                 csv_bytes = generate_incident_csv(incident, logs)
                 st.download_button("⬇Download Incident Report (CSV)", data=csv_bytes, file_name=f"incident_{incident.get('id')}.csv", mime='text/csv')
-
-                st.markdown("**Notes:** PDF generation is not enabled by default. To enable PDF reports, install `reportlab` or `fpdf` and extend this page.")
 
     # ---------------------------
     # Tab 2: PCAP Manager
